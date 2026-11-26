@@ -30,7 +30,7 @@
   <section class="hero">
     <div class="hero-copy">
       <h1>Simulating the whole world on spare graphics cards.</h1>
-      <p class="lede">Sim Horde is one shared world: billions of simulated people meeting each other every day, in every country on Earth, each running on its own real statistics. It's too big for one computer, so volunteers run pieces of it on their own GPUs, and the world moves forward a month each time every piece comes back.</p>
+      <p class="lede">Sim Horde is one shared world: billions of simulated people living their days in every country on Earth, each country running on its own real statistics. It's too big for one computer, so volunteers run pieces of it on their own GPUs, and the world moves forward a month each time every piece comes back.</p>
       <div class="cta-row">
         <a class="btn" href="#join">Lend your GPU</a>
         <a class="link" href="#how">See what your GPU would run</a>
@@ -51,7 +51,7 @@
         </div>
         <p class="note" hidden></p>
       </div>
-      <figcaption>California is live, colored by the newest volunteer run. Everything else is waiting for more GPUs. Drag to turn it.</figcaption>
+      <figcaption><span class="legend" aria-hidden="true"><span>Less happy</span><i class="ramp happy"></i><span>Happier</span></span><span id="globeCap">Drag to turn it; point at a country.</span></figcaption>
     </figure>
   </section>
 
@@ -65,36 +65,15 @@
     </div>
   </section>
 
-  <section class="wrap stage" id="tuning">
-    <div class="stage-copy">
-      <h2>Tuning the model on California</h2>
-      <p>Alongside the world, volunteers run test versions of California and score them against real county data. The best-scoring behavior settings are what the whole world runs on. This map is the newest test. Point at a county for its number.</p>
-    </div>
-    <figure class="hero-map stage-map">
-      <svg id="map" viewBox="0 0 1000 1080" role="img" aria-labelledby="mapTitle mapDesc">
-        <title id="mapTitle">Stage one: California counties, colored by the latest volunteer run</title>
-        <desc id="mapDesc">Each county is shaded by how rude its simulated residents were compared with the state as a whole.</desc>
-        <g id="counties"></g>
-      </svg>
-      <figcaption>
-        <div class="legend" aria-hidden="true">
-          <span>Kinder than the state</span><i class="ramp"></i><span>Ruder</span>
-        </div>
-        <p id="mapCaption">Waiting for the first finished run.</p>
-      </figcaption>
-      <div class="tip" id="tip" role="status" hidden></div>
-    </figure>
-  </section>
-
   <section class="band" id="how">
     <div class="wrap two">
       <div>
         <h2>What your GPU would run</h2>
-        <p>The model gives each simulated person a home county, a commute, a job, friends and a mood. Day by day they meet each other, and some of those meetings go badly. The question each job answers is simple: with this particular set of behavior weights, does the simulated state look like the real one?</p>
-        <p>A job is a list of numbers, not a program. The worker you download holds only the behavior model, which you can read in full. It checks every number against its published range before it starts, and nothing it receives can make it run new code. The county data, the jobs and the scoring all come from the coordinator, so the worker only does anything as part of the horde.</p>
+        <p>Each simulated person has a home, a job or not, friends, and the ups and downs of daily life. A world job runs a few countries for one month: the people in them go about their days under that month's conditions, from the economy to protests or war. A tuning job runs a test version of California and checks it against real county data, so the model the world runs on keeps getting closer to reality.</p>
+        <p>A job is a list of numbers, not a program. The worker you download holds only the behavior model, which you can read in full. It checks every number against its published range before it starts, and nothing it receives can make it run new code. The data, the jobs and the scoring all come from the coordinator, so the worker only does anything as part of the horde.</p>
       </div>
       <dl class="facts">
-        <div><dt>One job</dt><dd id="jobSize">400,000 simulated people over 270 days</dd></div>
+        <div><dt>One job</dt><dd>A few countries for a month, or a test version of California</dd></div>
         <div><dt>Typical time per job</dt><dd id="avgTime">Measured once volunteers report in</dd></div>
         <div><dt>Memory needed</dt><dd>4 GB of VRAM, or a CPU if you're patient</dd></div>
         <div><dt>Checking</dt><dd>One job in ten is re-run by a different volunteer. Results that disagree get a third run, and workers that keep disagreeing are paused.</dd></div>
@@ -105,7 +84,7 @@
   <section class="wrap" id="runs">
     <div class="section-head">
       <h2>How close the simulation is getting</h2>
-      <p id="progressLine">Each dot is one finished run. The line is the best match to real county data so far, out of a possible 1.0.</p>
+      <p id="progressLine">California tuning: each dot is one test run, scored against real county data on health, crime and people moving away. The line is the best match so far, out of a possible 1.0.</p>
     </div>
     <div class="chart-wrap">
       <svg id="chart" viewBox="0 0 1000 320" role="img" aria-label="Match score of each finished run, with the best so far"></svg>
@@ -145,13 +124,9 @@
         </ol>
       </div>
       <div class="next">
-        <h3>The road to the whole world</h3>
-        <ol class="stages">
-          <li class="now"><strong>California</strong> <span>Now</span><br>58 counties with public data to check against. This is where the model proves it can match reality.</li>
-          <li><strong>The United States</strong><br>About 3,100 counties, each with its own census, health and crime data.</li>
-          <li><strong>Every region on Earth</strong><br>Far more people than any single computer can hold, split across every GPU that joins.</li>
-        </ol>
-        <p>Each stage starts when the one before it matches the real data. The more GPUs join, the sooner that happens.</p>
+        <h3>How happiness is measured</h3>
+        <p>Happiness is each simulated person's rating of their own life from 0 to 10, the same question real life-satisfaction surveys ask. It rises with income, work and connection to other people, and falls with stress, hardship, unrest and war.</p>
+        <p>Once a year of simulated time, the simulation is lined up against real survey results country by country, and how closely they agree is shown above the headlines.</p>
       </div>
     </div>
   </section>
@@ -159,7 +134,7 @@
 
 <footer class="foot">
   <div class="wrap">
-    <p>Sim Horde is the volunteer computing arm of the California civility simulation. Public data: CDC PLACES, California DOJ, IRS migration, Census.</p>
+    <p>Public data: World Bank Open Data; World Happiness Report survey results via Our World in Data; for California tuning, CDC PLACES, California DOJ, IRS migration and the Census.</p>
     <p><a href="/api/v1/stats">Public API</a></p>
   </div>
 </footer>

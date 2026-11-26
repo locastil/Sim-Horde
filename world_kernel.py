@@ -96,8 +96,8 @@ def run_shard(job, dev):
         # the people on the other end feel it
         got_rude = torch.zeros(N, device=dev).index_add_(0, partner, rude)
         got_kind = torch.zeros(N, device=dev).index_add_(0, partner, kind)
-        irr = (irr * 0.8 + 0.15 * th["hit"] * got_rude * (1.2 - conn) - th["social"] * got_kind + 0.05 * P["irr"][nat]).clamp(0, 3)
-        conn = (conn + 0.02 * (0.45 + 0.06 * got_kind - 0.25 * got_rude - conn)).clamp(0.02, 1.0)
+        irr = (irr * 0.75 + 0.08 * th["hit"] * got_rude * (1.2 - conn) - th["social"] * got_kind + 0.05 * P["irr"][nat]).clamp(0, 3)
+        conn = (conn + 0.02 * (0.45 + 0.05 * got_kind - 0.12 * got_rude - conn)).clamp(0.05, 1.0)
         stress = (stress + 0.03 * (stress_home[nat] + 0.25 * irr - 0.3 * (conn - 0.5) - stress)
                   + 0.03 * torch.randn(N, generator=g, device=dev)).clamp(0.0, 3.0)
         # wanting to leave: rises steeply with stress, conflict and hardship (people per day)
@@ -105,10 +105,17 @@ def run_shard(job, dev):
     st = dict(trait=trait, stress=stress, irr=irr, conn=conn)
     mean = lambda x: (torch.zeros(K, device=dev).index_add_(0, nat, x) / size)
     s_mean, i_mean, c_mean = mean(stress), mean(irr), mean(conn)
+    # happiness: how people would rate their lives, 0-10 (the scale life-satisfaction surveys use), set
+    # against agitation and aggression: the irritation people carry and how often their run-ins this
+    # month turned hostile pull it down, as do stress and hard times; connection and income hold it up.
+    hostile = (rude_n / (kind_n + rude_n).clamp(min=1))[nat]
+    happy = 10 * torch.sigmoid(0.55 - 1.6 * (stress - 0.5) + 1.3 * (conn - 0.5) - 0.7 * irr - 3.0 * (hostile - 0.12)
+                               - 0.9 * F["pov"][nat] - 0.3 * F["unemp"][nat] - 1.2 * P["stress"][nat])
+    h_mean = mean(happy)
     out = {}
     for i, n in enumerate(nations):
         tot = float(kind_n[i] + rude_n[i])
-        out[n["code"]] = dict(civ=round(float(kind_n[i]) / max(1.0, tot), 5), stress=round(float(s_mean[i]), 4),
+        out[n["code"]] = dict(happy=round(float(h_mean[i]), 4), civ=round(float(kind_n[i]) / max(1.0, tot), 5), stress=round(float(s_mean[i]), 4),
                               irr=round(float(i_mean[i]), 4), conn=round(float(c_mean[i]), 4),
                               leave=round(float(leave_n[i]) / float(size[i]) / days * 365 * 1000, 3))   # per 1,000 a year
     return dict(nations=out, state=pack_state(st))

@@ -188,3 +188,6 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 .world .news { border-top: 0; padding-top: 0; margin-top: 0; max-width: 880px; }
 .news-stats { color: var(--ink-2); }
 .news-note { font-size: .85rem; color: var(--ink-3); margin-top: 14px; }
+.ramp.happy { background: linear-gradient(90deg, #E84C3D, #F08C40, #F2C85C, #60C896, #1EAABE); width: 96px; }
+.viewport figcaption { display: flex; flex-direction: column; gap: 6px; }
+.viewport .legend { color: #8FA3BC; }

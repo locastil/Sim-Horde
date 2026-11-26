@@ -109,7 +109,7 @@ async function paintBase(tier, W, H, world) {
         const v = hash(name);
         const L = tier === "low" ? 30 : 21;
         const nv = world && world.nations[name];
-        ctx.fillStyle = nv ? ramp(Math.max(-1, Math.min(1, Math.log((1 - nv.civ) / world.meanRude) / 0.5)))
+        ctx.fillStyle = nv ? happyColor(nv.happiness)
                            : `hsl(${212 + v * 14}, ${16 + v * 8}%, ${L + v * 6}%)`;
         ctx.fill("evenodd");
         if (sctx) { sctx.beginPath(); for (const r of rings) drawRing(sctx, r, W / 2, H / 2); sctx.fill("evenodd"); }
@@ -136,9 +136,17 @@ async function paintBase(tier, W, H, world) {
   return { cv, spec };
 }
 
-// teal = kinder than the state, coral = ruder (same ramp as the flat map)
-const KIND = [26, 190, 170], MID = [214, 222, 230], RUDE = [255, 110, 84];
-function ramp(t) { const a = t < 0 ? KIND : RUDE, k = Math.abs(t); return `rgb(${MID.map((v, i) => Math.round(v + (a[i] - v) * k)).join(",")})`; }
+// happiness, 0-10: coral (less happy) through amber to teal (happier)
+const HAPPY_STOPS = [[3.0, [232, 76, 61]], [4.5, [240, 140, 64]], [5.6, [242, 200, 92]], [6.6, [96, 200, 150]], [7.6, [30, 170, 190]]];
+function happyColor(h) {
+  const s = HAPPY_STOPS;
+  if (h <= s[0][0]) return `rgb(${s[0][1].join(",")})`;
+  for (let i = 1; i < s.length; i++) if (h <= s[i][0]) {
+    const t = (h - s[i - 1][0]) / (s[i][0] - s[i - 1][0]), a = s[i - 1][1], b = s[i][1];
+    return `rgb(${a.map((v, k) => Math.round(v + (b[k] - v) * t)).join(",")})`;
+  }
+  return `rgb(${s[s.length - 1][1].join(",")})`;
+}
 
 /* ------------------------------------------------------------ the globe */
 export function mountGlobe(root, opts = {}) {
@@ -153,7 +161,7 @@ export function mountGlobe(root, opts = {}) {
   let tier = mode === "auto" ? autoTier : mode;
 
   let worldData = null, painting = false, repaintQueued = false;
-  let renderer, scene, camera, world, tilt, earth, tex, specTex, base, caShapes = null, caVals = null, raf = 0, built = 0;
+  let renderer, scene, camera, world, tilt, earth, tex, specTex, base, raf = 0, built = 0;
   let lon = CA.lon, lat = CA.lat, vLon = reduceMotion ? 0 : 0.035, vLat = 0, dragging = false, zoom = 4.0;
   let visible = true, frames = 0, tAcc = 0, lowWindows = 0, lastT = performance.now(), fps = 0, dprScale = 1;
 
@@ -217,7 +225,6 @@ export function mountGlobe(root, opts = {}) {
       scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xbfd4ff, size: tier === "epic" ? 0.11 : 0.09, transparent: true, opacity: 0.8, depthWrite: false })));
     }
     resize();
-    if (caShapes && caVals && !worldData) paintCA();
     setHud();
     root.classList.remove("loading");
     frames = 0; tAcc = 0; lowWindows = 0; lastT = performance.now();
@@ -266,33 +273,9 @@ export function mountGlobe(root, opts = {}) {
     clearTimeout(noteT); noteT = setTimeout(() => (el.hidden = true), 4000);
   }
 
-  /* --- live California */
-  function paintCA() {
-    if (!tex || !caShapes) return;
-    const cv = tex.image, ctx = cv.getContext("2d"), W = cv.width, H = cv.height;
-    const [x0, y0, x1, y1] = CA.box;
-    const px = ((x0 + 180) / 360) * W, py = ((90 - y1) / 180) * H, pw = ((x1 - x0) / 360) * W, ph = ((y1 - y0) / 180) * H;
-    ctx.drawImage(base, px, py, pw, ph, px, py, pw, ph);
-    let sw = 0, sv = 0;
-    for (const c of caShapes) { const v = caVals && caVals[c.name]; if (v) { sw += c.pop; sv += c.pop * v; } }
-    const mean = sv / Math.max(1, sw);
-    for (const c of caShapes) {
-      const v = caVals && caVals[c.name];
-      ctx.beginPath(); for (const r of c.flat) drawRing(ctx, r, W, H);
-      ctx.fillStyle = v ? ramp(Math.max(-1, Math.min(1, Math.log(v / mean) / 0.6))) : "#5d6b80"; ctx.fill();
-      ctx.strokeStyle = "rgba(10,20,35,.55)"; ctx.lineWidth = Math.max(0.6, W / 6000); ctx.stroke();
-    }
-    tex.needsUpdate = true;
-  }
-  function setCounties(data) {
-    caShapes = data.counties.map((c) => ({ name: c.name, pop: c.pop, rings: c.rings, flat: c.rings.map((r) => Float32Array.from(r.flat())) }));
-    paintCA();
-  }
-  function setRun(m) { if (m && m.rude) { caVals = m.rude; if (!worldData) paintCA(); } }
+  /* --- the world's happiness */
   async function setWorld(g) {
-    let sw = 0, sv = 0;
-    for (const n of Object.values(g.nations)) { sw += n.pop; sv += n.pop * (1 - n.civ); }
-    worldData = { nations: g.nations, meanRude: sv / Math.max(1, sw) };
+    worldData = { nations: g.nations };
     if (!tex) return;
     if (painting) { repaintQueued = true; return; }
     painting = true;
@@ -324,7 +307,7 @@ export function mountGlobe(root, opts = {}) {
 
   const ray = new THREE.Raycaster(), v2 = new THREE.Vector2();
   function hover(e) {
-    if (!earth || !caShapes) return;
+    if (!earth) return;
     const r = el.getBoundingClientRect();
     v2.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(v2, camera);
@@ -340,22 +323,12 @@ export function mountGlobe(root, opts = {}) {
       }
       if (hit) {
         const flags = [hit.conflict ? "armed conflict" : "", hit.protests ? "protests" : "", hit.rating ? "behavior ratings in use" : ""].filter(Boolean);
-        tip.innerHTML = `<b>${esc(hit.name)}</b> <i style="opacity:.6">simulated</i><br>${esc(hit.gov)}: ${esc(hit.ruling)} hold${/^the ruling|^the armed|^the opposition/.test(hit.ruling) ? "s" : ""} power<br>${((1 - hit.civ) * 100).toFixed(1)}% of encounters went badly` + (flags.length ? `<br>${flags.join(", ")}` : "");
+        tip.innerHTML = `<b>${esc(hit.name)}</b> <i style="opacity:.6">simulated</i><br>${esc(hit.gov)}: ${esc(hit.ruling)} hold${/^the ruling|^the armed|^the opposition/.test(hit.ruling) ? "s" : ""} power<br>Happiness ${hit.happiness.toFixed(1)} / 10` + (hit.survey != null ? ` <span style="opacity:.6">(surveys: ${hit.survey.toFixed(1)})</span>` : "") + (flags.length ? `<br>${flags.join(", ")}` : "");
       } else if (Math.abs(la) < 80) { tip.hidden = true; return; }
       tip.style.left = e.clientX - r.left + "px"; tip.style.top = e.clientY - r.top + "px"; tip.hidden = false;
       return;
     }
-    let found = null;
-    if (lo > CA.box[0] && lo < CA.box[2] && la > CA.box[1] && la < CA.box[3]) {
-      for (const c of caShapes) if (c.rings.some((ring) => inside(lo, la, ring))) { found = c; break; }
-    }
-    if (found) {
-      const v = caVals && caVals[found.name];
-      tip.innerHTML = `<b>${found.name} County</b><br>${v ? (v * 100).toFixed(1) + "% of encounters went badly" : "No result yet"}`;
-    } else if (Math.abs(la) < 80) {
-      tip.innerHTML = `<b>Not simulated yet</b><br>Waiting for more GPUs`;
-    }
-    tip.style.left = e.clientX - r.left + "px"; tip.style.top = e.clientY - r.top + "px"; tip.hidden = false;
+    tip.hidden = true;
   }
   let hoverFeats = null;
   loadLayer("countries_low").then((f) => { hoverFeats = f; });
@@ -387,5 +360,5 @@ export function mountGlobe(root, opts = {}) {
 
   setHud();
   build();
-  return { setCounties, setRun, setWorld };
+  return { setWorld };
 }

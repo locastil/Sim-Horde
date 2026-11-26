@@ -19,77 +19,6 @@
   const plural = (n, one, many) => `${fmt.format(n)} ${n === 1 ? one : many}`;
   const hw = (g) => esc((g || "").replace(/^NVIDIA /, "").replace(/GeForce /, ""));
 
-  /* ---------- map ---------- */
-  let shapes = null, pop = {};
-  const paths = {};
-  function drawMap(data) {
-    const g = $("counties");
-    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
-    const k = Math.cos((37.2 * Math.PI) / 180);
-    data.counties.forEach((c) => c.rings.forEach((r) => r.forEach(([lon, lat]) => {
-      x0 = Math.min(x0, lon * k); x1 = Math.max(x1, lon * k); y0 = Math.min(y0, lat); y1 = Math.max(y1, lat);
-    })));
-    const s = Math.min(980 / (x1 - x0), 1060 / (y1 - y0));
-    const ox = (1000 - (x1 - x0) * s) / 2, oy = (1080 - (y1 - y0) * s) / 2;
-    const P = ([lon, lat]) => `${(ox + (lon * k - x0) * s).toFixed(1)},${(oy + (y1 - lat) * s).toFixed(1)}`;
-    const frag = document.createDocumentFragment();
-    data.counties.forEach((c) => {
-      const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      p.setAttribute("d", c.rings.map((r) => "M" + r.map(P).join("L") + "Z").join(""));
-      p.dataset.name = c.name;
-      p.setAttribute("tabindex", "0");
-      p.setAttribute("aria-label", c.name + " County");
-      paths[c.name] = p;
-      pop[c.name] = c.pop;
-      frag.appendChild(p);
-    });
-    g.appendChild(frag);
-    const tip = $("tip"), fig = document.querySelector(".hero-map");
-    const show = (e, p) => {
-      const n = p.dataset.name, v = p.dataset.rude;
-      tip.innerHTML = `<b>${esc(n)}</b><br>` + (v ? `${(v * 100).toFixed(1)}% of encounters went badly` : "No result yet");
-      const fr = fig.getBoundingClientRect();
-      const r = e && e.clientX ? { x: e.clientX, y: e.clientY } : (() => { const b = p.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; })();
-      tip.style.left = r.x - fr.left + "px";
-      tip.style.top = r.y - fr.top + "px";
-      tip.hidden = false;
-      p.classList.add("on");
-    };
-    const hide = (p) => { tip.hidden = true; p.classList.remove("on"); };
-    g.addEventListener("pointermove", (e) => { if (e.target.dataset.name) show(e, e.target); });
-    g.addEventListener("pointerout", (e) => { if (e.target.dataset.name) hide(e.target); });
-    g.addEventListener("focusin", (e) => show(null, e.target));
-    g.addEventListener("focusout", (e) => hide(e.target));
-  }
-
-  const KIND = [14, 124, 120], MID = [232, 236, 239], RUDE = [224, 72, 47];
-  const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
-  function colorFor(t) {   // t in [-1, 1]
-    const c = t < 0 ? mix(MID, KIND, -t) : mix(MID, RUDE, t);
-    return `rgb(${c[0]},${c[1]},${c[2]})`;
-  }
-
-  let lastRun = null;
-  function paint(m) {
-    if (!m.run) return;
-    if (m.run !== lastRun) {
-      let sw = 0, sv = 0;
-      for (const [n, v] of Object.entries(m.rude)) { const w = pop[n] || 1; sw += w; sv += w * v; }
-      const mean = sv / sw;
-      for (const [n, v] of Object.entries(m.rude)) {
-        const p = paths[n];
-        if (!p) continue;
-        const t = Math.max(-1, Math.min(1, Math.log(v / mean) / 0.6));
-        p.style.fill = colorFor(t);
-        p.dataset.rude = v;
-      }
-      if (lastRun === null) requestAnimationFrame(() => requestAnimationFrame(() => $("counties").classList.add("live")));
-      lastRun = m.run;
-    }
-    if (m.caption) { $("mapCaption").innerHTML = m.caption; return; }
-    $("mapCaption").innerHTML = `Run ${fmt.format(m.run)}, finished ${ago(m.ago)} by <b>${esc(m.worker)}</b> on ${hw(m.gpu)}. Statewide, ${(m.civ * 100).toFixed(1)}% of encounters were civil.`;
-  }
-
   /* ---------- live sentence ---------- */
   function liveLine(s) {
     const el = $("liveLine");
@@ -100,8 +29,7 @@
     const on = s.workers_online;
     const gpus = on ? `<b>${plural(on, "GPU is", "GPUs are")}</b> working right now` + (s.vram_online ? `, with ${s.vram_online} GB of memory between them` : "") : "No GPUs are connected this minute";
     el.innerHTML = `<span class="live-dot${on ? "" : " off"}"></span>${gpus}. Together volunteers have finished <b>${fmt.format(s.runs_done)}</b> of ${fmt.format(s.runs_goal)} runs for the ${esc(s.campaign)}, simulating <b>${big(s.person_days)}</b> person-days.`;
-    if (s.avg_secs) $("avgTime").textContent = `${Math.round(s.avg_secs)} seconds on average so far, across everyone's hardware`;
-    if (s.agents) $("jobSize").textContent = `${fmt.format(s.agents)} simulated people over ${s.days} days`;
+    if (s.avg_secs) $("avgTime").textContent = `${Math.round(s.avg_secs)} seconds on average so far, across everyone's hardware for California tuning jobs`;
   }
 
   function recent(s) {
@@ -164,24 +92,22 @@
     box.hidden = false;
     $("worldDate").textContent = g.date;
     const nat = Object.keys(g.nations).length;
+    const fit = g.fit && g.fit.r != null ? ` Simulated happiness lines up with real life-satisfaction surveys at r = ${g.fit.r.toFixed(2)} across ${g.fit.n} countries.` : "";
     $("worldStats").innerHTML = `${fmt.format(nat)} countries and ${big(g.people)} people, simulated as ${fmt.format(g.simulated)} (one for every ${fmt.format(g.scale)}). `
-      + (g.civ ? `${(g.civ * 100).toFixed(1)}% of encounters went well this month. ` : "")
-      + `${plural(g.conflicts || 0, "armed conflict", "armed conflicts")} under way. Next month: ${g.month_progress[0]} of ${g.month_progress[1]} pieces done.`;
+      + (g.happiness ? `Average happiness ${g.happiness.toFixed(1)} out of 10. ` : "")
+      + `${plural(g.conflicts || 0, "armed conflict", "armed conflicts")} under way.` + fit;
     $("worldEvents").innerHTML = g.events.length ? g.events.slice(0, 8).map((e) => `<li><span>${esc(e[0])} · ${esc(e[2].toLowerCase())}</span>${esc(e[3])}</li>`).join("")
       : "<li>The first month is still being simulated. Headlines appear as soon as volunteers finish it.</li>";
   }
   async function tick() {
     try {
-      const [s, m, g] = await Promise.all([api("stats"), api("map"), api("globe").catch(() => ({ date: null }))]);
-      liveLine(s); recent(s); paint(m);
-      worldPanel(g);
-      if (g && g.date && Object.keys(g.nations).length) {
-        const key = g.epoch;
-        if (key !== worldKey) { worldKey = key; if (globe) globe.setWorld(g); lastWorld = g; }
-      } else if (m.run && m.run !== (lastMap && lastMap.run)) { lastMap = m; if (globe) globe.setRun(m); }
-      const cap = document.querySelector("#globe figcaption");
-      if (cap) cap.textContent = g && g.date ? `${g.date} in the simulated world. Every country runs on its own real statistics. Drag to turn it; point at a country.`
-                                             : "California shows the newest volunteer run. Drag to turn it.";
+      const [s, g] = await Promise.all([api("stats"), api("globe").catch(() => ({ date: null }))]);
+      liveLine(s); recent(s); worldPanel(g);
+      if (g && g.date && Object.keys(g.nations).length && g.epoch !== worldKey) {
+        worldKey = g.epoch; lastWorld = g; if (globe) globe.setWorld(g);
+      }
+      const cap = $("globeCap");
+      if (cap) cap.textContent = g && g.date ? `${g.date}. Drag to turn it; point at a country.` : "The world starts when the first volunteer connects.";
     } catch (e) {
       $("liveLine").innerHTML = `<span class="live-dot off"></span>The coordinator isn't answering right now. This page will keep trying.`;
     }
@@ -190,9 +116,9 @@
     try { const [p, b] = await Promise.all([api("progress"), api("leaderboard")]); chart(p); leaders(b); } catch (e) {}
   }
 
-  let globe = null, lastMap = null, lastWorld = null;
-  import("/globe.js").then((m) => { globe = m.mountGlobe(document.getElementById("globe")); if (shapes) globe.setCounties(shapes); if (lastWorld) globe.setWorld(lastWorld); else if (lastMap) globe.setRun(lastMap); }).catch((e) => console.warn("globe", e));
-  api("counties").then((d) => { shapes = d; drawMap(d); if (globe) globe.setCounties(d); tick(); }).catch(() => tick());
+  let globe = null, lastWorld = null;
+  import("/globe.js").then((m) => { globe = m.mountGlobe(document.getElementById("globe")); if (lastWorld) globe.setWorld(lastWorld); }).catch((e) => console.warn("globe", e));
+  tick();
   slow();
   setInterval(tick, 8000);
   setInterval(slow, 30000);
