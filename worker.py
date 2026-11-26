@@ -7,7 +7,7 @@ Lends this computer's GPU to the Sim Horde. It joins the coordinator, receives t
 A job is only data: a set of behavior weights (each checked against the published ranges), a
 random seed and a population size. This program never downloads or runs code it's sent.
 
-    start_worker.bat                 (Windows: double-click)
+    start_sim_horde.bat                 (Windows: double-click)
     python worker.py --name "Your name"
     python worker.py --once          # one job, then stop
 """
