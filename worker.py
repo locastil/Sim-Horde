@@ -249,9 +249,9 @@ def main():
             resumed = False
             if piece and isinstance(p.get("resume"), str):
                 # a detailed piece this device ran last month: carry on from its own saved state
-                key, _, ep = p["resume"].partition("@")
+                rkey, _, ep = p["resume"].partition("@")
                 sp = os.path.join(PIECES, f"{piece}.b64")
-                if key == piece and os.path.exists(sp) and open(sp + ".epoch").read().strip() == ep:
+                if rkey == piece and os.path.exists(sp) and open(sp + ".epoch").read().strip() == ep:
                     p = dict(p, state=open(sp).read())
                     resumed = True
             people = sum(n["agents"] for n in p["nations"])
