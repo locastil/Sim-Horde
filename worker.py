@@ -67,13 +67,17 @@ def find_server():
         sys.exit(f"Couldn't look up the Sim Horde coordinator ({e}). Check your internet connection, or pass --server.")
 
 
-def pick_device(torch, pref):
+def pick_device(torch, pref, strict=True):
     if pref and not pref.startswith(("cuda", "cpu")) and torch.cuda.is_available():
         # a name, e.g. --device 5070: the first GPU whose name contains it
         for i in range(torch.cuda.device_count()):
             if pref.lower() in torch.cuda.get_device_name(i).lower():
                 return torch.device(f"cuda:{i}")
-        sys.exit(f"No GPU named like '{pref}' found: " + ", ".join(torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())))
+        found = ", ".join(torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count()))
+        if strict:
+            sys.exit(f"No GPU named like '{pref}' found: {found}")
+        say(f"Your usual card ({pref}) isn't connected right now, so using the one with the most memory. Found: {found}")
+        pref = None
     if pref:
         return torch.device(pref)
     if not torch.cuda.is_available():
@@ -142,6 +146,7 @@ def main():
     ap.add_argument("--server", default=None, help="coordinator address (normally found automatically)")
     ap.add_argument("--device", default=None, help="cuda, cuda:1, cpu, or part of a GPU name such as 5070 (default: the GPU with the most memory)")
     ap.add_argument("--invite", default="", help="invite code, if the coordinator asks for one")
+    ap.add_argument("--choose-gpu", action="store_true", help="pick which graphics card to use again (asked once, then remembered)")
     ap.add_argument("--once", action="store_true", help="run a single job, then stop")
     ap.add_argument("--max-agents", type=int, default=0, help="skip jobs bigger than this (for small GPUs)")
     a = ap.parse_args()
@@ -154,14 +159,29 @@ def main():
         name = input("Name: ").strip()[:32] or platform.node()[:24]
 
     import torch
-    dev = pick_device(torch, a.device)
+    choice = a.device or (None if a.choose_gpu else cfg.get("device"))
+    if not choice and torch.cuda.is_available() and torch.cuda.device_count() > 1 and sys.stdin.isatty():
+        # more than one card (say a laptop GPU and an external one): ask once, remember it
+        cards = [(torch.cuda.get_device_name(i), torch.cuda.get_device_properties(i).total_memory / 2**30) for i in range(torch.cuda.device_count())]
+        best = max(range(len(cards)), key=lambda i: cards[i][1])
+        print("\nThis PC has more than one graphics card. Which one should power the world?")
+        for i, (nm, gb) in enumerate(cards):
+            print(f"  {i + 1}) {nm} ({gb:.0f} GB){'   <- most memory' if i == best else ''}")
+        pick = input(f"Number [{best + 1}]: ").strip()
+        i = int(pick) - 1 if pick.isdigit() and 1 <= int(pick) <= len(cards) else best
+        choice = f"cuda:{i}"
+        cfg["device"] = cards[i][0]                       # remembered by name, so it survives cards being re-ordered
+        if os.path.exists(CONFIG):
+            json.dump(cfg, open(CONFIG, "w"), indent=1)
+        say(f"Using {cards[i][0]}. To switch later, start with --choose-gpu.")
+    dev = pick_device(torch, choice, strict=bool(a.device))
     gpu, vram = gpu_info(torch, dev)
 
     if cfg.get("server") != server or not cfg.get("key"):
         code, r = call(server, "/api/v1/workers", dict(name=name, gpu=gpu, vram_gb=vram, invite=a.invite))
         if code != 200:
             sys.exit(f"Couldn't join the Sim Horde: {r.get('error', code)}")
-        cfg = dict(server=server, key=r["key"], name=r["name"])
+        cfg = dict(server=server, key=r["key"], name=r["name"], **({"device": cfg["device"]} if cfg.get("device") else {}))
         json.dump(cfg, open(CONFIG, "w"), indent=1)
         say(f"Joined as '{r['name']}'. Your worker key is saved in worker_config.json (keep it private).")
     key = cfg["key"]

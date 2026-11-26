@@ -21,7 +21,8 @@ const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 /* ------------------------------------------------------------ hardware */
 function probeGPU() {
   const c = document.createElement("canvas");
-  const gl = c.getContext("webgl2") || c.getContext("webgl");
+  const opt = { powerPreference: "high-performance" };          // ask for the same card the globe will draw on
+  const gl = c.getContext("webgl2", opt) || c.getContext("webgl", opt);
   if (!gl) return { ok: false, name: "No WebGL", maxTex: 0 };
   const ext = gl.getExtension("WEBGL_debug_renderer_info");
   let raw = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
@@ -391,6 +392,12 @@ export function mountGlobe(root, opts = {}) {
     return c;
   }
 
+  // the browser, not the page, decides which graphics card draws: show how to switch it (computers only)
+  const sw = hud.querySelector(".gpu-switch"), swp = root.querySelector(".gpu-help");
+  if (sw && swp) {
+    if (handheld) sw.hidden = true;
+    sw.addEventListener("click", () => { const open = swp.hidden; swp.hidden = !open; sw.setAttribute("aria-expanded", String(open)); });
+  }
   hud.querySelectorAll("button[data-q]").forEach((b) => b.addEventListener("click", () => {
     mode = b.dataset.q; store.set("simhorde.quality", mode);
     const next = mode === "auto" ? ceiling : mode; dprScale = 1; probation = 0; goodWindows = lowWindows = 0;

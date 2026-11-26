@@ -45,11 +45,22 @@
         <div class="hud-top">
           <span class="dot"></span><span>Rendering at <b class="q">Auto</b> on <span class="hw">your device</span></span>
           <span class="fps"></span>
+          <button type="button" class="gpu-switch" aria-expanded="false" aria-controls="gpuHelp">Switch card</button>
         </div>
         <div class="seg" role="group" aria-label="Graphics quality">
           <button type="button" data-q="auto">Auto</button><button type="button" data-q="low">Low</button><button type="button" data-q="medium">Medium</button><button type="button" data-q="high">High</button><button type="button" data-q="epic">Epic</button>
         </div>
         <p class="note" hidden></p>
+      </div>
+      <div class="gpu-help" id="gpuHelp" hidden>
+        <p><b>Your browser picks the graphics card, not this page.</b> If you have more than one, like a laptop GPU and an external one, you can tell Windows which to use:</p>
+        <ol>
+          <li>Open <b>Settings</b>, then <b>System</b>, <b>Display</b>, <b>Graphics</b>.</li>
+          <li>Find your browser (Chrome or Edge) in the list, or add it with <b>Add desktop app</b>.</li>
+          <li>Click it, choose <b>Options</b>, pick the card you want, then <b>Save</b>.</li>
+          <li>Close every browser window and open this page again. The card's name shows at the top left.</li>
+        </ol>
+        <p>Plugging your monitor into the external card helps too. The Sim Horde desktop app lets you pick a card when it starts.</p>
       </div>
       <figcaption><span class="legend" aria-hidden="true"><span>Less happy</span><i class="ramp happy"></i><span>Happier</span></span><span id="globeCap">Drag to turn it; point at a country.</span></figcaption>
     </figure>
