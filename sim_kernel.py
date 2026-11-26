@@ -358,6 +358,14 @@ W_DEFAULT = dict(base=-2.6, w_trait=0.8, w_stress=1.1, w_irr=1.5, w_rent=0.6, co
                  w_alone=0.0, w_wfh=0.0, w_mob=0.0, w_dsoc=0.0, w_alt=0.0,
                  w_strain=0.0, w_trust=0.0, w_sour=0.0)
 
+MEET = dict(mode="classic",
+            low_share=0.4,       # share of people who go out little (homebound, remote, isolated)
+            p_high=0.55,         # daily chance of an encounter for everyone else
+            p_low=0.18,          # ...and for the people who go out little
+            strangers=2.0,       # brief encounters with strangers on a day out (cashiers, drivers, crowds)
+            witness=1.0,         # people who see each rude act in public, on average
+            bystander=0.3)
+
 MOVE_RATE = 0.06
 
 LEVERS = ("burden", "commute", "slack", "grace", "reward", "cons", "exile", "civic", "robots")
@@ -654,7 +662,7 @@ class Region:
         self.cv_reports = torch.zeros(K, device=dev)
         self.cv_false = torch.zeros(K, device=dev)
         self.ai = dict(PRIVATE_AI)
-        self.rep = torch.full((n,), 80.0, device=dev)       # private AI rating (0-100); matters where adoption > 0
+        self.rep = torch.full((n,), 80.0, device=dev)       # patrol robots' camera record (0-100); matters where robots patrol
         self.adopt = torch.zeros(K, device=dev)              # share of landlords/employers/apps in the county using ratings
         self.ai_reports = torch.zeros(K, device=dev)
         self.ai_mistakes = torch.zeros(K, device=dev)
@@ -902,7 +910,13 @@ class Region:
                 self.strikes[ix] = 0
         self.q_leave_c = torch.bincount(c, weights=q_leave * self.alive.float(), minlength=K) / torch.bincount(c, weights=self.alive.float(), minlength=K).clamp(min=1)
 
-        act = (rnd(n) < 0.3) & self.alive
+        social = MEET["mode"] == "social"
+        if social:
+            if getattr(self, "sociab", None) is None or self.sociab.numel() != n:
+                self.sociab = torch.where(rnd(n) < MEET["low_share"], MEET["p_low"], MEET["p_high"])
+            act = (rnd(n) < self.sociab) & self.alive
+        else:
+            act = (rnd(n) < 0.3) & self.alive
         if getattr(self, "held", None) is not None:
             act &= self.held == 0          # detained: out of circulation
             self.held = (self.held - 1).clamp(min=0)
@@ -926,6 +940,8 @@ class Region:
             other = torch.minimum(t_s + (rnd(n) * t_z).long(), t_s + t_z - 1)
             partner = torch.where(go, other, partner)
         act &= (partner != self.idx) & self.alive[partner]
+        if social:      # you mostly run into people who are out a lot themselves
+            act &= rnd(n) < (self.sociab[partner] / MEET["p_high"]).clamp(max=1.0)
         rude = act & (rnd(n) < p)
         kind = act & ~rude
         if self.me is not None:
@@ -942,7 +958,26 @@ class Region:
         hit = torch.where(grace[partner], 0.06, W["hit"]) * rude.float()
         self.irr.index_add_(0, partner, hit)
         self.irr.index_add_(0, partner, -0.05 * kind.float())
+        extra = wit = None
+        if social:
+            # a day out also brings brief encounters with strangers nearby; some of them are rude
+            na = self.a_size.numel()
+            pa = torch.bincount(self.area, weights=p * self.alive.float(), minlength=na) / torch.bincount(self.area, weights=self.alive.float(), minlength=na).clamp(min=1)
+            m = torch.poisson(torch.full((n,), MEET["strangers"], device=self.dev), generator=self.g) * act.float()
+            extra = torch.binomial(m, pa[self.area], generator=self.g)
+            self.irr += torch.where(grace, 0.06, W["hit"]) * extra
+            # bystanders: people nearby see each rude act and it gets under their skin too
+            r_ix = torch.nonzero(rude).flatten()
+            if r_ix.numel():
+                k = torch.poisson(torch.full((r_ix.numel(),), MEET["witness"], device=self.dev), generator=self.g).long().clamp(max=4)
+                src = torch.repeat_interleave(r_ix, k)
+                if src.numel():
+                    a_s2, a_z2 = self.a_start[self.area[src]], self.a_size[self.area[src]]
+                    wit = torch.minimum(a_s2 + (rnd(src.numel()) * a_z2).long(), a_s2 + a_z2 - 1)
+                    self.irr.index_add_(0, wit, torch.full((src.numel(),), MEET["bystander"] * W["hit"], device=self.dev))
         self.irr.clamp_(0, 3)
+        if getattr(self, "record_day", False):     # realism_check.py: who met whom today and how it went
+            self.last_day = (act, rude, partner, extra, wit)
 
         seen = rude & (rnd(n) < 0.15)
         punished = seen & (rnd(n) < L["cons"][c] / 100)
