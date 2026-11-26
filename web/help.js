@@ -11,7 +11,9 @@
 
   const phone = matchMedia("(pointer: coarse)").matches;
   const device = /iPad|Tablet|Android(?!.*Mobile)/i.test(navigator.userAgent) ? "tablet" : phone ? "phone" : "browser";
-  const CAP = 45000;                    // people per piece this device will take (every piece is built to fit)
+  // people per piece this device will take: phones and tablets get phone-sized pieces, computers bigger ones
+  const CAP = (phone || device === "tablet") ? 45000 : 250000;
+  const pieces = new Map();             // detailed pieces this page keeps from month to month (only numbers go back)
   let running = false, busy = false, worker = null, kernel = null, done = 0, kudos = 0, restMs = 3000;
   let key = store.get("simhorde.browserKey");
 
@@ -68,9 +70,21 @@
         if (r.code !== 200) throw new Error(r.body.error || "the coordinator isn't answering");
         const job = r.body.job;
         if (!job || job.kind !== "world") { setStatus("Waiting for the next month of the world to open..."); setBar(0); await sleep(15000); continue; }
-        const n = job.payload.nations.reduce((a, x) => a + x.agents, 0);
-        setStatus(`Simulating ${job.payload.nations.length} countr${job.payload.nations.length === 1 ? "y" : "ies"} (${n.toLocaleString()} people) for a month...`);
+        const P = job.payload, piece = typeof P.piece === "string" ? P.piece : null;
+        let resumed = false;
+        if (piece && typeof P.resume === "string") {
+          const have = pieces.get(piece), ep = P.resume.split("@")[1];
+          if (have && String(have.epoch) === ep) { P.state = have.state; resumed = true; }
+        }
+        const n = P.nations.reduce((a, x) => a + x.agents, 0), k = P.nations.length;
+        setStatus(piece ? `Simulating ${k} region${k === 1 ? "" : "s"} at ${P.level} detail (${n.toLocaleString()} people) for a month...`
+                        : `Simulating ${k} countr${k === 1 ? "y" : "ies"} (${n.toLocaleString()} people) for a month...`);
         const res = await runPiece(job);
+        if (piece) {
+          pieces.delete(piece); pieces.set(piece, { epoch: Number(job.id.slice(1).split(".")[0]), state: res.out.state });
+          while (pieces.size > 8) pieces.delete(pieces.keys().next().value);
+          res.out = { nations: res.out.nations, resumed };
+        }
         const s = await post("world/result", { key, kernel, client: "browser", job: job.id, out: res.out, secs: res.secs });
         if (s.code === 200) {
           done++; kudos += s.body.kudos || 0; showStats();

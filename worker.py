@@ -29,6 +29,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 CONFIG = os.path.join(HERE, "worker_config.json")
 STOP = os.path.join(HERE, "worker_stop.flag")
+PIECES = os.path.join(HERE, "pieces")        # detailed pieces of the world this device keeps from month to month
 DIRECTORY = "https://raw.githubusercontent.com/locastil/Sim-Horde/main/coordinator.json"
 VERSION = "0.2"
 _h = hashlib.sha256()
@@ -223,7 +224,9 @@ def main():
     if os.path.exists(STOP):
         os.remove(STOP)
     while not os.path.exists(STOP):
-        code, r = call(server, "/api/v1/jobs/pop", dict(key=key, gpu=gpu, vram_gb=vram, status="ready"))
+        # the biggest piece of the world this device should take: a GPU takes any; a CPU, phone-sized ones
+        cap = None if dev.type == "cuda" else 100_000
+        code, r = call(server, "/api/v1/jobs/pop", dict(key=key, gpu=gpu, vram_gb=vram, status="ready", cap=cap))
         if code in (401, 403, 426):
             sys.exit(f"The coordinator turned this worker away: {r.get('error')}")
         job = r.get("job") if code == 200 else None
@@ -242,8 +245,18 @@ def main():
                 time.sleep(10)
                 continue
             p = job["payload"]
+            piece = p.get("piece") if isinstance(p.get("piece"), str) and p["piece"].replace(".", "").replace("L", "").isdigit() else None
+            resumed = False
+            if piece and isinstance(p.get("resume"), str):
+                # a detailed piece this device ran last month: carry on from its own saved state
+                key, _, ep = p["resume"].partition("@")
+                sp = os.path.join(PIECES, f"{piece}.b64")
+                if key == piece and os.path.exists(sp) and open(sp + ".epoch").read().strip() == ep:
+                    p = dict(p, state=open(sp).read())
+                    resumed = True
             people = sum(n["agents"] for n in p["nations"])
-            say(f"World job {job['id']}: {len(p['nations'])} nations, {people:,} simulated people, {p['days']} days")
+            level = f"{p.get('level')} detail, " if p.get("level") else ""
+            say(f"World job {job['id']}: {level}{len(p['nations'])} {'regions' if piece else 'nations'}, {people:,} simulated people, {p['days']} days")
             t0 = time.time()
             call(server, "/api/v1/heartbeat", dict(key=key, status="running"), timeout=10)
             try:
@@ -254,6 +267,17 @@ def main():
                 time.sleep(60)
                 continue
             secs = time.time() - t0
+            if piece:
+                # keep the detailed piece here; only its numbers go back over the network
+                os.makedirs(PIECES, exist_ok=True)
+                sp = os.path.join(PIECES, f"{piece}.b64")
+                open(sp + ".tmp", "w").write(out["state"]); os.replace(sp + ".tmp", sp)
+                open(sp + ".epoch", "w").write(job["id"][1:].split(".")[0])
+                out = dict(nations=out["nations"], resumed=resumed)
+                for f in os.listdir(PIECES):              # forget pieces not run for a few months
+                    fp = os.path.join(PIECES, f)
+                    if time.time() - os.path.getmtime(fp) > 3 * 3600:
+                        os.remove(fp)
             code, r = call(server, "/api/v1/world/result", dict(key=key, job=job["id"], out=out, secs=secs), timeout=300)
             if code == 200:
                 kudos += r.get("kudos", 0)

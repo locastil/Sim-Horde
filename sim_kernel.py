@@ -1133,3 +1133,56 @@ def run_once(theta, seed, data, scale, dev, min_agents):
         torch.cuda.empty_cache()
     return out
 
+def measure_realism(sim, days):
+    """Run the measurement days while watching ordinary interactions; returns the realism figures."""
+    n, dev = sim.n, sim.dev
+    sim.record_day = True
+    z = lambda: torch.zeros(n, dtype=torch.bool, device=dev)
+    cnt = {k: torch.zeros(4, device=dev) for k in ("contagion", "bystander", "persistence")}   # acted|cond, rude|cond, acted|~cond, rude|~cond
+
+    def add(k, act, rude, cond, base=None):
+        b = base if base is not None else torch.ones_like(cond)
+        cnt[k] += torch.stack([(act & cond & b).sum(), (rude & cond & b).sum(), (act & ~cond & b).sum(), (rude & ~cond & b).sum()]).float()
+
+    prev_recv = prev_saw = None
+    ring, weeks, week_any = [], [], z()
+    met_sum = 0.0
+    gap = torch.zeros(n, dtype=torch.int32, device=dev); best = torch.zeros_like(gap)
+    for d in range(days):
+        sim.step()
+        act, rude, partner, extra, wit, out = sim.last_day
+        recv = z(); recv[partner[rude]] = True
+        if extra is not None:
+            recv |= extra > 0
+        meet = act.clone(); meet[partner[act]] = True
+        face = meet | out if out is not None else meet
+        saw = z()
+        if wit is not None:
+            saw[wit] = True
+        if prev_recv is not None:
+            add("contagion", act, rude, prev_recv)
+            if wit is not None:
+                add("bystander", act, rude, prev_saw & ~prev_recv)
+        if len(ring) == 7:
+            quiet = ~torch.stack(ring[1:]).any(0)
+            add("persistence", act, rude, ring[0], quiet)
+        ring.append(recv)
+        if len(ring) > 7:
+            ring.pop(0)
+        prev_recv, prev_saw = recv, saw
+        week_any |= recv
+        if (d + 1) % 7 == 0:
+            weeks.append(float(week_any.float().mean())); week_any = z()
+        met_sum += float(meet.float().mean())
+        if d < 30:
+            gap = torch.where(face, torch.zeros_like(gap), gap + 1); best = torch.maximum(best, gap)
+    sim.record_day = False
+
+    def rr(k):
+        a1, r1, a0, r0 = cnt[k].tolist()
+        return round((r1 / a1) / (r0 / a0), 3) if a1 and a0 and r0 else None
+    return dict(contagion=rr("contagion"), persistence=rr("persistence"),
+                bystander=rr("bystander") if MEET["mode"] == "social" else 0.0,
+                weekly=round(sum(weeks) / max(1, len(weeks)), 3), daily_contact=round(met_sum / max(1, days), 3),
+                gaps=round(float((best >= 3).float().mean()), 3))
+

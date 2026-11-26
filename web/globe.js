@@ -394,7 +394,7 @@ export function mountGlobe(root, opts = {}) {
       }
       if (hit) {
         const flags = [hit.conflict ? "armed conflict" : "", hit.protests ? "protests" : ""].filter(Boolean);
-        tip.innerHTML = `<b>${esc(hit.name)}</b> <i style="opacity:.6">simulated</i><br>${esc(hit.gov)}: ${esc(hit.ruling)} hold${/^the ruling|^the armed|^the opposition/.test(hit.ruling) ? "s" : ""} power<br>Happiness ${hit.happiness.toFixed(1)} / 10` + (hit.survey != null ? ` <span style="opacity:.6">(surveys: ${hit.survey.toFixed(1)})</span>` : "") + (flags.length ? `<br>${flags.join(", ")}` : "");
+        tip.innerHTML = `<b>${esc(hit.name)}</b> <i style="opacity:.6">simulated</i><br>${esc(hit.gov)}: ${esc(hit.ruling)} hold${/^the ruling|^the armed|^the opposition/.test(hit.ruling) ? "s" : ""} power<br>Happiness ${hit.happiness.toFixed(1)} / 10` + (hit.survey != null ? ` <span style="opacity:.6">(surveys: ${hit.survey.toFixed(1)})</span>` : "") + (flags.length ? `<br>${flags.join(", ")}` : "") + (hit.detail && hit.detail !== "Low" ? `<br><span style="opacity:.6">Simulated at ${esc(hit.detail)} detail</span>` : "");
       } else if (Math.abs(la) < 80) { tip.hidden = true; return; }
       tip.style.left = e.clientX - r.left + "px"; tip.style.top = e.clientY - r.top + "px"; tip.hidden = false;
       return;
