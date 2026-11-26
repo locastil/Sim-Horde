@@ -1,0 +1,11 @@
+{
+  "name": "sim-horde",
+  "main": "src/index.js",
+  "compatibility_date": "2026-11-01",
+  // The site in web/ is served as static files; only /api/* runs the Worker.
+  "assets": { "directory": "./web", "binding": "ASSETS", "run_worker_first": ["/api/*"] },
+  // Where the private coordinator answers (e.g. a Cloudflare Tunnel to your PC).
+  "vars": { "COORDINATOR_ORIGIN": "https://coordinator.sim-horde.org" }
+  // Once sim-horde.org is active on Cloudflare, add:
+  // "routes": [{ "pattern": "sim-horde.org", "custom_domain": true }]
+}
