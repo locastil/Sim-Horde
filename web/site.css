@@ -148,3 +148,33 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 .stages li::before { content: counter(st); position: absolute; left: 0; top: 0; width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid #5E7187; color: #C6D1DC; font: 700 0.85rem/25px var(--display); text-align: center; }
 .stages li.now::before { background: #fff; border-color: #fff; color: var(--ink); }
 .stages li span { display: inline-block; font-size: 0.75rem; font-weight: 700; background: #DDF3EA; color: #0B6B49; border-radius: 999px; padding: 1px 8px; margin-left: 6px; vertical-align: 2px; }
+
+/* ---------- 3D globe viewport ---------- */
+.viewport { margin: 0; position: relative; aspect-ratio: 1 / 1.02; background: radial-gradient(120% 90% at 50% 45%, #13213a 0%, #0a1222 55%, #070c17 100%); border-radius: 20px; overflow: hidden; box-shadow: 0 30px 60px -30px rgba(15, 27, 42, .55); }
+.viewport .gl { position: absolute; inset: 0; cursor: grab; touch-action: none; }
+.viewport .gl:active { cursor: grabbing; }
+.viewport .gl:focus-visible { outline: 3px solid #9DB4FF; outline-offset: -6px; border-radius: 18px; }
+.viewport canvas { display: block; width: 100% !important; height: 100% !important; }
+.viewport.loading .gl { opacity: .35; transition: opacity .3s; }
+.viewport.nogl .gl { display: none; }
+.viewport figcaption { position: absolute; left: 20px; right: 20px; bottom: 16px; color: #8FA3BC; font-size: .84rem; line-height: 1.45; pointer-events: none; max-width: 46ch; }
+.hud { position: absolute; top: 14px; left: 14px; right: 14px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; color: #C9D6E6; font-size: .82rem; pointer-events: none; }
+.hud-top { display: flex; align-items: center; gap: 8px; background: rgba(8, 14, 26, .62); backdrop-filter: blur(6px); border: 1px solid rgba(157, 180, 255, .16); padding: 7px 12px; border-radius: 999px; max-width: 100%; }
+.hud-top b { color: #fff; font-weight: 650; }
+.hud .dot { width: 7px; height: 7px; border-radius: 50%; background: #3DDC97; flex: none; }
+.hud .fps { color: #7F93AC; font-variant-numeric: tabular-nums; margin-left: 4px; }
+.hud .hw { color: #fff; }
+.seg { display: inline-flex; background: rgba(8, 14, 26, .62); backdrop-filter: blur(6px); border: 1px solid rgba(157, 180, 255, .16); border-radius: 999px; padding: 3px; pointer-events: auto; }
+.seg button { font: 600 .78rem/1 var(--body); color: #9FB2C8; background: none; border: 0; padding: 7px 10px; border-radius: 999px; cursor: pointer; }
+.seg button:hover { color: #fff; }
+.seg button[aria-pressed="true"] { background: var(--cobalt); color: #fff; }
+.hud .note { flex-basis: 100%; margin: 0; color: #FFD38A; font-size: .8rem; }
+.gtip { position: absolute; pointer-events: none; background: rgba(255, 255, 255, .96); color: var(--ink); font-size: .84rem; line-height: 1.35; padding: 8px 12px; border-radius: 8px; transform: translate(-50%, calc(-100% - 14px)); white-space: nowrap; z-index: 2; }
+
+/* ---------- stage one, live ---------- */
+.stage { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 56px; align-items: center; padding-top: 24px; padding-bottom: 88px; }
+.stage-copy p { color: var(--ink-2); }
+.stage-map #map { max-height: 70vh; }
+@media (max-width: 900px) { .stage { grid-template-columns: 1fr; gap: 20px; } .viewport { aspect-ratio: 1 / 1.1; } .seg button { padding: 7px 8px; } }
+.hud .hw { display: inline-block; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.stage-map #map { max-height: 62vh; }

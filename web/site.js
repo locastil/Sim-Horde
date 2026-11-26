@@ -159,7 +159,7 @@
   async function tick() {
     try {
       const [s, m] = await Promise.all([api("stats"), api("map")]);
-      liveLine(s); recent(s); paint(m);
+      liveLine(s); recent(s); paint(m); if (m.run && m.run !== (lastMap && lastMap.run)) { lastMap = m; if (globe) globe.setRun(m); }
     } catch (e) {
       $("liveLine").innerHTML = `<span class="live-dot off"></span>The coordinator isn't answering right now. This page will keep trying.`;
     }
@@ -168,7 +168,9 @@
     try { const [p, b] = await Promise.all([api("progress"), api("leaderboard")]); chart(p); leaders(b); } catch (e) {}
   }
 
-  api("counties").then((d) => { shapes = d; drawMap(d); tick(); }).catch(() => tick());
+  let globe = null, lastMap = null;
+  import("/globe.js").then((m) => { globe = m.mountGlobe(document.getElementById("globe")); if (shapes) globe.setCounties(shapes); if (lastMap) globe.setRun(lastMap); }).catch((e) => console.warn("globe", e));
+  api("counties").then((d) => { shapes = d; drawMap(d); if (globe) globe.setCounties(d); tick(); }).catch(() => tick());
   slow();
   setInterval(tick, 8000);
   setInterval(slow, 30000);

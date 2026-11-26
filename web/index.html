@@ -18,6 +18,7 @@
     <span>Sim Horde</span>
   </a>
   <nav aria-label="Main">
+    <a href="#live">Live</a>
     <a href="#how">How it works</a>
     <a href="#runs">Results</a>
     <a href="#board">Leaderboard</a>
@@ -37,7 +38,29 @@
       <p class="live-line" id="liveLine" aria-live="polite">Connecting to the coordinator…</p>
     </div>
 
-    <figure class="hero-map">
+    <figure class="viewport" id="globe" aria-label="3D globe of the world Sim Horde is building">
+      <div class="gl" tabindex="0" aria-label="Drag or use the arrow keys to turn the globe; plus and minus to zoom"></div>
+      <div class="gtip" role="status" hidden></div>
+      <div class="hud">
+        <div class="hud-top">
+          <span class="dot"></span><span>Rendering at <b class="q">Auto</b> on <span class="hw">your graphics card</span></span>
+          <span class="fps"></span>
+        </div>
+        <div class="seg" role="group" aria-label="Graphics quality">
+          <button type="button" data-q="auto">Auto</button><button type="button" data-q="low">Low</button><button type="button" data-q="medium">Medium</button><button type="button" data-q="high">High</button><button type="button" data-q="epic">Epic</button>
+        </div>
+        <p class="note" hidden></p>
+      </div>
+      <figcaption>California is live, colored by the newest volunteer run. Everything else is waiting for more GPUs. Drag to turn it.</figcaption>
+    </figure>
+  </section>
+
+  <section class="wrap stage" id="live">
+    <div class="stage-copy">
+      <h2>Stage one, live</h2>
+      <p>Each finished run repaints California. Counties are shaded by how often simulated encounters went badly compared with the state as a whole. Point at a county for its number.</p>
+    </div>
+    <figure class="hero-map stage-map">
       <svg id="map" viewBox="0 0 1000 1080" role="img" aria-labelledby="mapTitle mapDesc">
         <title id="mapTitle">Stage one: California counties, colored by the latest volunteer run</title>
         <desc id="mapDesc">Each county is shaded by how rude its simulated residents were compared with the state as a whole.</desc>
