@@ -162,7 +162,7 @@ export function mountGlobe(root, opts = {}) {
 
   let worldData = null, painting = false, repaintQueued = false;
   let renderer, scene, camera, world, tilt, earth, tex, specTex, base, raf = 0, built = 0;
-  let lon = CA.lon, lat = CA.lat, vLon = reduceMotion ? 0 : 0.035, vLat = 0, dragging = false, zoom = 4.0;
+  let lon = Math.random() * 360 - 180, lat = 15, vLon = reduceMotion ? 0 : 0.035, vLat = 0, dragging = false, zoom = 4.0;
   let visible = true, frames = 0, tAcc = 0, lowWindows = 0, lastT = performance.now(), fps = 0, dprScale = 1;
 
   function setHud() {
@@ -245,7 +245,7 @@ export function mountGlobe(root, opts = {}) {
     const minGap = 1000 / TIERS[tier].fps - 2;
     if (now - lastFrame < minGap) return;
     const dt = Math.min(0.05, (now - (lastFrame || now)) / 1000); lastFrame = now;
-    if (!dragging) { lon += vLon * dt * 60 * 0.12; lat += (CA.lat - 8 - lat) * 0.004 * dt * 60; vLon += ((reduceMotion ? 0 : 0.035) - vLon) * 0.02; }
+    if (!dragging) { lon += vLon * dt * 60 * 0.12; lat += (15 - lat) * 0.004 * dt * 60; vLon += ((reduceMotion ? 0 : 0.035) - vLon) * 0.02; }
     lat = Math.max(-70, Math.min(75, lat));
     tilt.rotation.x = lat * Math.PI / 180;
     world.rotation.y = -(lon + 90) * Math.PI / 180;
