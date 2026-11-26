@@ -2,8 +2,9 @@
 Sim Horde world kernel: one shard of the shared world (a handful of nations) for a stretch of days.
 
 Everything it needs arrives with the job as plain numbers: each nation's statistics, the behavior weights,
-this month's political pressure on each nation, a random seed, and the shard's saved state (an .npz file
-with arrays only; loaded with allow_pickle=False, so it can't carry code). It returns per-nation results
+this month's political pressure on each nation, a random seed, and the shard's saved state (raw 16-bit
+numbers, nothing that can carry code). The same model also runs in web browsers (web/worker/kernel.js),
+so phones and tablets can take part. It returns per-nation results
 and the new state. Nothing is read from or written to disk.
 
 The model is the same idea as the California simulation, made generic: people meet each other every day,
@@ -27,6 +28,7 @@ FEATURES = ("pov", "dens", "unemp", "ineq", "young", "net")     # each nation's 
 PRESSURE = ("stress", "irr", "leave", "kind")                  # political pressure on a nation this month
 STATE_KEYS = ("trait", "stress", "irr", "conn")
 MAX_AGENTS = 4_000_000
+STATE_TAG = "f16v1:"       # state = this tag + base64 of the four arrays below, as little-endian float16, one after another
 
 
 def features(n):
@@ -41,16 +43,21 @@ def features(n):
 
 
 def pack_state(st):
-    buf = io.BytesIO()
-    np.savez_compressed(buf, **{k: v.detach().to("cpu", torch.float16).numpy() for k, v in st.items()})
-    return base64.b64encode(buf.getvalue()).decode()
+    raw = b"".join(st[k].detach().to("cpu", torch.float16).numpy().astype("<f2").tobytes() for k in STATE_KEYS)
+    return STATE_TAG + base64.b64encode(raw).decode()
 
 
 def unpack_state(b64, dev):
-    with np.load(io.BytesIO(base64.b64decode(b64)), allow_pickle=False) as z:
-        if set(z.files) != set(STATE_KEYS):
-            raise ValueError("unexpected state arrays")
-        return {k: torch.from_numpy(z[k].astype(np.float32)).to(dev) for k in STATE_KEYS}
+    if not b64.startswith(STATE_TAG):
+        raise ValueError("unknown state format")
+    a = np.frombuffer(base64.b64decode(b64[len(STATE_TAG):]), dtype="<f2")
+    if a.size % len(STATE_KEYS):
+        raise ValueError("state has the wrong length")
+    n = a.size // len(STATE_KEYS)
+    a = a.astype(np.float32)
+    if not np.isfinite(a).all():
+        raise ValueError("state has non-numbers")
+    return {k: torch.from_numpy(a[i * n:(i + 1) * n].copy()).to(dev) for i, k in enumerate(STATE_KEYS)}
 
 
 def run_shard(job, dev):

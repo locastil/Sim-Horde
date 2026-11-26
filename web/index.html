@@ -22,7 +22,7 @@
     <a href="#how">How it works</a>
     <a href="#runs">Results</a>
     <a href="#board">Leaderboard</a>
-    <a class="btn small" href="#join">Lend your GPU</a>
+    <a class="btn small" href="#help">Help now</a>
   </nav>
 </header>
 
@@ -32,8 +32,8 @@
       <h1>Simulating the whole world on spare graphics cards.</h1>
       <p class="lede">Sim Horde is one shared world: billions of simulated people living their days in every country on Earth, each country running on its own real statistics. It's too big for one computer, so volunteers run pieces of it on their own GPUs, and the world moves forward a month each time every piece comes back.</p>
       <div class="cta-row">
-        <a class="btn" href="#join">Lend your GPU</a>
-        <a class="link" href="#how">See what your GPU would run</a>
+        <a class="btn" href="#help">Help from this device</a>
+        <a class="link" href="#join">Or install the worker</a>
       </div>
       <p class="live-line" id="liveLine" aria-live="polite">Connecting to the coordinator…</p>
     </div>
@@ -62,6 +62,29 @@
       <p class="news-stats" id="worldStats"></p>
       <ul id="worldEvents"></ul>
       <p class="news-note">These are simulated events, not news. Each country's income, jobs, inequality, crowding and starting kind of government come from real statistics, and coups, conflicts and protests happen about as often worldwide as they have in recent decades. No real person is named: leaders appear only by office and parties by broad family.</p>
+    </div>
+  </section>
+
+  <section class="wrap help" id="help">
+    <div class="help-copy">
+      <h2>Help from this device</h2>
+      <p>Your phone, tablet or computer can run a piece of the world right here in the browser: a few countries for one simulated month at a time. Nothing to install.</p>
+      <ul class="help-points">
+        <li>It only runs while this page is open, on screen, and you've pressed Start.</li>
+        <li>It pauses when your battery drops below 30% and you're not plugged in.</li>
+        <li>It sends back numbers about the simulated people. The only things it shares about you are the name you choose and whether you're on a phone, tablet or computer.</li>
+      </ul>
+    </div>
+    <div class="help-panel" id="helpBox">
+      <p class="help-who">Helping from <span id="helpDevice">this device</span></p>
+      <label class="field"><span>Name on the leaderboard (optional)</span><input id="helpName" maxlength="32" placeholder="Anonymous" autocomplete="off"></label>
+      <label class="field"><span>How hard to work</span>
+        <select id="helpPace"><option value="gentle">Gently, with long breaks</option><option value="normal" selected>Normal</option><option value="full">As fast as it can (plugged in)</option></select>
+      </label>
+      <button class="btn help-btn" id="helpStart" type="button" aria-pressed="false">Start helping</button>
+      <div class="help-progress" aria-hidden="true"><i id="helpBar"></i></div>
+      <p class="help-status" id="helpStatus" aria-live="polite">Not running.</p>
+      <p class="help-stats" id="helpStats"></p>
     </div>
   </section>
 
@@ -115,8 +138,8 @@
   <section class="band ink" id="join">
     <div class="wrap two">
       <div>
-        <h2>Lend your GPU</h2>
-        <p>The worker runs on Windows or Linux with an NVIDIA card. It uses the GPU only while a job is running, and you can stop it any time.</p>
+        <h2>Install the worker</h2>
+        <p>For a desktop with a graphics card: it runs bigger pieces of the world much faster, plus the California tuning runs, and keeps going in the background. Windows or Linux with an NVIDIA card. You can stop it any time.</p>
         <ol class="steps">
           <li><strong>Download the worker</strong> from GitHub and unzip it anywhere.<br><a class="btn light" href="https://github.com/locastil/Sim-Horde/archive/refs/heads/main.zip">Download from GitHub</a></li>
           <li><strong>Double-click <code>start_worker.bat</code>.</strong> The first start installs what it needs, which takes a few minutes. On Linux, run <code>./start_worker.sh</code>.</li>
@@ -140,5 +163,6 @@
 </footer>
 
 <script src="/site.js" defer></script>
+<script src="/help.js" defer></script>
 </body>
 </html>

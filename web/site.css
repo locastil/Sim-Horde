@@ -191,3 +191,23 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 .ramp.happy { background: linear-gradient(90deg, #E84C3D, #F08C40, #F2C85C, #60C896, #1EAABE); width: 96px; }
 .viewport figcaption { display: flex; flex-direction: column; gap: 6px; }
 .viewport .legend { color: #8FA3BC; }
+
+/* ---------- help from this device ---------- */
+.help { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr); gap: 56px; align-items: start; padding-top: 72px; padding-bottom: 88px; }
+.help-copy p { color: var(--ink-2); }
+.help-points { margin: 18px 0 0; padding: 0; list-style: none; max-width: 56ch; }
+.help-points li { position: relative; padding: 10px 0 10px 28px; border-top: 1px solid var(--line); color: var(--ink-2); font-size: .95rem; }
+.help-points li::before { content: ""; position: absolute; left: 4px; top: 18px; width: 9px; height: 9px; border-radius: 50%; background: var(--good); }
+.help-panel { background: var(--paper); border: 1px solid var(--line); border-radius: 18px; padding: 26px; box-shadow: 0 24px 48px -32px rgba(15, 27, 42, .35); }
+.help-who { font: 650 1.05rem/1.3 var(--display); margin: 0 0 18px; }
+.field { display: block; margin-bottom: 16px; }
+.field span { display: block; font-size: .85rem; color: var(--ink-3); margin-bottom: 6px; }
+.field input, .field select { width: 100%; font: 400 1rem var(--body); color: var(--ink); background: var(--ground); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.help-btn { width: 100%; border: 0; cursor: pointer; font: 650 1.05rem var(--body); padding: 16px; margin-top: 4px; }
+.help-btn[aria-pressed="true"] { background: var(--ink); }
+.help-progress { height: 6px; background: var(--mid); border-radius: 3px; overflow: hidden; margin: 18px 0 12px; }
+.help-progress i { display: block; height: 100%; width: 0; background: var(--cobalt); transition: width .25s linear; }
+.help-status { font-size: .95rem; color: var(--ink-2); margin: 0 0 4px; min-height: 1.5em; }
+.help-stats { font-size: .85rem; color: var(--ink-3); margin: 0; font-variant-numeric: tabular-nums; }
+@media (max-width: 900px) { .help { grid-template-columns: 1fr; gap: 28px; padding-top: 48px; } .help-panel { padding: 20px; } }
+@media (prefers-reduced-motion: reduce) { .help-progress i { transition: none; } }
