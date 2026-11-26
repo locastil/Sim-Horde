@@ -1,0 +1,4 @@
+worker_config.json
+worker_stop.flag
+horde_env/
+__pycache__/

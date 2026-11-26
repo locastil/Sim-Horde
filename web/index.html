@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sim Horde: simulate the whole world on volunteer GPUs</title>
+<meta name="description" content="Sim Horde is building a simulation of how people everywhere treat each other, run on volunteers' graphics cards. It starts with California.">
+<link rel="preload" href="/fonts/bricolage-grotesque-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/site.css">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+  <a class="mark" href="/" aria-label="Sim Horde home">
+    <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M5 27V12l6-6h10l6 6v15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><circle cx="11" cy="17" r="2.2" fill="currentColor"/><circle cx="21" cy="17" r="2.2" fill="currentColor"/><circle cx="16" cy="23" r="2.2" fill="currentColor"/></svg>
+    <span>Sim Horde</span>
+  </a>
+  <nav aria-label="Main">
+    <a href="#how">How it works</a>
+    <a href="#runs">Results</a>
+    <a href="#board">Leaderboard</a>
+    <a class="btn small" href="#join">Lend your GPU</a>
+  </nav>
+</header>
+
+<main id="main">
+  <section class="hero">
+    <div class="hero-copy">
+      <h1>Simulating the whole world on spare graphics cards.</h1>
+      <p class="lede">Sim Horde is a model of how people treat each other, too big for one computer, so volunteers run it on their own GPUs. Stage one is California: every run is scored against real county data on stress, loneliness, assaults and people moving away. Once it matches, it scales out to the rest of the planet.</p>
+      <div class="cta-row">
+        <a class="btn" href="#join">Lend your GPU</a>
+        <a class="link" href="#how">See what your GPU would run</a>
+      </div>
+      <p class="live-line" id="liveLine" aria-live="polite">Connecting to the coordinator…</p>
+    </div>
+
+    <figure class="hero-map">
+      <svg id="map" viewBox="0 0 1000 1080" role="img" aria-labelledby="mapTitle mapDesc">
+        <title id="mapTitle">Stage one: California counties, colored by the latest volunteer run</title>
+        <desc id="mapDesc">Each county is shaded by how rude its simulated residents were compared with the state as a whole.</desc>
+        <g id="counties"></g>
+      </svg>
+      <figcaption>
+        <div class="legend" aria-hidden="true">
+          <span>Kinder than the state</span><i class="ramp"></i><span>Ruder</span>
+        </div>
+        <p id="mapCaption">Waiting for the first finished run.</p>
+      </figcaption>
+      <div class="tip" id="tip" role="status" hidden></div>
+    </figure>
+  </section>
+
+  <section class="band" id="how">
+    <div class="wrap two">
+      <div>
+        <h2>What your GPU would run</h2>
+        <p>The model gives each simulated person a home county, a commute, a job, friends and a mood. Day by day they meet each other, and some of those meetings go badly. The question each job answers is simple: with this particular set of behavior weights, does the simulated state look like the real one?</p>
+        <p>A job is a list of numbers, not a program. The worker you download holds only the behavior model, which you can read in full. It checks every number against its published range before it starts, and nothing it receives can make it run new code. The county data, the jobs and the scoring all come from the coordinator, so the worker only does anything as part of the horde.</p>
+      </div>
+      <dl class="facts">
+        <div><dt>One job</dt><dd id="jobSize">400,000 simulated people over 270 days</dd></div>
+        <div><dt>Typical time per job</dt><dd id="avgTime">Measured once volunteers report in</dd></div>
+        <div><dt>Memory needed</dt><dd>4 GB of VRAM, or a CPU if you're patient</dd></div>
+        <div><dt>Checking</dt><dd>One job in ten is re-run by a different volunteer. Results that disagree get a third run, and workers that keep disagreeing are paused.</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="wrap" id="runs">
+    <div class="section-head">
+      <h2>How close the simulation is getting</h2>
+      <p id="progressLine">Each dot is one finished run. The line is the best match to real county data so far, out of a possible 1.0.</p>
+    </div>
+    <div class="chart-wrap">
+      <svg id="chart" viewBox="0 0 1000 320" role="img" aria-label="Match score of each finished run, with the best so far"></svg>
+    </div>
+
+    <h3 class="sub">Latest results</h3>
+    <div class="table-wrap">
+      <table class="data" id="recent">
+        <thead><tr><th scope="col">Run</th><th scope="col">Volunteer</th><th scope="col">Hardware</th><th scope="col" class="num">Match</th><th scope="col" class="num">Took</th><th scope="col">Finished</th></tr></thead>
+        <tbody><tr><td colspan="6" class="empty">No runs yet. The first volunteer to connect starts the campaign.</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="wrap" id="board">
+    <div class="section-head">
+      <h2>Leaderboard</h2>
+      <p>Kudos are earned for every accepted run, with a bonus when another volunteer's re-run matches yours. They have no money value. They show who is carrying the load.</p>
+    </div>
+    <div class="table-wrap">
+      <table class="data" id="leaders">
+        <thead><tr><th scope="col" class="num">#</th><th scope="col">Volunteer</th><th scope="col">Hardware</th><th scope="col" class="num">Runs</th><th scope="col" class="num">GPU hours</th><th scope="col" class="num">Kudos</th></tr></thead>
+        <tbody><tr><td colspan="6" class="empty">Nobody has joined yet.</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="band ink" id="join">
+    <div class="wrap two">
+      <div>
+        <h2>Lend your GPU</h2>
+        <p>The worker runs on Windows or Linux with an NVIDIA card. It uses the GPU only while a job is running, and you can stop it any time.</p>
+        <ol class="steps">
+          <li><strong>Download the worker</strong> from GitHub and unzip it anywhere.<br><a class="btn light" href="https://github.com/locastil/Sim-Horde/archive/refs/heads/main.zip">Download from GitHub</a></li>
+          <li><strong>Double-click <code>start_worker.bat</code>.</strong> The first start installs what it needs, which takes a few minutes. On Linux, run <code>./start_worker.sh</code>.</li>
+          <li><strong>Type a name</strong> for the leaderboard. Jobs arrive on their own from then on. Close the window to stop.</li>
+        </ol>
+      </div>
+      <div class="next">
+        <h3>The road to the whole world</h3>
+        <ol class="stages">
+          <li class="now"><strong>California</strong> <span>Now</span><br>58 counties with public data to check against. This is where the model proves it can match reality.</li>
+          <li><strong>The United States</strong><br>About 3,100 counties, each with its own census, health and crime data.</li>
+          <li><strong>Every region on Earth</strong><br>Far more people than any single computer can hold, split across every GPU that joins.</li>
+        </ol>
+        <p>Each stage starts when the one before it matches the real data. The more GPUs join, the sooner that happens.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <p>Sim Horde is the volunteer computing arm of the California civility simulation. Public data: CDC PLACES, California DOJ, IRS migration, Census.</p>
+    <p><a href="/api/v1/stats">Public API</a></p>
+  </div>
+</footer>
+
+<script src="/site.js" defer></script>
+</body>
+</html>
