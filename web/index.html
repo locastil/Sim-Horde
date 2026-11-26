@@ -58,7 +58,12 @@
   <section class="wrap stage" id="live">
     <div class="stage-copy">
       <h2>Stage one, live</h2>
-      <p>Each finished run repaints California. Counties are shaded by how often simulated encounters went badly compared with the state as a whole. Point at a county for its number.</p>
+      <p>California is running right now, one simulated day after another. Counties are shaded by how often encounters went badly compared with the state as a whole. Point at a county for its number.</p>
+      <div class="news" id="worldNews" hidden>
+        <p class="news-date" id="worldDate"></p>
+        <ul id="worldEvents"></ul>
+        <p class="news-laws" id="worldLaws"></p>
+      </div>
     </div>
     <figure class="hero-map stage-map">
       <svg id="map" viewBox="0 0 1000 1080" role="img" aria-labelledby="mapTitle mapDesc">

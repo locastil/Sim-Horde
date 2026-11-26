@@ -86,6 +86,7 @@
       if (lastRun === null) requestAnimationFrame(() => requestAnimationFrame(() => $("counties").classList.add("live")));
       lastRun = m.run;
     }
+    if (m.caption) { $("mapCaption").innerHTML = m.caption; return; }
     $("mapCaption").innerHTML = `Run ${fmt.format(m.run)}, finished ${ago(m.ago)} by <b>${esc(m.worker)}</b> on ${hw(m.gpu)}. Statewide, ${(m.civ * 100).toFixed(1)}% of encounters were civil.`;
   }
 
@@ -156,10 +157,38 @@
     svg.innerHTML = g;
   }
 
+  // The live world (the simulation running on the host PC) drives the globe and the California map
+  // when it's running; otherwise they show the newest volunteer run.
+  function worldView(w) {
+    const rude = {};
+    for (const [n, c] of Object.entries(w.counties)) rude[n] = Math.max(1e-4, 1 - c.civ);
+    const scale = w.full_scale ? "full-scale, one simulated person per real Californian" : "scaled down";
+    return { run: "w" + w.day + ":" + w.age, rude, civ: w.civ,
+             caption: `Live world, ${esc(w.date)} (${scale}). Updated ${ago(w.age)}. Statewide, ${(w.civ * 100).toFixed(1)}% of encounters were civil.` };
+  }
+  function headlines(w) {
+    const box = $("worldNews");
+    if (!box) return;
+    if (!w) { box.hidden = true; return; }
+    box.hidden = false;
+    $("worldDate").textContent = w.date;
+    $("worldLaws").textContent = w.state_laws.length ? `State laws in force: ${w.state_laws.join(", ")}.` : "No statewide laws passed yet.";
+    $("worldEvents").innerHTML = w.events.slice(0, 6).map((e) => `<li><span>${esc(e[0])}</span>${esc(e[2])}</li>`).join("");
+  }
+  let worldKey = null;
   async function tick() {
     try {
-      const [s, m] = await Promise.all([api("stats"), api("map")]);
-      liveLine(s); recent(s); paint(m); if (m.run && m.run !== (lastMap && lastMap.run)) { lastMap = m; if (globe) globe.setRun(m); }
+      const [s, m, w] = await Promise.all([api("stats"), api("map"), api("world").catch(() => ({ world: null }))]);
+      liveLine(s); recent(s);
+      const live = w && w.world && w.age < 900;
+      headlines(live ? w : null);
+      const view = live ? worldView(w) : m;
+      paint(view);
+      const key = live ? "w" + w.day : m.run;
+      if (key && key !== worldKey) { worldKey = key; lastMap = view; if (globe) globe.setRun(view); }
+      const cap = document.querySelector("#globe figcaption");
+      if (cap) cap.textContent = live ? `California is the live world, ${w.date}. Everything else is waiting for more GPUs. Drag to turn it.`
+                                      : "California shows the newest volunteer run. Everything else is waiting for more GPUs. Drag to turn it.";
     } catch (e) {
       $("liveLine").innerHTML = `<span class="live-dot off"></span>The coordinator isn't answering right now. This page will keep trying.`;
     }
