@@ -184,3 +184,7 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 .news li { font-size: .92rem; color: var(--ink-2); padding: 9px 0; border-bottom: 1px solid #E3E9EE; max-width: 60ch; }
 .news li span { display: block; font-size: .78rem; color: var(--ink-3); margin-bottom: 2px; }
 .news-laws { font-size: .85rem; color: var(--ink-3); }
+.world { padding-top: 24px; padding-bottom: 40px; }
+.world .news { border-top: 0; padding-top: 0; margin-top: 0; max-width: 880px; }
+.news-stats { color: var(--ink-2); }
+.news-note { font-size: .85rem; color: var(--ink-3); margin-top: 14px; }

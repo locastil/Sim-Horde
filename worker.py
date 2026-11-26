@@ -31,7 +31,10 @@ CONFIG = os.path.join(HERE, "worker_config.json")
 STOP = os.path.join(HERE, "worker_stop.flag")
 DIRECTORY = "https://raw.githubusercontent.com/locastil/Sim-Horde/main/coordinator.json"
 VERSION = "0.2"
-KERNEL_SHA = hashlib.sha256(open(os.path.join(HERE, "sim_kernel.py"), "rb").read()).hexdigest()
+_h = hashlib.sha256()
+for _f in ("sim_kernel.py", "world_kernel.py"):
+    _h.update(open(os.path.join(HERE, _f), "rb").read())
+KERNEL_SHA = _h.hexdigest()
 
 
 def say(msg):
@@ -174,6 +177,36 @@ def main():
             idle = min(idle * 2, 120)
             continue
         idle = 5
+        if job.get("kind") == "world":
+            import world_kernel as WK
+            err = WK.check_world_job(job.get("payload"))
+            if err:
+                say(f"Refused world job {job.get('id')}: {err}")
+                time.sleep(10)
+                continue
+            p = job["payload"]
+            people = sum(n["agents"] for n in p["nations"])
+            say(f"World job {job['id']}: {len(p['nations'])} nations, {people:,} simulated people, {p['days']} days")
+            t0 = time.time()
+            call(server, "/api/v1/heartbeat", dict(key=key, status="running"), timeout=10)
+            try:
+                out = WK.run_shard(p, dev)
+            except torch.cuda.OutOfMemoryError:
+                torch.cuda.empty_cache()
+                say("Ran out of GPU memory on that world job; it will go to another volunteer.")
+                time.sleep(60)
+                continue
+            secs = time.time() - t0
+            code, r = call(server, "/api/v1/world/result", dict(key=key, job=job["id"], out=out, secs=secs), timeout=300)
+            if code == 200:
+                kudos += r.get("kudos", 0)
+                adv = f" The world moved on to the next month." if r.get("world_advanced") else ""
+                say(f"Done in {secs:.0f}s ({r.get('month')}). +{r.get('kudos', 0)} kudos, {kudos:.1f} this session.{adv}")
+            else:
+                say(f"World result not accepted: {r.get('error', code)}")
+            if a.once:
+                break
+            continue
         p, err = check_job(job, K.RANGES)
         if err:
             say(f"Refused job {job.get('id')}: {err}")

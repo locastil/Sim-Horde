@@ -157,38 +157,31 @@
     svg.innerHTML = g;
   }
 
-  // The live world (the simulation running on the host PC) drives the globe and the California map
-  // when it's running; otherwise they show the newest volunteer run.
-  function worldView(w) {
-    const rude = {};
-    for (const [n, c] of Object.entries(w.counties)) rude[n] = Math.max(1e-4, 1 - c.civ);
-    const scale = w.full_scale ? "full-scale, one simulated person per real Californian" : "scaled down";
-    return { run: "w" + w.day + ":" + w.age, rude, civ: w.civ,
-             caption: `Live world, ${esc(w.date)} (${scale}). Updated ${ago(w.age)}. Statewide, ${(w.civ * 100).toFixed(1)}% of encounters were civil.` };
-  }
-  function headlines(w) {
-    const box = $("worldNews");
-    if (!box) return;
-    if (!w) { box.hidden = true; return; }
-    box.hidden = false;
-    $("worldDate").textContent = w.date;
-    $("worldLaws").textContent = w.state_laws.length ? `State laws in force: ${w.state_laws.join(", ")}.` : "No statewide laws passed yet.";
-    $("worldEvents").innerHTML = w.events.slice(0, 6).map((e) => `<li><span>${esc(e[0])}</span>${esc(e[2])}</li>`).join("");
-  }
   let worldKey = null;
+  function worldPanel(g) {
+    const box = $("worldNews");
+    if (!g || !g.date) { box.hidden = true; return; }
+    box.hidden = false;
+    $("worldDate").textContent = g.date;
+    const nat = Object.keys(g.nations).length;
+    $("worldStats").innerHTML = `${fmt.format(nat)} nations and ${big(g.people)} people, simulated as ${fmt.format(g.simulated)} (one for every ${fmt.format(g.scale)}). `
+      + (g.civ ? `${(g.civ * 100).toFixed(1)}% of encounters went well this month. ` : "")
+      + `${plural(g.conflicts || 0, "armed conflict", "armed conflicts")} under way. Next month: ${g.month_progress[0]} of ${g.month_progress[1]} pieces done.`;
+    $("worldEvents").innerHTML = g.events.length ? g.events.slice(0, 8).map((e) => `<li><span>${esc(e[0])} · ${esc(e[2].toLowerCase())}</span>${esc(e[3])}</li>`).join("")
+      : "<li>The first month is still being simulated. Headlines appear as soon as volunteers finish it.</li>";
+  }
   async function tick() {
     try {
-      const [s, m, w] = await Promise.all([api("stats"), api("map"), api("world").catch(() => ({ world: null }))]);
-      liveLine(s); recent(s);
-      const live = w && w.world && w.age < 900;
-      headlines(live ? w : null);
-      const view = live ? worldView(w) : m;
-      paint(view);
-      const key = live ? "w" + w.day : m.run;
-      if (key && key !== worldKey) { worldKey = key; lastMap = view; if (globe) globe.setRun(view); }
+      const [s, m, g] = await Promise.all([api("stats"), api("map"), api("globe").catch(() => ({ date: null }))]);
+      liveLine(s); recent(s); paint(m);
+      worldPanel(g);
+      if (g && g.date && Object.keys(g.nations).length) {
+        const key = g.epoch;
+        if (key !== worldKey) { worldKey = key; if (globe) globe.setWorld(g); lastWorld = g; }
+      } else if (m.run && m.run !== (lastMap && lastMap.run)) { lastMap = m; if (globe) globe.setRun(m); }
       const cap = document.querySelector("#globe figcaption");
-      if (cap) cap.textContent = live ? `California is the live world, ${w.date}. Everything else is waiting for more GPUs. Drag to turn it.`
-                                      : "California shows the newest volunteer run. Everything else is waiting for more GPUs. Drag to turn it.";
+      if (cap) cap.textContent = g && g.date ? `${g.date} in the shared world. Every nation is built from real statistics under an invented name. Drag to turn it; point at a nation.`
+                                             : "California shows the newest volunteer run. Drag to turn it.";
     } catch (e) {
       $("liveLine").innerHTML = `<span class="live-dot off"></span>The coordinator isn't answering right now. This page will keep trying.`;
     }
@@ -197,8 +190,8 @@
     try { const [p, b] = await Promise.all([api("progress"), api("leaderboard")]); chart(p); leaders(b); } catch (e) {}
   }
 
-  let globe = null, lastMap = null;
-  import("/globe.js").then((m) => { globe = m.mountGlobe(document.getElementById("globe")); if (shapes) globe.setCounties(shapes); if (lastMap) globe.setRun(lastMap); }).catch((e) => console.warn("globe", e));
+  let globe = null, lastMap = null, lastWorld = null;
+  import("/globe.js").then((m) => { globe = m.mountGlobe(document.getElementById("globe")); if (shapes) globe.setCounties(shapes); if (lastWorld) globe.setWorld(lastWorld); else if (lastMap) globe.setRun(lastMap); }).catch((e) => console.warn("globe", e));
   api("counties").then((d) => { shapes = d; drawMap(d); if (globe) globe.setCounties(d); tick(); }).catch(() => tick());
   slow();
   setInterval(tick, 8000);

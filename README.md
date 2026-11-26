@@ -1,12 +1,15 @@
 # Sim Horde
 
-**Simulating the whole world on spare graphics cards.**
+**Simulating the whole world on spare graphics cards.** Watch it live at **[sim-horde.org](https://sim-horde.org)**.
 
-Sim Horde is a model of how people treat each other: who they meet, how stressed they are, and
-whether a run-in goes well or badly. It's too big for one computer, so volunteers run pieces of it
-on their own GPUs. Stage one is California. Every run is scored against real county data on
-stress, loneliness, assaults and people moving away. Once it matches reality, it scales out to the
-United States and then to the rest of the planet.
+Sim Horde is one shared world: simulated people meeting each other every day, in nations built from
+real statistics (income, jobs, inequality, crowding) under invented names, with invented leaders and
+parties. It's too big for one computer, so volunteers run pieces of it on their own GPUs, and the world
+moves forward a month each time every piece comes back. Elections, protests, coups and conflicts happen
+about as often worldwide as they have in recent decades; where they land depends on the simulation.
+
+The behavior model is tuned on California, where every test run is scored against real county data on
+stress, loneliness, assaults and people moving away.
 
 ## Lend your GPU (Windows)
 
@@ -30,12 +33,14 @@ For GPUs under 6 GB, start it with `start_worker.bat --max-agents 200000`.
 
 ## What runs on your computer
 
-- **`sim_kernel.py`**: the behavior model, readable in full. It has no main loop and no data of
-  its own. It runs single jobs and nothing else.
+- **`world_kernel.py`**: runs one piece of the shared world (a few nations) for a month.
+- **`sim_kernel.py`**: the California test model. Neither file has a main loop or data of its own;
+  they run single jobs and nothing else.
 - **`worker.py`**: joins the horde, receives the county data (kept in memory only), then runs jobs
   and sends back county-level numbers.
 
-A job is a list of behavior weights, a random seed and a population size. It's data, not code. The
+A job is numbers only: behavior weights, each nation's conditions, a random seed, and for world jobs
+the saved state of that piece of the world (arrays, loaded without pickle). It's data, not code. The
 worker checks every weight against its published range and never downloads or runs a program.
 
 The coordinator sees the name you pick, your GPU model and its memory, and your results. Your
@@ -53,5 +58,4 @@ They have no money value.
 
 ## Live progress
 
-The live map, progress chart and leaderboard are on the Sim Horde page. Its address is in
-[`coordinator.json`](coordinator.json).
+The live globe, this month's headlines and the leaderboard are at [sim-horde.org](https://sim-horde.org).

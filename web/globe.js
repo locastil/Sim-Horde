@@ -63,6 +63,7 @@ function decode(d) {
     return out;
   })]);
 }
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 1000) / 1000; }
 
 function tracePath(ctx, ring, W, H, shift) {
@@ -89,7 +90,7 @@ function drawRing(ctx, ring, W, H) {
   if (mx > 180) tracePath(ctx, ring, W, H, -W);
 }
 
-async function paintBase(tier, W, H) {
+async function paintBase(tier, W, H, world) {
   const T = TIERS[tier];
   const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
   const ctx = cv.getContext("2d");
@@ -107,7 +108,10 @@ async function paintBase(tier, W, H) {
       if (layer.startsWith("countries")) {
         const v = hash(name);
         const L = tier === "low" ? 30 : 21;
-        ctx.fillStyle = `hsl(${212 + v * 14}, ${16 + v * 8}%, ${L + v * 6}%)`; ctx.fill("evenodd");
+        const nv = world && world.nations[name];
+        ctx.fillStyle = nv ? ramp(Math.max(-1, Math.min(1, Math.log((1 - nv.civ) / world.meanRude) / 0.5)))
+                           : `hsl(${212 + v * 14}, ${16 + v * 8}%, ${L + v * 6}%)`;
+        ctx.fill("evenodd");
         if (sctx) { sctx.beginPath(); for (const r of rings) drawRing(sctx, r, W / 2, H / 2); sctx.fill("evenodd"); }
         { ctx.strokeStyle = "rgba(150,175,205,.55)"; ctx.lineWidth = Math.max(0.6, 1.1 * lw); ctx.stroke(); }
       } else if (layer === "admin1") {
@@ -117,6 +121,16 @@ async function paintBase(tier, W, H) {
       } else {
         ctx.strokeStyle = "rgba(140,165,195,.22)"; ctx.lineWidth = Math.max(0.3, 0.45 * lw); ctx.stroke();
       }
+    }
+  }
+  if (world) {
+    const feats = await loadLayer(T.layers[0]);
+    for (const [id, rings] of feats) {
+      const nv = world.nations[id];
+      if (!nv || !(nv.conflict || nv.protests)) continue;
+      ctx.beginPath(); for (const r of rings) drawRing(ctx, r, W, H);
+      ctx.strokeStyle = nv.conflict ? "rgba(255,60,60,.95)" : "rgba(255,200,80,.9)";
+      ctx.lineWidth = Math.max(1.5, (nv.conflict ? 3.2 : 2.2) * lw); ctx.stroke();
     }
   }
   return { cv, spec };
@@ -138,6 +152,7 @@ export function mountGlobe(root, opts = {}) {
   let mode = (urlQ && (TIERS[urlQ] || urlQ === "auto")) ? urlQ : (store.get("simhorde.quality") || "auto");
   let tier = mode === "auto" ? autoTier : mode;
 
+  let worldData = null, painting = false, repaintQueued = false;
   let renderer, scene, camera, world, tilt, earth, tex, specTex, base, caShapes = null, caVals = null, raf = 0, built = 0;
   let lon = CA.lon, lat = CA.lat, vLon = reduceMotion ? 0 : 0.035, vLat = 0, dragging = false, zoom = 4.0;
   let visible = true, frames = 0, tAcc = 0, lowWindows = 0, lastT = performance.now(), fps = 0, dprScale = 1;
@@ -154,7 +169,7 @@ export function mountGlobe(root, opts = {}) {
     root.classList.add("loading");
     if (renderer) { cancelAnimationFrame(raf); renderer.dispose(); renderer.domElement.remove(); scene.traverse((o) => { o.geometry && o.geometry.dispose(); o.material && o.material.dispose(); }); tex && tex.dispose(); specTex && specTex.dispose(); }
     const W = Math.min(T.tex, gpu.maxTex), H = W / 2;
-    const painted = await paintBase(tier, W, H);
+    const painted = await paintBase(tier, W, H, worldData);
     if (myBuild !== built) return;
     base = painted.cv;
     const live = document.createElement("canvas"); live.width = W; live.height = H; live.getContext("2d").drawImage(base, 0, 0);
@@ -202,7 +217,7 @@ export function mountGlobe(root, opts = {}) {
       scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xbfd4ff, size: tier === "epic" ? 0.11 : 0.09, transparent: true, opacity: 0.8, depthWrite: false })));
     }
     resize();
-    if (caShapes && caVals) paintCA();
+    if (caShapes && caVals && !worldData) paintCA();
     setHud();
     root.classList.remove("loading");
     frames = 0; tAcc = 0; lowWindows = 0; lastT = performance.now();
@@ -273,7 +288,20 @@ export function mountGlobe(root, opts = {}) {
     caShapes = data.counties.map((c) => ({ name: c.name, pop: c.pop, rings: c.rings, flat: c.rings.map((r) => Float32Array.from(r.flat())) }));
     paintCA();
   }
-  function setRun(m) { if (m && m.rude) { caVals = m.rude; paintCA(); } }
+  function setRun(m) { if (m && m.rude) { caVals = m.rude; if (!worldData) paintCA(); } }
+  async function setWorld(g) {
+    let sw = 0, sv = 0;
+    for (const n of Object.values(g.nations)) { sw += n.pop; sv += n.pop * (1 - n.civ); }
+    worldData = { nations: g.nations, meanRude: sv / Math.max(1, sw) };
+    if (!tex) return;
+    if (painting) { repaintQueued = true; return; }
+    painting = true;
+    const cv = tex.image;
+    const p = await paintBase(tier, cv.width, cv.height, worldData);
+    cv.getContext("2d").drawImage(p.cv, 0, 0); base = p.cv; tex.needsUpdate = true;
+    painting = false;
+    if (repaintQueued) { repaintQueued = false; setWorld({ nations: worldData.nations }); }
+  }
 
   /* --- input */
   const el = canvasWrap;
@@ -304,6 +332,19 @@ export function mountGlobe(root, opts = {}) {
     if (!hit) { tip.hidden = true; return; }
     const p = earth.worldToLocal(hit.point.clone()).normalize();
     const la = Math.asin(p.y) * 180 / Math.PI, phi = Math.atan2(p.z, -p.x) * 180 / Math.PI, lo = ((phi - 180 + 540) % 360) - 180;
+    if (worldData && hoverFeats) {
+      let hit = null;
+      for (const [id, rings] of hoverFeats) {
+        const nv = worldData.nations[id];
+        if (nv && rings.some((r) => insideFlat(lo, la, r))) { hit = nv; break; }
+      }
+      if (hit) {
+        const flags = [hit.conflict ? "armed conflict" : "", hit.protests ? "protests" : "", hit.rating ? "behavior ratings in use" : ""].filter(Boolean);
+        tip.innerHTML = `<b>${esc(hit.name)}</b><br>${esc(hit.gov)}, led by ${esc(hit.leader)}<br>${((1 - hit.civ) * 100).toFixed(1)}% of encounters went badly` + (flags.length ? `<br>${flags.join(", ")}` : "");
+      } else if (Math.abs(la) < 80) { tip.hidden = true; return; }
+      tip.style.left = e.clientX - r.left + "px"; tip.style.top = e.clientY - r.top + "px"; tip.hidden = false;
+      return;
+    }
     let found = null;
     if (lo > CA.box[0] && lo < CA.box[2] && la > CA.box[1] && la < CA.box[3]) {
       for (const c of caShapes) if (c.rings.some((ring) => inside(lo, la, ring))) { found = c; break; }
@@ -315,6 +356,16 @@ export function mountGlobe(root, opts = {}) {
       tip.innerHTML = `<b>Not simulated yet</b><br>Waiting for more GPUs`;
     }
     tip.style.left = e.clientX - r.left + "px"; tip.style.top = e.clientY - r.top + "px"; tip.hidden = false;
+  }
+  let hoverFeats = null;
+  loadLayer("countries_low").then((f) => { hoverFeats = f; });
+  function insideFlat(x, y, ring) {
+    let c = false;
+    for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2) {
+      const xi = ring[i], yi = ring[i + 1], xj = ring[j], yj = ring[j + 1];
+      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c;
+    }
+    return c;
   }
   function inside(x, y, ring) {
     let c = false;
@@ -336,5 +387,5 @@ export function mountGlobe(root, opts = {}) {
 
   setHud();
   build();
-  return { setCounties, setRun };
+  return { setCounties, setRun, setWorld };
 }

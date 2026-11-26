@@ -30,7 +30,7 @@
   <section class="hero">
     <div class="hero-copy">
       <h1>Simulating the whole world on spare graphics cards.</h1>
-      <p class="lede">Sim Horde is a model of how people treat each other, too big for one computer, so volunteers run it on their own GPUs. Stage one is California: every run is scored against real county data on stress, loneliness, assaults and people moving away. Once it matches, it scales out to the rest of the planet.</p>
+      <p class="lede">Sim Horde is one shared world: billions of simulated people meeting each other every day, in nations built from real statistics. It's too big for one computer, so volunteers run pieces of it on their own GPUs, and the world moves forward a month each time every piece comes back.</p>
       <div class="cta-row">
         <a class="btn" href="#join">Lend your GPU</a>
         <a class="link" href="#how">See what your GPU would run</a>
@@ -55,15 +55,20 @@
     </figure>
   </section>
 
-  <section class="wrap stage" id="live">
+  <section class="wrap world" id="live">
+    <div class="news" id="worldNews" hidden>
+      <h2>This month in the world</h2>
+      <p class="news-date" id="worldDate"></p>
+      <p class="news-stats" id="worldStats"></p>
+      <ul id="worldEvents"></ul>
+      <p class="news-note">Nations, leaders and parties are invented. Each nation's income, jobs, inequality, crowding and starting kind of government come from real statistics, and coups, conflicts and protests happen about as often worldwide as they have in recent decades.</p>
+    </div>
+  </section>
+
+  <section class="wrap stage" id="tuning">
     <div class="stage-copy">
-      <h2>Stage one, live</h2>
-      <p>California is running right now, one simulated day after another. Counties are shaded by how often encounters went badly compared with the state as a whole. Point at a county for its number.</p>
-      <div class="news" id="worldNews" hidden>
-        <p class="news-date" id="worldDate"></p>
-        <ul id="worldEvents"></ul>
-        <p class="news-laws" id="worldLaws"></p>
-      </div>
+      <h2>Tuning the model on California</h2>
+      <p>Alongside the world, volunteers run test versions of California and score them against real county data. The best-scoring behavior settings are what the whole world runs on. This map is the newest test. Point at a county for its number.</p>
     </div>
     <figure class="hero-map stage-map">
       <svg id="map" viewBox="0 0 1000 1080" role="img" aria-labelledby="mapTitle mapDesc">
