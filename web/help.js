@@ -88,7 +88,7 @@
 
   async function start() {
     if (!window.Worker || !window.crypto || !crypto.subtle) { setStatus("This browser is too old to help, sorry."); return; }
-    running = true; btn.textContent = "Stop helping"; btn.setAttribute("aria-pressed", "true");
+    running = true; btn.textContent = "Stop helping"; btn.setAttribute("aria-pressed", "true"); window.dispatchEvent(new CustomEvent("simhorde:helping", { detail: true }));
     setStatus("Starting...");
     try { kernel = kernel || (await fingerprint()); } catch (e) { setStatus("Couldn't load the world model. Check your connection."); stop(); return; }
     worker = worker || new Worker("/worker/runner.js");
@@ -96,7 +96,7 @@
     loop();
   }
   function stop() {
-    running = false; btn.textContent = "Start helping"; btn.setAttribute("aria-pressed", "false");
+    running = false; btn.textContent = "Start helping"; btn.setAttribute("aria-pressed", "false"); window.dispatchEvent(new CustomEvent("simhorde:helping", { detail: false }));
     store.set("simhorde.helping", "0");
     if (worker && busy) { worker.terminate(); worker = null; }
     setBar(0);

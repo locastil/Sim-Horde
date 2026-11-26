@@ -1,6 +1,9 @@
 // Sim Horde globe: the world the horde is building, drawn at the quality this device can handle.
 // Quality works like a game engine's scalability settings: Low, Medium, High, Epic, or Auto, which
-// picks from the graphics card and then watches the frame rate, stepping down to stay smooth.
+// picks from the graphics card and then watches for stutter: it lowers the resolution, then the
+// tier, when frames start running late, and steps back up once there's been headroom for a while.
+// Auto tops out at High on computers and Medium at 30 fps on phones and tablets, and drops to Low
+// while this device is helping simulate, so the simulation gets the graphics chip.
 import * as THREE from "/vendor/three.min.js";
 
 const TIERS = {
@@ -155,7 +158,11 @@ export function mountGlobe(root, opts = {}) {
   const tip = root.querySelector(".gtip");
   const gpu = probeGPU();
   if (!gpu.ok) { root.classList.add("nogl"); hud.querySelector(".hw").textContent = "This browser can't draw 3D graphics."; return; }
-  const autoTier = tierFor(gpu);
+  const handheld = matchMedia("(pointer: coarse)").matches && Math.min(screen.width, screen.height) < 1100;
+  const CEIL = handheld ? "medium" : "high";                     // Auto never goes above this; Epic is a choice
+  const capTier = (t) => ORDER[Math.min(ORDER.indexOf(t), ORDER.indexOf(CEIL))];
+  const autoTier = capTier(tierFor(gpu));
+  let helping = false, ceiling = autoTier, beforeHelp = null;                       // ceiling: the highest tier Auto may climb back to
   const urlQ = new URLSearchParams(location.search).get("quality");
   let mode = (urlQ && (TIERS[urlQ] || urlQ === "auto")) ? urlQ : (store.get("simhorde.quality") || "auto");
   let tier = mode === "auto" ? autoTier : mode;
@@ -163,11 +170,13 @@ export function mountGlobe(root, opts = {}) {
   let worldData = null, painting = false, repaintQueued = false;
   let renderer, scene, camera, world, tilt, earth, tex, specTex, base, raf = 0, built = 0;
   let lon = Math.random() * 360 - 180, lat = 15, vLon = reduceMotion ? 0 : 0.035, vLat = 0, dragging = false, zoom = 4.0;
-  let visible = true, frames = 0, tAcc = 0, lowWindows = 0, lastT = performance.now(), fps = 0, dprScale = 1;
+  let visible = true, frames = 0, tAcc = 0, slow = 0, lowWindows = 0, goodWindows = 0, lastT = performance.now(), fps = 0, dprScale = 1;
+  let probation = 0, holdUntil = 0;                              // after stepping up: watch closely, and back off if it was too much
+  const fpsOf = (t) => (mode === "auto" && handheld) ? 30 : TIERS[t].fps;
 
   function setHud() {
     hud.querySelector(".hw").textContent = gpu.name;
-    hud.querySelector(".q").textContent = TIERS[tier].label + (mode === "auto" ? " (auto)" : "");
+    hud.querySelector(".q").textContent = TIERS[tier].label + (mode === "auto" ? (helping ? " (auto, helping)" : " (auto)") : "");
     hud.querySelectorAll("button[data-q]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.q === mode)));
   }
 
@@ -227,7 +236,7 @@ export function mountGlobe(root, opts = {}) {
     resize();
     setHud();
     root.classList.remove("loading");
-    frames = 0; tAcc = 0; lowWindows = 0; lastT = performance.now();
+    frames = 0; tAcc = 0; slow = 0; lowWindows = 0; lastT = performance.now();
     raf = requestAnimationFrame(loop);
   }
 
@@ -242,7 +251,7 @@ export function mountGlobe(root, opts = {}) {
   function loop(now) {
     raf = requestAnimationFrame(loop);
     if (!visible) return;
-    const minGap = 1000 / TIERS[tier].fps - 2;
+    const minGap = 1000 / fpsOf(tier) - 2;
     if (now - lastFrame < minGap) return;
     const dt = Math.min(0.05, (now - (lastFrame || now)) / 1000); lastFrame = now;
     if (!dragging) { lon += vLon * dt * 60 * 0.12; lat += (15 - lat) * 0.004 * dt * 60; vLon += ((reduceMotion ? 0 : 0.035) - vLon) * 0.02; }
@@ -251,21 +260,54 @@ export function mountGlobe(root, opts = {}) {
     world.rotation.y = -(lon + 90) * Math.PI / 180;
     camera.position.set(0, 0, zoom); camera.lookAt(0, 0, 0);
     renderer.render(scene, camera);
-    // frame-rate governor (Auto only): first lower the resolution, then the tier
-    frames++; tAcc += now - lastT; lastT = now;
+    // smoothness governor (Auto only). It counts late frames rather than averaging, because a
+    // choppy 45 fps looks worse than a steady 30. Down: resolution first, then the tier. Up: after
+    // ~30 s with no stutter, one step at a time, and straight back down if that step stutters.
+    const gap = now - lastT; lastT = now;
+    if (gap < 250) {                                             // ignore pauses (tab switches, scrolling away)
+      frames++; tAcc += gap;
+      if (gap > 1.6 * (1000 / fpsOf(tier))) slow++;
+    }
     if (tAcc > 2000) {
-      fps = Math.round((frames * 1000) / tAcc); frames = 0; tAcc = 0;
+      fps = Math.round((frames * 1000) / tAcc);
+      const lateShare = slow / Math.max(1, frames);
+      frames = 0; tAcc = 0; slow = 0;
       hud.querySelector(".fps").textContent = `${fps} fps`;
-      const target = TIERS[tier].fps * 0.66;
-      if (mode === "auto" && fps < target && !document.hidden) {
-        if (++lowWindows >= 2) {
+      if (mode === "auto" && !document.hidden) {
+        if (lateShare > (probation > 0 ? 0.05 : 0.1)) {
+          goodWindows = 0;
+          if (probation > 0) { probation = 0; holdUntil = now + 300000; stepDown("Back to {t}: that was a bit much"); }
+          else if (++lowWindows >= 2) { lowWindows = 0; stepDown("Dropped to {t} to keep it smooth"); }
+        } else {
           lowWindows = 0;
-          if (dprScale > 0.75) { dprScale = 0.75; renderer.setPixelRatio(Math.min(devicePixelRatio || 1, TIERS[tier].dpr) * dprScale); resize(); }
-          else if (tier !== "low") { tier = ORDER[ORDER.indexOf(tier) - 1]; dprScale = 1; note(`Dropped to ${TIERS[tier].label} to keep it smooth`); build(); }
+          if (probation > 0) probation--;
+          if (lateShare < 0.01 && ++goodWindows >= 15 && now > holdUntil) { goodWindows = 0; stepUp(); }
         }
-      } else lowWindows = 0;
+      }
     }
   }
+
+  function setPR() { renderer.setPixelRatio(Math.min(devicePixelRatio || 1, TIERS[tier].dpr) * dprScale); resize(); }
+  function stepDown(msg) {
+    if (dprScale > 0.75) { dprScale = 0.75; setPR(); return; }
+    if (tier === "low") return;
+    tier = ORDER[ORDER.indexOf(tier) - 1]; dprScale = 1; note(msg.replace("{t}", TIERS[tier].label)); build();
+  }
+  function stepUp() {
+    if (dprScale < 1) { dprScale = 1; setPR(); probation = 3; return; }
+    if (ORDER.indexOf(tier) >= ORDER.indexOf(ceiling)) return;
+    tier = ORDER[ORDER.indexOf(tier) + 1]; dprScale = 0.75; probation = 3; build();   // new tier starts at reduced resolution
+  }
+  // help.js tells the globe when this device starts or stops simulating
+  window.addEventListener("simhorde:helping", (e) => {
+    if (!!e.detail === helping) return;
+    helping = !!e.detail; ceiling = helping ? "low" : autoTier;
+    if (helping) beforeHelp = tier;
+    if (mode !== "auto") return setHud();
+    const next = helping ? "low" : (beforeHelp || autoTier);     // back to where it had settled, not the top
+    goodWindows = lowWindows = probation = 0; holdUntil = 0;
+    if (next !== tier) { tier = next; dprScale = 1; if (helping) note("Globe on Low while this device helps"); build(); } else setHud();
+  });
 
   let noteT = 0;
   function note(msg) {
@@ -351,7 +393,7 @@ export function mountGlobe(root, opts = {}) {
 
   hud.querySelectorAll("button[data-q]").forEach((b) => b.addEventListener("click", () => {
     mode = b.dataset.q; store.set("simhorde.quality", mode);
-    const next = mode === "auto" ? autoTier : mode; dprScale = 1;
+    const next = mode === "auto" ? ceiling : mode; dprScale = 1; probation = 0; goodWindows = lowWindows = 0;
     if (next !== tier) { tier = next; build(); } else setHud();
   }));
   new ResizeObserver(resize).observe(canvasWrap);
