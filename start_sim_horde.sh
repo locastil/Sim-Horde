@@ -13,4 +13,5 @@ if [ ! -x horde_env/bin/python ]; then
   horde_env/bin/pip install --upgrade pip -q
   horde_env/bin/pip install torch
 fi
+horde_env/bin/python -c "import numpy" 2>/dev/null || horde_env/bin/pip install numpy -q
 exec horde_env/bin/python worker.py "$@"

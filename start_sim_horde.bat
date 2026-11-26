@@ -38,6 +38,7 @@ echo Downloading PyTorch, about 3 GB...
 horde_env\Scripts\python -m pip install torch --index-url https://download.pytorch.org/whl/cu128 || horde_env\Scripts\python -m pip install torch
 
 :run
+horde_env\Scripts\python -c "import numpy" >nul 2>&1 || horde_env\Scripts\python -m pip install numpy -q
 horde_env\Scripts\python worker.py %*
 pause
 exit /b
