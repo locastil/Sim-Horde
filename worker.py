@@ -96,12 +96,14 @@ def check_job(job, RANGES):
         if not isinstance(v, (int, float)) or not math.isfinite(v) or not (lo - 1e-9 <= v <= hi + 1e-9):
             return None, f"weight {k} out of range"
         clean[k] = float(v)
+    if p.get("meet", "classic") not in ("classic", "social"):
+        return None, "unknown way of meeting"
     agents, seed, mina = p.get("agents"), p.get("seed"), p.get("min_agents", 250)
     if not (isinstance(agents, int) and 10_000 <= agents <= 5_000_000):
         return None, "population size out of range"
     if not (isinstance(seed, int) and 0 < seed < 2**31) or not (isinstance(mina, int) and 50 <= mina <= 5000):
         return None, "bad seed or county minimum"
-    return dict(theta=clean, seed=seed, agents=agents, min_agents=mina), None
+    return dict(theta=clean, seed=seed, agents=agents, min_agents=mina, meet=p.get("meet", "classic")), None
 
 
 def load_from_coordinator(server, key):
@@ -220,6 +222,7 @@ def main():
         t0 = time.time()
         call(server, "/api/v1/heartbeat", dict(key=key, status="running"), timeout=10)
         try:
+            K.MEET["mode"] = p["meet"]
             out = K.run_once(p["theta"], p["seed"], data, scale, dev, p["min_agents"])
         except torch.cuda.OutOfMemoryError:
             torch.cuda.empty_cache()

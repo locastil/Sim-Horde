@@ -358,11 +358,16 @@ W_DEFAULT = dict(base=-2.6, w_trait=0.8, w_stress=1.1, w_irr=1.5, w_rent=0.6, co
                  w_alone=0.0, w_wfh=0.0, w_mob=0.0, w_dsoc=0.0, w_alt=0.0,
                  w_strain=0.0, w_trust=0.0, w_sour=0.0)
 
-MEET = dict(mode="classic",
+def _meet_mode():
+    return "classic"     # the coordinator says which, job by job
+
+MEET = dict(mode=_meet_mode(),
             low_share=0.4,       # share of people who go out little (homebound, remote, isolated)
-            p_high=0.55,         # daily chance of an encounter for everyone else
-            p_low=0.18,          # ...and for the people who go out little
-            strangers=2.0,       # brief encounters with strangers on a day out (cashiers, drivers, crowds)
+            out_high=0.9,        # daily chance of being out among people, for most people
+            out_low=0.35,        # ...and for the people who go out little
+            p_high=0.45,         # on a day out, chance of a real interaction (talking with someone)
+            p_low=0.3,
+            strangers=0.8,       # brief encounters with strangers on a day out (cashiers, drivers, crowds)
             witness=1.0,         # people who see each rude act in public, on average
             bystander=0.3)
 
@@ -913,8 +918,11 @@ class Region:
         social = MEET["mode"] == "social"
         if social:
             if getattr(self, "sociab", None) is None or self.sociab.numel() != n:
-                self.sociab = torch.where(rnd(n) < MEET["low_share"], MEET["p_low"], MEET["p_high"])
-            act = (rnd(n) < self.sociab) & self.alive
+                low = rnd(n) < MEET["low_share"]
+                self.out_p = torch.where(low, MEET["out_low"], MEET["out_high"])
+                self.sociab = torch.where(low, MEET["p_low"], MEET["p_high"])
+            out = (rnd(n) < self.out_p) & self.alive
+            act = out & (rnd(n) < self.sociab)
         else:
             act = (rnd(n) < 0.3) & self.alive
         if getattr(self, "held", None) is not None:
@@ -941,7 +949,7 @@ class Region:
             partner = torch.where(go, other, partner)
         act &= (partner != self.idx) & self.alive[partner]
         if social:      # you mostly run into people who are out a lot themselves
-            act &= rnd(n) < (self.sociab[partner] / MEET["p_high"]).clamp(max=1.0)
+            act &= rnd(n) < self.out_p[partner]      # the other person has to be out too
         rude = act & (rnd(n) < p)
         kind = act & ~rude
         if self.me is not None:
@@ -963,7 +971,7 @@ class Region:
             # a day out also brings brief encounters with strangers nearby; some of them are rude
             na = self.a_size.numel()
             pa = torch.bincount(self.area, weights=p * self.alive.float(), minlength=na) / torch.bincount(self.area, weights=self.alive.float(), minlength=na).clamp(min=1)
-            m = torch.poisson(torch.full((n,), MEET["strangers"], device=self.dev), generator=self.g) * act.float()
+            m = torch.poisson(torch.full((n,), MEET["strangers"], device=self.dev), generator=self.g) * out.float()
             extra = torch.binomial(m, pa[self.area], generator=self.g)
             self.irr += torch.where(grace, 0.06, W["hit"]) * extra
             # bystanders: people nearby see each rude act and it gets under their skin too
@@ -977,7 +985,7 @@ class Region:
                     self.irr.index_add_(0, wit, torch.full((src.numel(),), MEET["bystander"] * W["hit"], device=self.dev))
         self.irr.clamp_(0, 3)
         if getattr(self, "record_day", False):     # realism_check.py: who met whom today and how it went
-            self.last_day = (act, rude, partner, extra, wit)
+            self.last_day = (act, rude, partner, extra, wit, out if social else None)
 
         seen = rude & (rnd(n) < 0.15)
         punished = seen & (rnd(n) < L["cons"][c] / 100)
