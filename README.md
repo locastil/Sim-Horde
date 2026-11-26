@@ -2,9 +2,9 @@
 
 **Simulating the whole world on spare graphics cards.** Watch it live at **[sim-horde.org](https://sim-horde.org)**.
 
-Sim Horde is one shared world: simulated people meeting each other every day, in nations built from
-real statistics (income, jobs, inequality, crowding) under invented names, with invented leaders and
-parties. It's too big for one computer, so volunteers run pieces of it on their own GPUs, and the world
+Sim Horde is one shared world: simulated people meeting each other every day in every country, each
+running on its own real statistics (income, jobs, inequality, crowding). Events are simulated, and no
+real person is named: leaders appear only by office ("the President") and parties by broad family. It's too big for one computer, so volunteers run pieces of it on their own GPUs, and the world
 moves forward a month each time every piece comes back. Elections, protests, coups and conflicts happen
 about as often worldwide as they have in recent decades; where they land depends on the simulation.
 

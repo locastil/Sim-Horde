@@ -164,7 +164,7 @@
     box.hidden = false;
     $("worldDate").textContent = g.date;
     const nat = Object.keys(g.nations).length;
-    $("worldStats").innerHTML = `${fmt.format(nat)} nations and ${big(g.people)} people, simulated as ${fmt.format(g.simulated)} (one for every ${fmt.format(g.scale)}). `
+    $("worldStats").innerHTML = `${fmt.format(nat)} countries and ${big(g.people)} people, simulated as ${fmt.format(g.simulated)} (one for every ${fmt.format(g.scale)}). `
       + (g.civ ? `${(g.civ * 100).toFixed(1)}% of encounters went well this month. ` : "")
       + `${plural(g.conflicts || 0, "armed conflict", "armed conflicts")} under way. Next month: ${g.month_progress[0]} of ${g.month_progress[1]} pieces done.`;
     $("worldEvents").innerHTML = g.events.length ? g.events.slice(0, 8).map((e) => `<li><span>${esc(e[0])} · ${esc(e[2].toLowerCase())}</span>${esc(e[3])}</li>`).join("")
@@ -180,7 +180,7 @@
         if (key !== worldKey) { worldKey = key; if (globe) globe.setWorld(g); lastWorld = g; }
       } else if (m.run && m.run !== (lastMap && lastMap.run)) { lastMap = m; if (globe) globe.setRun(m); }
       const cap = document.querySelector("#globe figcaption");
-      if (cap) cap.textContent = g && g.date ? `${g.date} in the shared world. Every nation is built from real statistics under an invented name. Drag to turn it; point at a nation.`
+      if (cap) cap.textContent = g && g.date ? `${g.date} in the simulated world. Every country runs on its own real statistics. Drag to turn it; point at a country.`
                                              : "California shows the newest volunteer run. Drag to turn it.";
     } catch (e) {
       $("liveLine").innerHTML = `<span class="live-dot off"></span>The coordinator isn't answering right now. This page will keep trying.`;
