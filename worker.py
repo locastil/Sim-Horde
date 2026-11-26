@@ -179,7 +179,7 @@ def main():
     name = a.name or cfg.get("name")
     if not name:
         print("\nWelcome to the Sim Horde. Pick a name for the leaderboard (anything, not your real name if you'd rather not).")
-        name = input("Name: ").strip()[:32] or platform.node()[:24]
+        name = (input("Name: ").strip()[:32] if sys.stdin and sys.stdin.isatty() else "") or platform.node()[:24]
 
     import torch
     choice = a.device or (None if a.choose_gpu else cfg.get("device"))
