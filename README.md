@@ -18,20 +18,19 @@ Nothing to install. It pauses on its own when the screen is off or the battery i
 
 ## On a desktop (Windows)
 
-1. **Install Python** from [python.org/downloads](https://www.python.org/downloads/).
-   On the first install screen, tick **"Add python.exe to PATH"**. Skip this if you already have Python 3.10 or newer.
-2. **Download this project.** Click the green **Code** button above, then **Download ZIP**,
+1. **Download this project.** Click the green **Code** button above, then **Download ZIP**,
    or use [this direct link](https://github.com/locastil/Sim-Horde/archive/refs/heads/main.zip).
-3. **Unzip it** anywhere, for example your Desktop.
-4. **Double-click `start_sim_horde.bat`** in the unzipped folder. If Windows shows "Windows protected
-   your PC", click **More info**, then **Run anyway**.
-5. **Wait for setup.** The first start installs PyTorch for NVIDIA GPUs (about 3 GB, a few minutes).
-6. **Type a name** for the leaderboard and press Enter.
+2. **Unzip it** anywhere, for example your Desktop.
+3. **Double-click `start_sim_horde.bat`** in the unzipped folder. If Windows shows "Windows protected
+   your PC", click **More info**, then **Run anyway**. If Python isn't on your PC, it offers to install
+   it for you: press **Y**.
+4. **Wait for setup.** The first start downloads PyTorch (about 3 GB, a few minutes).
+5. **Type a name** for the leaderboard and press Enter.
 
 That's it. Jobs arrive on their own, and the window shows each one as it finishes. Close the
 window to stop. Next time, just double-click `start_sim_horde.bat` again.
 
-**Linux:** install Python 3.10+, download and unzip as above, then run `./start_sim_horde.sh`.
+**Linux:** download and unzip as above, then run `./start_sim_horde.sh`.
 
 **What you need:** an NVIDIA GPU with 4 GB of memory or more. It also works on a CPU, just slowly.
 For GPUs under 6 GB, start it with `start_sim_horde.bat --max-agents 200000`.
