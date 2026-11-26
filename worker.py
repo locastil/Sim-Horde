@@ -68,6 +68,12 @@ def find_server():
 
 
 def pick_device(torch, pref):
+    if pref and not pref.startswith(("cuda", "cpu")) and torch.cuda.is_available():
+        # a name, e.g. --device 5070: the first GPU whose name contains it
+        for i in range(torch.cuda.device_count()):
+            if pref.lower() in torch.cuda.get_device_name(i).lower():
+                return torch.device(f"cuda:{i}")
+        sys.exit(f"No GPU named like '{pref}' found: " + ", ".join(torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())))
     if pref:
         return torch.device(pref)
     if not torch.cuda.is_available():
@@ -134,7 +140,7 @@ def main():
     ap = argparse.ArgumentParser(description="Lend your GPU to the Sim Horde")
     ap.add_argument("--name", default=None, help="name shown on the leaderboard")
     ap.add_argument("--server", default=None, help="coordinator address (normally found automatically)")
-    ap.add_argument("--device", default=None, help="cuda, cuda:1 or cpu (default: the GPU with the most memory)")
+    ap.add_argument("--device", default=None, help="cuda, cuda:1, cpu, or part of a GPU name such as 5070 (default: the GPU with the most memory)")
     ap.add_argument("--invite", default="", help="invite code, if the coordinator asks for one")
     ap.add_argument("--once", action="store_true", help="run a single job, then stop")
     ap.add_argument("--max-agents", type=int, default=0, help="skip jobs bigger than this (for small GPUs)")
