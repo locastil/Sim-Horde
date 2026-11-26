@@ -93,7 +93,7 @@
     $("worldDate").textContent = g.date;
     const nat = Object.keys(g.nations).length;
     const fit = g.fit && g.fit.r != null ? ` Simulated happiness lines up with real life-satisfaction surveys at r = ${g.fit.r.toFixed(2)} across ${g.fit.n} countries.` : "";
-    $("worldStats").innerHTML = `${fmt.format(nat)} countries and ${big(g.people)} people, simulated as ${fmt.format(g.simulated)} (one for every ${fmt.format(g.scale)}). `
+    $("worldStats").innerHTML = `${nat ? fmt.format(nat) + " countries" : "Every country"} and ${big(g.people)} people, simulated as ${fmt.format(g.simulated)} (one for every ${fmt.format(g.scale)}). `
       + (g.happiness ? `Average happiness ${g.happiness.toFixed(1)} out of 10. ` : "")
       + `${plural(g.conflicts || 0, "armed conflict", "armed conflicts")} under way.` + fit;
     $("worldEvents").innerHTML = g.events.length ? g.events.slice(0, 8).map((e) => `<li><span>${esc(e[0])} · ${esc(e[2].toLowerCase())}</span>${esc(e[3])}</li>`).join("")
