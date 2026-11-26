@@ -921,6 +921,11 @@ class Region:
                 low = rnd(n) < MEET["low_share"]
                 self.out_p = torch.where(low, MEET["out_low"], MEET["out_high"])
                 self.sociab = torch.where(low, MEET["p_low"], MEET["p_high"])
+                me = getattr(self, "me", None)          # your own odds, from your profile (private worlds)
+                if me is not None:
+                    for k in ("out_p", "sociab"):
+                        if k in me:
+                            getattr(self, k)[me["idx"]] = me[k]
             out = (rnd(n) < self.out_p) & self.alive
             act = out & (rnd(n) < self.sociab)
         else:
@@ -1110,8 +1115,7 @@ def run_once(theta, seed, data, scale, dev, min_agents):
     for _ in range(BURN):
         sim.step()
     sim.take_log()
-    for _ in range(MEASURE):
-        sim.step()
+    realism = measure_realism(sim, MEASURE)
     x = sim.take_log()                    # days x 6 x K
     kind, rude, stress, irr, leave = x[:, 0].sum(0), x[:, 1].sum(0), x[:, 2].mean(0), x[:, 5].mean(0), x[:, 6].mean(0)
     share = rude / (kind + rude).clamp(min=1)
@@ -1123,6 +1127,7 @@ def run_once(theta, seed, data, scale, dev, min_agents):
         out["irr"][n] = float(irr[i])
         out["leave"][n] = round(float(leave[i]), 2)   # rounded: when stress plays no part every county is exactly equal
     out["civ"] = float(kind.sum() / (kind.sum() + rude.sum()).clamp(min=1))
+    out["realism"] = realism
     del sim
     if dev.type == "cuda":
         torch.cuda.empty_cache()
