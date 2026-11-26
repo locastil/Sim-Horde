@@ -211,3 +211,6 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 .help-stats { font-size: .85rem; color: var(--ink-3); margin: 0; font-variant-numeric: tabular-nums; }
 @media (max-width: 900px) { .help { grid-template-columns: 1fr; gap: 28px; padding-top: 48px; } .help-panel { padding: 20px; } }
 @media (prefers-reduced-motion: reduce) { .help-progress i { transition: none; } }
+
+/* Phones and tablets help from the page itself; the desktop download stays out of their way. */
+@media (pointer: coarse) and (max-width: 1100px) { .desk-only { display: none !important; } }

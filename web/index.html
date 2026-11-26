@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sim Horde: simulate the whole world on volunteer GPUs</title>
-<meta name="description" content="Sim Horde is building a simulation of how people everywhere treat each other, run on volunteers' graphics cards. It starts with California.">
+<title>Sim Horde: one shared world, powered by everyone's devices</title>
+<meta name="description" content="Sim Horde is building a simulation of how people everywhere treat each other, powered by volunteers' phones, tablets and computers.">
 <link rel="preload" href="/fonts/bricolage-grotesque-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/site.css">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -29,11 +29,11 @@
 <main id="main">
   <section class="hero">
     <div class="hero-copy">
-      <h1>Simulating the whole world on spare graphics cards.</h1>
-      <p class="lede">Sim Horde is one shared world: billions of simulated people living their days in every country on Earth, each country running on its own real statistics. It's too big for one computer, so volunteers run pieces of it on their own GPUs, and the world moves forward a month each time every piece comes back.</p>
+      <h1>One shared world, powered by everyone's devices.</h1>
+      <p class="lede">Sim Horde is one shared world: billions of simulated people living their days in every country on Earth, each country running on its own real statistics. It's too big for one computer, so volunteers power pieces of it from their phones, tablets and computers, and the world moves forward a month each time every piece comes back.</p>
       <div class="cta-row">
         <a class="btn" href="#help">Help from this device</a>
-        <a class="link" href="#join">Or install the worker</a>
+        <a class="link desk-only" href="#join">Or install the desktop app</a>
       </div>
       <p class="live-line" id="liveLine" aria-live="polite">Connecting to the coordinator…</p>
     </div>
@@ -43,7 +43,7 @@
       <div class="gtip" role="status" hidden></div>
       <div class="hud">
         <div class="hud-top">
-          <span class="dot"></span><span>Rendering at <b class="q">Auto</b> on <span class="hw">your graphics card</span></span>
+          <span class="dot"></span><span>Rendering at <b class="q">Auto</b> on <span class="hw">your device</span></span>
           <span class="fps"></span>
         </div>
         <div class="seg" role="group" aria-label="Graphics quality">
@@ -91,15 +91,15 @@
   <section class="band" id="how">
     <div class="wrap two">
       <div>
-        <h2>What your GPU would run</h2>
+        <h2>What your device helps build</h2>
         <p>Each simulated person has a home, a job or not, friends, and the ups and downs of daily life. A world job runs a few countries for one month: the people in them go about their days under that month's conditions, from the economy to protests or war. A tuning job runs a test version of California and checks it against real county data, so the model the world runs on keeps getting closer to reality.</p>
-        <p>A job is a list of numbers, not a program. The worker you download holds only the behavior model, which you can read in full. It checks every number against its published range before it starts, and nothing it receives can make it run new code. The data, the jobs and the scoring all come from the coordinator, so the worker only does anything as part of the horde.</p>
+        <p>A job is a list of numbers, not a program. The Sim Horde app holds only the behavior model, which you can read in full. It checks every number against its published range before it starts, and nothing it receives can make it run new code. The data, the jobs and the scoring all come from the coordinator, so it only does anything as part of the horde.</p>
       </div>
       <dl class="facts">
         <div><dt>One job</dt><dd>A few countries for a month, or a test version of California</dd></div>
         <div><dt>Typical time per job</dt><dd id="avgTime">Measured once volunteers report in</dd></div>
-        <div><dt>Memory needed</dt><dd>4 GB of VRAM, or a CPU if you're patient</dd></div>
-        <div><dt>Checking</dt><dd>One job in ten is re-run by a different volunteer. Results that disagree get a third run, and workers that keep disagreeing are paused.</dd></div>
+        <div><dt>Memory needed</dt><dd>Any phone, tablet or computer with a modern browser. A desktop graphics card does the biggest pieces.</dd></div>
+        <div><dt>Checking</dt><dd>One job in ten is re-run by a different volunteer. Results that disagree get a third run, and devices that keep disagreeing are paused.</dd></div>
       </dl>
     </div>
   </section>
@@ -129,19 +129,19 @@
     </div>
     <div class="table-wrap">
       <table class="data" id="leaders">
-        <thead><tr><th scope="col" class="num">#</th><th scope="col">Volunteer</th><th scope="col">Hardware</th><th scope="col" class="num">Runs</th><th scope="col" class="num">GPU hours</th><th scope="col" class="num">Kudos</th></tr></thead>
+        <thead><tr><th scope="col" class="num">#</th><th scope="col">Volunteer</th><th scope="col">Hardware</th><th scope="col" class="num">Runs</th><th scope="col" class="num">Hours given</th><th scope="col" class="num">Kudos</th></tr></thead>
         <tbody><tr><td colspan="6" class="empty">Nobody has joined yet.</td></tr></tbody>
       </table>
     </div>
   </section>
 
-  <section class="band ink" id="join">
+  <section class="band ink desk-only" id="join">
     <div class="wrap two">
       <div>
-        <h2>Install the worker</h2>
+        <h2>Power more of the world from a desktop</h2>
         <p>For a desktop with a graphics card: it runs bigger pieces of the world much faster, plus the California tuning runs, and keeps going in the background. Windows or Linux with an NVIDIA card. You can stop it any time.</p>
         <ol class="steps">
-          <li><strong>Download the worker</strong> from GitHub and unzip it anywhere.<br><a class="btn light" href="https://github.com/locastil/Sim-Horde/archive/refs/heads/main.zip">Download from GitHub</a></li>
+          <li><strong>Download the Sim Horde app</strong> from GitHub and unzip it anywhere.<br><a class="btn light" href="https://github.com/locastil/Sim-Horde/archive/refs/heads/main.zip">Download from GitHub</a></li>
           <li><strong>Double-click <code>start_worker.bat</code>.</strong> The first start installs what it needs, which takes a few minutes. On Linux, run <code>./start_worker.sh</code>.</li>
           <li><strong>Type a name</strong> for the leaderboard. Jobs arrive on their own from then on. Close the window to stop.</li>
         </ol>

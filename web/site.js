@@ -23,11 +23,11 @@
   function liveLine(s) {
     const el = $("liveLine");
     if (!s.workers_online && !s.runs_done) {
-      el.innerHTML = `<span class="live-dot off"></span>No GPUs are connected yet. Be the first.`;
+      el.innerHTML = `<span class="live-dot off"></span>No devices are powering the world yet. Be the first.`;
       return;
     }
     const on = s.workers_online;
-    const gpus = on ? `<b>${plural(on, "GPU is", "GPUs are")}</b> working right now` + (s.vram_online ? `, with ${s.vram_online} GB of memory between them` : "") : "No GPUs are connected this minute";
+    const gpus = on ? `<b>${plural(on, "device is", "devices are")}</b> powering the world right now` + (s.vram_online ? `, with ${s.vram_online} GB of memory between them` : "") : "No devices are powering the world this minute";
     el.innerHTML = `<span class="live-dot${on ? "" : " off"}"></span>${gpus}. Together volunteers have finished <b>${fmt.format(s.runs_done)}</b> of ${fmt.format(s.runs_goal)} runs for the ${esc(s.campaign)}, simulating <b>${big(s.person_days)}</b> person-days.`;
     if (s.avg_secs) $("avgTime").textContent = `${Math.round(s.avg_secs)} seconds on average so far, across everyone's hardware for California tuning jobs`;
   }
