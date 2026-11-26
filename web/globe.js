@@ -18,6 +18,34 @@ const store = { get: (k) => { try { return localStorage.getItem(k); } catch (e) 
                 set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/* ------------------------------------------------------------ switching the browser's graphics card */
+function fillGpuHelp(box, current) {
+  const ua = navigator.userAgent;
+  const ol = box.querySelector(".gh-steps");
+  const li = (html) => { const e = document.createElement("li"); e.innerHTML = html; ol.appendChild(e); };
+  if (/Windows/.test(ua)) {
+    const edge = /Edg\//.test(ua), firefox = /Firefox\//.test(ua);
+    const browser = edge ? "Edge" : firefox ? "Firefox" : "Chrome";
+    const exe = edge ? "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
+      : firefox ? "C:\\Program Files\\Mozilla Firefox\\firefox.exe"
+      : "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+    li(`<a class="gh-btn" href="ms-settings:display-advancedgraphics">Open Windows graphics settings</a> (allow it if your browser asks).`);
+    li(`If ${browser} isn't listed, click <b>Browse</b> next to <i>Add desktop app</i> and paste this path: ` +
+       `<span class="gh-path"><code>${exe}</code><button type="button" class="gh-copy">Copy</button></span>`);
+    li(`Click <b>${browser}</b> in the list. Set <b>GPU preference</b> to <b>Specific GPU</b> and pick your card. ` +
+       `If you only see <i>Power saving</i> and <i>High performance</i>, Windows is choosing for you: plugging your monitor into the card you want is the way to switch.`);
+    li(`Quit ${browser} completely and open sim-horde.org again. The top left should name the new card instead of ${current}.`);
+    const cp = box.querySelector(".gh-copy");
+    if (cp) cp.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(exe); cp.textContent = "Copied"; } catch { cp.textContent = "Select and copy it"; }
+    });
+  } else if (/Mac OS X/.test(ua)) {
+    li("Connect your display to the external graphics card, then reopen the browser on that display. macOS gives apps the card that drives their screen.");
+  } else {
+    li("Most Linux browsers draw on the card driving the screen. Connect your display to the card you want, or start the browser with your driver's offload setting (for NVIDIA: <code>__NV_PRIME_RENDER_OFFLOAD=1</code>).");
+  }
+}
+
 /* ------------------------------------------------------------ hardware */
 function probeGPU() {
   const c = document.createElement("canvas");
@@ -396,6 +424,7 @@ export function mountGlobe(root, opts = {}) {
   const sw = hud.querySelector(".gpu-switch"), swp = root.querySelector(".gpu-help");
   if (sw && swp) {
     if (handheld) sw.hidden = true;
+    fillGpuHelp(swp, gpu.name);
     sw.addEventListener("click", () => { const open = swp.hidden; swp.hidden = !open; sw.setAttribute("aria-expanded", String(open)); });
   }
   hud.querySelectorAll("button[data-q]").forEach((b) => b.addEventListener("click", () => {
