@@ -58,13 +58,30 @@ def call(server, path, body, timeout=60, raw=False):
         return 0, {"error": str(getattr(e, "reason", e))}
 
 
+def offline_wait(n, why):
+    """The world's server (or this PC's internet) is down: wait and try again instead of giving up."""
+    secs = min(15 * 2 ** n, 300)
+    if n == 0:
+        say("The world's server isn't answering right now. Sim Horde will keep trying and start on its own "
+            "when it's back. You can leave this window open.")
+    say(f"  ({why}; trying again in {secs // 60} min {secs % 60} s)" if secs >= 60 else f"  ({why}; trying again in {secs} s)")
+    time.sleep(secs)
+
+
+def transient(code):
+    return code == 0 or code >= 500 or code == 429
+
+
 def find_server():
     """The coordinator's current address is published in this project's repo."""
-    try:
-        with urllib.request.urlopen(urllib.request.Request(DIRECTORY, headers={"User-Agent": f"SimHordeWorker/{VERSION}"}), timeout=20) as r:
-            return json.loads(r.read())["server"]
-    except Exception as e:
-        sys.exit(f"Couldn't look up the Sim Horde coordinator ({e}). Check your internet connection, or pass --server.")
+    n = 0
+    while True:
+        try:
+            with urllib.request.urlopen(urllib.request.Request(DIRECTORY, headers={"User-Agent": f"SimHordeWorker/{VERSION}"}), timeout=20) as r:
+                return json.loads(r.read())["server"]
+        except Exception as e:
+            offline_wait(n, f"couldn't look up the server: {e}")
+            n += 1
 
 
 def pick_device(torch, pref, strict=True):
@@ -119,7 +136,13 @@ def check_job(job, RANGES):
 def load_from_coordinator(server, key):
     """County data comes from the coordinator and lives only in memory: the folder it's unpacked
     into for loading is deleted right after."""
-    code, pack = call(server, "/api/v1/data", dict(key=key), timeout=180, raw=True)
+    n = 0
+    while True:
+        code, pack = call(server, "/api/v1/data", dict(key=key), timeout=180, raw=True)
+        if not transient(code):
+            break
+        offline_wait(n, f"getting the county data: {pack.get('error', code) if isinstance(pack, dict) else code}")
+        n += 1
     if code != 200:
         sys.exit(f"Couldn't get the county data: {pack.get('error', code) if isinstance(pack, dict) else code}")
     files = json.loads(gzip.decompress(pack))
@@ -178,7 +201,13 @@ def main():
     gpu, vram = gpu_info(torch, dev)
 
     if cfg.get("server") != server or not cfg.get("key"):
-        code, r = call(server, "/api/v1/workers", dict(name=name, gpu=gpu, vram_gb=vram, invite=a.invite))
+        n = 0
+        while True:
+            code, r = call(server, "/api/v1/workers", dict(name=name, gpu=gpu, vram_gb=vram, invite=a.invite))
+            if not transient(code):
+                break
+            offline_wait(n, f"joining: {r.get('error', code)}")
+            n += 1
         if code != 200:
             sys.exit(f"Couldn't join the Sim Horde: {r.get('error', code)}")
         cfg = dict(server=server, key=r["key"], name=r["name"], **({"device": cfg["device"]} if cfg.get("device") else {}))
@@ -200,7 +229,7 @@ def main():
         job = r.get("job") if code == 200 else None
         if not job:
             if code != 200:
-                say(f"Coordinator unreachable ({r.get('error', code)}); retrying in {idle}s")
+                say(f"The world's server isn't answering ({r.get('error', code)}); trying again in {idle}s")
             time.sleep(idle)
             idle = min(idle * 2, 120)
             continue
