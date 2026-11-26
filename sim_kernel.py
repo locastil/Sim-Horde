@@ -379,7 +379,11 @@ ROBOTS = dict(visit_below=50.0, visit_rate=1 / 60,
               fleet=0.0002,     # robot capacity: visits a day per resident of the county (about 2,000 a day in LA County)
               fear=0.12,        # stress for everyone in a county where the robots patrol
               deter=0.25,       # people hold back where the robots patrol
-              flee=0.6)
+              flee=0.6,         # ...and are more likely to move away
+              watch=0.5,        # share of public incidents within view of a patrol robot's cameras where they patrol
+              misread=0.0005,   # ordinary moments the cameras log as an incident (a raised voice, a shove in a crowd)
+              penalty=8.0,      # record points an incident costs
+              recover=0.003)
 
 NEURAL = dict(seed=0.01,             # share of people with a brain-sensing wearable when the trend starts
               growth=0.25, cap=0.6,  # spreads like other gadgets, most people never wear one all day
@@ -793,7 +797,7 @@ class Region:
         severe = self.ur < burden * 0.6
         lvl = severe.float() * 2 + ((~severe) & (self.ur < burden)).float()
         on_c = (L["civic"] > 0.5)
-        has_civic = bool(on_c.any())
+        has_civic = False     # the Civic Score program was taken out of the simulation (Nov 2026)
         on = on_c[c].float() if has_civic else None
         commute = L["commute"][c] * self.cm * self.a_cm[self.area] * getattr(self, "holiday_cm", 1.0)
         if "w_wfh" in W and getattr(self, "a_wfhf", None) is not None:   # (worlds saved before this data keep their old commute)
@@ -804,7 +808,7 @@ class Region:
                    + W["w_unemp"] * (self.unemp[c] + self.a_unemp[ar])
                    + (W.get("w_strain", 0.0) * self.p_strain if getattr(self, "p_strain", None) is not None else 0.0)) * (1 - 0.6 * slack)
                   + self.shock).clamp(min=0)
-        has_ai = bool((self.adopt > 0.005).any())
+        has_ai = False        # behavior-rating apps were taken out of the simulation (Nov 2026)
         aig = lambda k: self.ai.get(k, PRIVATE_AI[k])     # saved worlds from before the microphone feature lack these keys
         if has_ai:      # a low private rating means friction (apartments, gigs, jobs), as often as ratings are used
             low = ((80.0 - self.rep) / 40.0).clamp(0, 1)
@@ -983,8 +987,19 @@ class Region:
             self.rep_wrong = torch.where(wrong & ~caught, self.rep_wrong + self.ai["penalty"], self.rep_wrong)
             self.rep += (80.0 - self.rep).clamp(min=0) * self.ai["recover"]
             self.rep_wrong *= 1 - self.ai["recover"]
-            if rb_any:
-                self.robot_visits(c, rnd)
+        if rb_any:   # patrol robots log what their own cameras catch; their record is what the rubric acts on
+            onr = (L["robots"][c] > 0.5).float()
+            if getattr(self, "rep_wrong", None) is None or getattr(self, "held", None) is None:
+                self.rep_wrong = torch.zeros(n, device=self.dev)      # record points lost to camera misreads
+                self.held = torch.zeros(n, dtype=torch.int16, device=self.dev)
+            caught = seen & (rnd(n) < onr * ROBOTS["watch"])       # incidents in public, in view of a patrol
+            wrong = kind & ~caught & (rnd(n) < onr * ROBOTS["misread"])
+            hitp = caught | wrong
+            self.rep = torch.where(hitp, (self.rep - ROBOTS["penalty"]).clamp(min=0), self.rep)
+            self.rep_wrong = torch.where(wrong, self.rep_wrong + ROBOTS["penalty"], self.rep_wrong)
+            self.rep += (80.0 - self.rep).clamp(min=0) * ROBOTS["recover"]
+            self.rep_wrong *= 1 - ROBOTS["recover"]
+            self.robot_visits(c, rnd)
         if bool((L["exile"] > 0.5).any()):
             r = rnd(n)
             flagged = seen & (L["exile"][c] > 0.5) & torch.where(self.hostile, r < self.acc, r > self.acc)
