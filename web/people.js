@@ -73,8 +73,8 @@ export function addPeople(world, tier, data) {
     geo.setAttribute("color", new THREE.BufferAttribute(Cc, 3));
     geo.userData.base = Cc.slice();
     const big = tier === "epic" || tier === "high";
-    pts = new THREE.Points(geo, new THREE.PointsMaterial({ size: big ? 3.4 : 2.8, sizeAttenuation: false, map: glowTexture(), vertexColors: true,
-      transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }));
+    pts = new THREE.Points(geo, new THREE.PointsMaterial({ size: big ? 3.0 : 2.5, sizeAttenuation: false, map: glowTexture(), vertexColors: true,
+      transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending }));
     group.add(pts);
     // war: lights at about half strength
     for (const i of flick) for (let k = 0; k < 3; k++) Cc[i * 3 + k] *= 0.45;
