@@ -37,7 +37,7 @@
     <a href="#how">How it works</a>
     <a href="#runs">Results</a>
     <a href="/scenario.html">Your scenario</a>
-    <a href="#board">Leaderboard</a>
+    <a href="#board">Volunteers</a>
     <a href="/donate.html">Donate</a>
     </div>
     <a class="btn small" href="#help">Help now</a>
@@ -69,9 +69,6 @@
           <div class="seg" role="group" aria-label="Graphics quality">
             <button type="button" data-q="auto">Auto</button><button type="button" data-q="low">Low</button><button type="button" data-q="medium">Medium</button><button type="button" data-q="high">High</button><button type="button" data-q="epic">Epic</button>
           </div>
-          <div class="seg" role="group" aria-label="Flights and ships">
-            <button type="button" data-t="sim">Simulated</button><button type="button" data-t="live">Live</button>
-          </div>
           <label class="bg-opt" title="Keeps simulating while you switch tabs or minimize this window. Leave the tab open."><input type="checkbox" id="bgRun"> Run in background</label>
         </div>
         <p class="note" hidden></p>
@@ -81,7 +78,7 @@
         <ol class="gh-steps"></ol>
         <p class="gh-foot">The Sim Horde desktop app asks which card to use when it starts.</p>
       </div>
-      <figcaption><span class="legend" aria-hidden="true"><span>Less happy</span><i class="ramp happy"></i><span>Happier</span></span><span id="globeCap">Drag to turn it; point at a country, or double-click one to see its streets. White dots are flights, amber are ships.</span><span class="tcap">Flights and ships: an illustration driven by the simulation.</span></figcaption>
+      <figcaption><span class="legend" aria-hidden="true"><span>Less happy</span><i class="ramp happy"></i><span>Happier</span></span><span id="globeCap">Drag to turn it; point at a country, or double-click one to see its streets. White dots are flights, amber are ships.</span><span class="tcap">Flights and ships come from the simulated world: they follow its trade, and react to its wars, sanctions and economy.</span></figcaption>
     </figure>
   </section>
 
@@ -195,39 +192,23 @@
 
   <section class="wrap" id="board">
     <div class="section-head">
-      <h2>Leaderboard</h2>
-      <p>Kudos are earned for every accepted piece of work. They have no money value. They show who is carrying the load.</p>
+      <h2>Volunteers</h2>
+      <p>The people whose phones, tablets and computers are powering the world, with what each has given. There are no points or prizes: it's one shared piece of research, and every device counts.</p>
     </div>
     <div class="table-wrap">
       <table class="data" id="leaders">
-        <thead><tr><th scope="col" class="num">#</th><th scope="col">Volunteer</th><th scope="col">Hardware</th><th scope="col" class="num">Runs</th><th scope="col" class="num">Hours given</th><th scope="col" class="num">Kudos</th></tr></thead>
-        <tbody><tr><td colspan="6" class="empty">Nobody has joined yet.</td></tr></tbody>
+        <thead><tr><th scope="col">Volunteer</th><th scope="col">Hardware</th><th scope="col" class="num">Pieces simulated</th><th scope="col" class="num">Hours given</th></tr></thead>
+        <tbody><tr><td colspan="4" class="empty">Nobody has joined yet.</td></tr></tbody>
       </table>
     </div>
-    <div class="kudos-how">
+    <div class="board-notes">
       <section>
-        <h3>How kudos are earned</h3>
-        <p>Every accepted piece of work earns kudos for the people it simulated and the days it covered: <b>people × days ÷ 10 million</b>.</p>
-        <ul>
-          <li>A phone running 40,000 people for a month earns about 0.12.</li>
-          <li>A graphics card running 500,000 people at Ultra detail for a month earns 1.5.</li>
-          <li>A California tuning run (desktop app only) earns about 10.8.</li>
-        </ul>
-        <p>Speed doesn't change the amount: a fast card earns more by finishing more pieces.</p>
+        <h3>How results are checked</h3>
+        <p>Some pieces are quietly run again by another volunteer. When the two match, both devices gain trust; when they don't, a third device settles it. Devices that keep getting it wrong stop receiving work and their results are left out, so one faulty or dishonest machine can't skew the world. Volunteers with a good record show as checked.</p>
       </section>
       <section>
-        <h3>How they're kept honest</h3>
-        <p>Some pieces are quietly run again by another volunteer. When the two match, both gain trust, and California runs earn a 20% bonus. When they don't, a third device settles it. Devices that keep getting it wrong stop receiving work and drop off this board. A positive trust record shows as verified.</p>
-      </section>
-      <section>
-        <h3>What kudos will buy</h3>
-        <p>Nothing yet: for now they show who is carrying the load. Coming with personal scenarios, where you set up your own what-if world:</p>
-        <ul>
-          <li>Run your scenario at High or Ultra detail on the horde's graphics cards, instead of only on your own device.</li>
-          <li>Move your scenario to the front of the queue.</li>
-          <li>Badges and titles on this board.</li>
-        </ul>
-        <p>Kudos can't be bought, and donating doesn't add any.</p>
+        <h3>What's kept about you</h3>
+        <p>The name you type, the device name it reports (like "RTX 4080 SUPER"), and how much work it has done. Your internet address is kept for one hour after you join, to stop one person creating lots of accounts, then deleted. The code that does this is <a href="https://github.com/locastil/Sim-Horde/tree/main/server">public to read</a>.</p>
       </section>
     </div>
   </section>

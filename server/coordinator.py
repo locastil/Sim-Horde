@@ -1,7 +1,7 @@
 """
 Sim Horde coordinator
 =====================
-Hands out simulation jobs to volunteer GPUs, checks and scores what comes back, keeps the kudos
+Hands out simulation jobs to volunteer GPUs, checks and scores what comes back, keeps the volunteer
 ledger, and serves the public website. An expansion of the California simulation (LA-Sim): the
 engine and data come from the folder above this one.
 
@@ -146,10 +146,6 @@ def pop_job(c, w):
     return dict(id=j["id"], kind=j["kind"], payload=json.loads(j["payload"]))
 
 
-def kudos_for(payload, secs):
-    days = CAL.BURN + CAL.MEASURE
-    return round(payload["agents"] * days / 1e7, 2)    # 400k people x 270 days = about 10.8 kudos
-
 
 def valid_out(out):
     try:
@@ -174,10 +170,9 @@ def submit(c, w, job_id, out, secs):
     s_fit, _ = CAL.score(out, T, FIT)
     s_test, _ = CAL.score(out, T, TEST)
     payload = json.loads(j["payload"])
-    kd = kudos_for(payload, secs)
     c.execute("""UPDATE jobs SET status='done', done_at=?, result=?, score_fit=?, score_test=?, civ=?, secs=? WHERE id=?""",
               (time.time(), json.dumps(out), s_fit, s_test, float(out["civ"]), float(secs), job_id))
-    c.execute("UPDATE workers SET jobs_done=jobs_done+1, kudos=kudos+?, secs_total=secs_total+? WHERE id=?", (kd, float(secs), w["id"]))
+    c.execute("UPDATE workers SET jobs_done=jobs_done+1, secs_total=secs_total+? WHERE id=?", (float(secs), w["id"]))
     msg = None
     if j["verify_of"] is not None:
         orig = c.execute("SELECT * FROM jobs WHERE id=?", (j["verify_of"],)).fetchone()
@@ -186,7 +181,7 @@ def submit(c, w, job_id, out, secs):
             if agree:
                 for jid in (orig["id"], job_id):
                     c.execute("UPDATE jobs SET verified=1 WHERE id=?", (jid,))
-                c.execute("UPDATE workers SET trust=trust+1, kudos=kudos+? WHERE id IN (?,?)", (kd * 0.2, orig["assigned_to"], w["id"]))
+                c.execute("UPDATE workers SET trust=trust+1 WHERE id IN (?,?)", (orig["assigned_to"], w["id"]))
                 msg = "verified: matched another volunteer's run"
             else:
                 checks = c.execute("SELECT COUNT(*) FROM jobs WHERE verify_of=?", (orig["id"],)).fetchone()[0]
@@ -204,7 +199,7 @@ def submit(c, w, job_id, out, secs):
     elif random.random() < VERIFY_SHARE:
         c.execute("INSERT INTO jobs(kind, tag, payload, status, created, verify_of) VALUES(?,?,?,'queued',?,?)",
                   (j["kind"], j["tag"], j["payload"], time.time(), job_id))
-    return dict(ok=True, kudos=kd, score_fit=round(s_fit, 4), score_test=round(s_test, 4), note=msg), 200
+    return dict(ok=True, kudos=0, score_fit=round(s_fit, 4), score_test=round(s_test, 4), note=msg), 200
 
 
 # ------------------------------------------------------------------ public numbers
@@ -307,9 +302,9 @@ def live_world():
 
 def leaderboard(c):
     rows = []
-    for r in c.execute("SELECT name, gpu, jobs_done, kudos, secs_total, last_seen, trust FROM workers WHERE flagged=0 AND jobs_done>0 "
-                       "ORDER BY kudos DESC LIMIT 50"):
-        rows.append(dict(name=r["name"], gpu=r["gpu"], jobs=r["jobs_done"], kudos=round(r["kudos"], 1),
+    for r in c.execute("SELECT name, gpu, jobs_done, secs_total, last_seen, trust FROM workers WHERE flagged=0 AND jobs_done>0 "
+                       "ORDER BY secs_total DESC LIMIT 100"):
+        rows.append(dict(name=r["name"], gpu=r["gpu"], jobs=r["jobs_done"],
                          hours=round(r["secs_total"] / 3600, 2), online=time.time() - (r["last_seen"] or 0) < ONLINE_SECS,
                          verified=r["trust"] > 0))
     return dict(workers=rows)
@@ -485,11 +480,9 @@ class H(BaseHTTPRequestHandler):
                         return self._send(404, dict(error="no world running"))
                     body, code = WORLD.submit(w["id"], str(d.get("job", "")), d.get("out"))
                     if code == 200:
-                        agents = WORLD.job_agents(str(d.get("job", "")))
-                        kd = round(agents * world_engine.EPOCH_DAYS / 1e7, 2)
-                        c.execute("UPDATE workers SET jobs_done=jobs_done+1, kudos=kudos+?, secs_total=secs_total+? WHERE id=?",
-                                  (kd, float(d.get("secs") or 0), w["id"]))
-                        body["kudos"] = kd
+                        c.execute("UPDATE workers SET jobs_done=jobs_done+1, secs_total=secs_total+? WHERE id=?",
+                                  (float(d.get("secs") or 0), w["id"]))
+                        body["kudos"] = 0                                # kept (always 0) only so older apps don't break
                         for wid, dt in (body.pop("trust", None) or {}).items():   # spot-checks: agree +1, disagree -2
                             c.execute("UPDATE workers SET trust=trust+?, flagged=CASE WHEN trust+?<=-4 THEN 1 ELSE flagged END WHERE id=?",
                                       (dt, dt, wid))

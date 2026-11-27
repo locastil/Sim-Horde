@@ -80,14 +80,6 @@ def snapshot():
         _cache["t"] = time.time()
     wlog, wage = tail("worker.log", 8)
     slog, _ = tail("service.log", 8)
-    kudos = None
-    for l in reversed(wlog):
-        if "this session" in l:
-            try:
-                kudos = float(l.split(" kudos, ")[1].split(" this session")[0])
-            except (IndexError, ValueError):
-                pass
-            break
     w = (mk or {}).get("world") or {}
     return dict(
         at=time.strftime("%H:%M:%S"),
@@ -99,7 +91,7 @@ def snapshot():
                    growth=w.get("growth"), stag=w.get("stag")),
         volunteers=dict(online=(stats or {}).get("workers_online"), devices=(stats or {}).get("gpus") or []),
         california=dict(done=(stats or {}).get("runs_done"), goal=(stats or {}).get("runs_goal")),
-        kudos=kudos, gpus=gpus(), worker_log=wlog, service_log=slog)
+        gpus=gpus(), worker_log=wlog, service_log=slog)
 
 
 PAGE = r"""<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
@@ -155,7 +147,7 @@ async function tick() {
   <section><h2>Volunteers</h2><div class="big">${d.volunteers.online ?? "–"} <span class="at">devices online</span></div>
     ${(d.volunteers.devices || []).map(([n, c]) => `<div class="row"><span>${esc(n)}</span><span class="num">${c}</span></div>`).join("")}
     ${d.california.done != null ? `<div class="row"><span>California tuning runs</span><span class="num">${d.california.done}${d.california.goal ? " / " + d.california.goal : ""}</span></div>` : ""}
-    ${d.kudos != null ? `<div class="row"><span>Your kudos this session</span><span class="num">${d.kudos.toLocaleString()}</span></div>` : ""}</section>
+</section>
   <section><h2>Graphics cards</h2>${g}</section>
   <section class="wide"><h2>Your worker, latest</h2><pre>${esc(d.worker_log.join("\n"))}</pre></section>
   <section class="wide"><h2>Background service, latest</h2><pre>${esc(d.service_log.join("\n"))}</pre></section>`;

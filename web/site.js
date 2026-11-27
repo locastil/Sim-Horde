@@ -47,14 +47,14 @@
   function leaders(b) {
     const tb = $("leaders").tBodies[0];
     if (!b.workers.length) return;
-    tb.innerHTML = b.workers.map((w, i) => `<tr>
-      <td class="num">${i + 1}</td>
-      <td class="who">${esc(w.name)}${w.online ? '<span class="badge on">Online</span>' : ""}</td>
+    const list = b.workers.slice().sort((x, y) => y.hours - x.hours);
+    tb.innerHTML = list.map((w) => `<tr>
+      <td class="who">${esc(w.name)}${w.online ? '<span class="badge on">Online</span>' : ""}${w.verified ? '<span class="badge chk">Checked</span>' : ""}</td>
       <td class="hw">${hw(w.gpu)}</td>
       <td class="num">${fmt.format(w.jobs)}</td>
-      <td class="num">${w.hours.toFixed(1)}</td>
-      <td class="num"><b>${fmt.format(Math.round(w.kudos))}</b></td></tr>`).join("");
+      <td class="num">${w.hours.toFixed(1)}</td></tr>`).join("");
   }
+
 
   /* ---------- progress chart ---------- */
   function chart(p) {

@@ -57,7 +57,7 @@ key is stored in `worker_config.json`. Keep it private.
   settles it, and a device that keeps disagreeing is paused.
 - Jobs not returned within 45 minutes go back in the queue.
 
-Kudos are earned for each accepted run, plus a bonus when another volunteer's re-run matches yours.
+Some results are re-run by another volunteer to check them; devices that keep disagreeing stop getting work. There are no points or prizes: everyone's device counts the same.
 They have no money value.
 
 ## Live progress

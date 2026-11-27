@@ -220,7 +220,7 @@ def main():
     total = sum(d["pop"] for d in data.values())
     say(f"Working on {gpu}{f' ({vram} GB)' if vram else ''}. Close this window to stop.")
 
-    idle, kudos = 5, 0.0
+    idle, done = 5, 0
     if os.path.exists(STOP):
         os.remove(STOP)
     while not os.path.exists(STOP):
@@ -280,9 +280,9 @@ def main():
                         os.remove(fp)
             code, r = call(server, "/api/v1/world/result", dict(key=key, job=job["id"], out=out, secs=secs), timeout=300)
             if code == 200:
-                kudos += r.get("kudos", 0)
+                done += 1
                 adv = f" The world moved on to the next month." if r.get("world_advanced") else ""
-                say(f"Done in {secs:.0f}s ({r.get('month')}). +{r.get('kudos', 0)} kudos, {kudos:.1f} this session.{adv}")
+                say(f"Done in {secs:.0f}s ({r.get('month')}). {done} piece{'s' if done != 1 else ''} this session.{adv}")
             else:
                 say(f"World result not accepted: {r.get('error', code)}")
             if a.once:
@@ -312,9 +312,9 @@ def main():
         out = {k: out[k] for k in ("log_rude", "stress", "irr", "leave", "civ")}
         code, r = call(server, f"/api/v1/jobs/{job['id']}/result", dict(key=key, out=out, secs=secs), timeout=120)
         if code == 200:
-            kudos += r.get("kudos", 0)
+            done += 1
             note = f" ({r['note']})" if r.get("note") else ""
-            say(f"Done in {secs:.0f}s. +{r['kudos']} kudos, {kudos:.1f} this session{note}")
+            say(f"Done in {secs:.0f}s. {done} piece{'s' if done != 1 else ''} this session{note}")
         else:
             say(f"Result not accepted: {r.get('error', code)}")
         if a.once:
