@@ -5,6 +5,7 @@
 // Auto tops out at High on computers and Medium at 30 fps on phones and tablets, and drops to Low
 // while this device is helping simulate, so the simulation gets the graphics chip.
 import * as THREE from "/vendor/three.min.js";
+import { addTraffic } from "/traffic.js";
 
 const TIERS = {
   low:    { label: "Low",    tex: 1024, seg: 40,  dpr: 1,    light: false, atmo: false, stars: 0,    spec: false, aa: false, layers: ["countries_low"], fps: 30 },
@@ -197,6 +198,16 @@ export function mountGlobe(root, opts = {}) {
   let tier = mode === "auto" ? autoTier : mode;
 
   let worldData = null, painting = false, repaintQueued = false;
+  let traffic = null;
+  const tdata = { globe: null, markets: null, cities: null };     // flights and ships: an illustration driven by the simulation
+  const refreshTraffic = async () => {
+    try {
+      const [m, c] = await Promise.all([fetch("/api/v1/markets").then((r) => r.json()).catch(() => null), tdata.cities || fetch("/geo/cities.json").then((r) => r.json())]);
+      if (m) tdata.markets = m; tdata.cities = c;
+      if (traffic && tdata.globe) traffic.setData(tdata);
+    } catch (e) {}
+  };
+  refreshTraffic(); setInterval(refreshTraffic, 120000);
   let renderer, scene, camera, world, tilt, earth, tex, specTex, base, raf = 0, built = 0;
   let lon = Math.random() * 360 - 180, lat = 15, vLon = reduceMotion ? 0 : 0.035, vLat = 0, dragging = false, zoom = 4.0;
   let visible = true, frames = 0, tAcc = 0, slow = 0, lowWindows = 0, goodWindows = 0, lastT = performance.now(), fps = 0, dprScale = 1;
@@ -240,6 +251,7 @@ export function mountGlobe(root, opts = {}) {
     }
     earth = new THREE.Mesh(new THREE.SphereGeometry(1, T.seg, T.seg / 2), mat);
     world.add(earth);
+    traffic = addTraffic(world, tier, tdata.globe && tdata.cities ? tdata : null);
     if (T.atmo) {
       const atmo = new THREE.Mesh(new THREE.SphereGeometry(1.07, T.seg / 2, T.seg / 4), new THREE.ShaderMaterial({
         side: THREE.BackSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
@@ -288,6 +300,7 @@ export function mountGlobe(root, opts = {}) {
     tilt.rotation.x = lat * Math.PI / 180;
     world.rotation.y = -(lon + 90) * Math.PI / 180;
     camera.position.set(0, 0, zoom); camera.lookAt(0, 0, 0);
+    if (traffic) traffic.update(dt);
     renderer.render(scene, camera);
     // smoothness governor (Auto only). It counts late frames rather than averaging, because a
     // choppy 45 fps looks worse than a steady 30. Down: resolution first, then the tier. Up: after
@@ -347,6 +360,7 @@ export function mountGlobe(root, opts = {}) {
   /* --- the world's happiness */
   async function setWorld(g) {
     worldData = { nations: g.nations };
+    tdata.globe = g; if (traffic && tdata.cities) traffic.setData(tdata);
     if (!tex) return;
     if (painting) { repaintQueued = true; return; }
     painting = true;

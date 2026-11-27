@@ -110,7 +110,7 @@
         worldKey = g.epoch; lastWorld = g; if (globe) globe.setWorld(g);
       }
       const cap = $("globeCap");
-      if (cap) cap.textContent = g && g.date ? `${g.date}. Drag to turn it; point at a country.` : "The world starts when the first volunteer connects.";
+      if (cap) cap.textContent = g && g.date ? `${g.date}. Drag to turn it; point at a country, or double-click one to see its streets. White dots are flights, amber are ships: an illustration driven by the simulation.` : "The world starts when the first volunteer connects.";
     } catch (e) {
       $("liveLine").innerHTML = `<span class="live-dot off"></span>The coordinator isn't answering right now. This page will keep trying.`;
     }
