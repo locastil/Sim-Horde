@@ -397,3 +397,4 @@ html.st-open { overflow: hidden; }
 .bg-opt input { width: 15px; height: 15px; margin: 0; accent-color: var(--cobalt); cursor: pointer; }
 .bg-opt:has(input:checked) { color: #fff; border-color: rgba(31, 75, 255, .8); }
 .bg-opt:has(input:focus-visible) { outline: 3px solid #ffd34d; outline-offset: 2px; }
+.viewport figcaption .tcap { display: block; margin-top: 4px; opacity: .85; }

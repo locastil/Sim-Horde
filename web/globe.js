@@ -208,6 +208,31 @@ export function mountGlobe(root, opts = {}) {
     } catch (e) {}
   };
   refreshTraffic(); setInterval(refreshTraffic, 120000);
+  // "Live": real flights and ships instead of the simulation's illustration
+  let trafficMode = store.get("simhorde.traffic") === "live" ? "live" : "sim", liveSnap = null, liveT = 0;
+  const pullLive = async () => {
+    if (trafficMode !== "live") return;
+    try {
+      const d = await fetch("/api/v1/traffic").then((r) => r.json());
+      if (!d || !d.t || !(d.planes.length + d.ships.length)) { liveSnap = null; note("Live traffic isn't available right now, showing the simulation's"); setTrafficHud(); if (traffic) { traffic.setLive(null); if (tdata.globe && tdata.cities) traffic.setData(tdata); } return; }
+      liveSnap = d; if (traffic) traffic.setLive(d); setTrafficHud();
+    } catch (e) {}
+  };
+  setInterval(() => { if (trafficMode === "live" && !document.hidden) pullLive(); }, 60000);
+  function setTrafficHud() {
+    hud.querySelectorAll("button[data-t]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.t === trafficMode)));
+    const cap = root.querySelector(".tcap");
+    if (cap) cap.textContent = trafficMode === "live" && liveSnap
+      ? `Live: ${liveSnap.planes.length.toLocaleString()} flights (OpenSky Network) and ${liveSnap.ships.length.toLocaleString()} ships (AISStream.io), real positions from the last few minutes. They don't react to the simulation.`
+      : "Flights and ships: an illustration driven by the simulation.";
+  }
+  hud.querySelectorAll("button[data-t]").forEach((b) => b.addEventListener("click", () => {
+    trafficMode = b.dataset.t; store.set("simhorde.traffic", trafficMode);
+    if (trafficMode === "live") pullLive();
+    else { liveSnap = null; if (traffic) { traffic.setLive(null); if (tdata.globe && tdata.cities) traffic.setData(tdata); } }
+    setTrafficHud();
+  }));
+  setTrafficHud();
   let renderer, scene, camera, world, tilt, earth, tex, specTex, base, raf = 0, built = 0;
   let lon = Math.random() * 360 - 180, lat = 15, vLon = reduceMotion ? 0 : 0.035, vLat = 0, dragging = false, zoom = 4.0;
   let visible = true, frames = 0, tAcc = 0, slow = 0, lowWindows = 0, goodWindows = 0, lastT = performance.now(), fps = 0, dprScale = 1;
@@ -252,6 +277,7 @@ export function mountGlobe(root, opts = {}) {
     earth = new THREE.Mesh(new THREE.SphereGeometry(1, T.seg, T.seg / 2), mat);
     world.add(earth);
     traffic = addTraffic(world, tier, tdata.globe && tdata.cities ? tdata : null);
+    if (trafficMode === "live") { if (liveSnap) traffic.setLive(liveSnap); else pullLive(); }
     if (T.atmo) {
       const atmo = new THREE.Mesh(new THREE.SphereGeometry(1.07, T.seg / 2, T.seg / 4), new THREE.ShaderMaterial({
         side: THREE.BackSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,

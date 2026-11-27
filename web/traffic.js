@@ -149,6 +149,54 @@ export function addTraffic(world, tier, data) {
     sGeo.attributes.position.needsUpdate = true;
   }
 
+  // ---- Live: real aircraft (OpenSky) and ships (AISStream), moved along their heading between snapshots
+  let live = null;
+  const LIVE_CAP = { low: 2500, medium: 4500, high: 9000, epic: 9000 }[tier] || 4500;
+  function setLive(snap) {
+    clear();
+    live = null; pGeo = sGeo = null;
+    if (!snap) return;
+    const step = (arr) => { const k = Math.max(1, Math.ceil(arr.length / LIVE_CAP)); return arr.filter((_, i) => i % k === 0); };
+    const P = step(snap.planes || []), S = step(snap.ships || []);
+    live = { P, S, pt: (snap.planes_t || snap.t) * 1000, st: snap.t * 1000 };
+    pGeo = new THREE.BufferGeometry(); pGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(Math.max(1, P.length) * 3), 3));
+    sGeo = new THREE.BufferGeometry(); sGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(Math.max(1, S.length) * 3), 3));
+    const big = tier === "epic" || tier === "high";
+    group.add(new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0xffffff, size: big ? 2.4 : 2.0, sizeAttenuation: false, transparent: true, opacity: 0.9 })));
+    group.add(new THREE.Points(sGeo, new THREE.PointsMaterial({ color: 0xffb547, size: big ? 2.2 : 1.8, sizeAttenuation: false, transparent: true, opacity: 0.9 })));
+    liveUpdate(true);
+  }
+  let lastLive = 0;
+  function put(arr, i, lon, lat, r) {
+    const phi = (lon + 180) * D, la = lat * D, c = Math.cos(la);
+    arr[i * 3] = -Math.cos(phi) * c * r; arr[i * 3 + 1] = Math.sin(la) * r; arr[i * 3 + 2] = Math.sin(phi) * c * r;
+  }
+  function liveUpdate(force) {
+    const now = Date.now();
+    if (!force && now - lastLive < 250) return;            // four position updates a second is plenty at this scale
+    lastLive = now;
+    const pa = pGeo.attributes.position.array, sa = sGeo.attributes.position.array;
+    const dp = still ? 0 : Math.min(600, Math.max(0, (now - live.pt) / 1000));
+    live.P.forEach((q, i) => {                            // [lon, lat, alt m, heading, speed m/s, callsign, category]
+      const h = q[3] * D, d = q[4] * dp, lat = q[1] + (d * Math.cos(h)) / 111320;
+      const lon = q[0] + (d * Math.sin(h)) / (111320 * Math.max(0.05, Math.cos(q[1] * D)));
+      put(pa, i, lon, lat, 1.004 + Math.min(13000, Math.max(0, q[2])) / 13000 * 0.012);
+    });
+    pGeo.attributes.position.needsUpdate = true;
+    const ds = still ? 0 : Math.min(1800, Math.max(0, (now - live.st) / 1000));
+    live.S.forEach((q, i) => {                            // [lon, lat, course, knots, name, kind]
+      const h = q[2] * D, d = q[3] * 0.5144 * ds;
+      put(sa, i, q[0] + (d * Math.sin(h)) / (111320 * Math.max(0.05, Math.cos(q[1] * D))), q[1] + (d * Math.cos(h)) / 111320, 1.0025);
+    });
+    sGeo.attributes.position.needsUpdate = true;
+  }
+
   if (data) setData(data);
-  return { setData, update, dispose: () => { clear(); world.remove(group); } };
+  return {
+    setData: (d) => { if (!live) setData(d); },
+    setLive,
+    isLive: () => !!live,
+    update: (dt) => (live ? liveUpdate(false) : update(dt)),
+    dispose: () => { clear(); world.remove(group); },
+  };
 }
