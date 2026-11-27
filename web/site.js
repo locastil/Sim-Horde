@@ -106,7 +106,8 @@
     const rank = (a) => { const r = []; a.map((v, i) => [v, i]).sort((x, y) => x[0] - y[0]).forEach(([, i], k) => (r[i] = k)); return r; };
     const rx = rank(pts.map((p) => p[0])), ry = rank(pts.map((p) => p[1])), n = pts.length;
     const rho = 1 - (6 * rx.reduce((a, v, i) => a + (v - ry[i]) ** 2, 0)) / (n * (n * n - 1));
-    return ` Against real life-satisfaction surveys in ${n} countries, simulated happiness is off by ${err.toFixed(2)} points on average (guessing the world average everywhere would be off by ${guess.toFixed(2)}), and ranks countries in a similar order (rank match ${rho.toFixed(2)} out of 1).`;
+    const mf = g.mig_fit, mig = mf && mf.rank != null ? ` Migration: in the ${mf.n} countries people really leave, the simulation ranks how many leave in a similar order to the World Bank's figures (rank match ${mf.rank.toFixed(2)} out of 1).` : "";
+    return ` Against real life-satisfaction surveys in ${n} countries, simulated happiness is off by ${err.toFixed(2)} points on average (guessing the world average everywhere would be off by ${guess.toFixed(2)}), and ranks countries in a similar order (rank match ${rho.toFixed(2)} out of 1).` + mig;
   }
 
   let worldKey = null;

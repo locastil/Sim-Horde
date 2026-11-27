@@ -238,6 +238,7 @@ class World:
             n["open"] = round(t.get("trade") or (25 + 200 * math.exp(-0.6 * max(0.0, lp))), 1)   # % of GDP: small countries trade more
             n["mktcap"] = t.get("mktcap")
             n["open_real"] = "trade" in t
+            n["netmig_real"] = t.get("netmig")                  # real net migration, people a year (World Bank)
             rich = (n["stats"].get("gdp") or 3000) > 25000
             # where prices settle when nothing's going on: about 2% in rich democracies, more elsewhere
             anchor = 2.2 if rich and n["gov"] == "dem" else 3.5 if rich else 5.0 if n["gov"] in ("dem", "hyb") else 7.0
@@ -294,6 +295,61 @@ class World:
     def shard_agents(self, i):
         return sum(self.w["nations"][c]["agents"] for c in self.w["shards"][i])
 
+    def migrate(self, live):
+        """Ordinary migration: each month some of the people who want to leave (outside war zones, where the
+        refugee step above handles it) actually go. How many want to leave is the simulation's own answer;
+        the world total each year is set to the real one (World Bank net arrivals), and they head mostly for
+        richer countries, nearby ones, and the places migrants already go."""
+        real_in = sum(max(0.0, n.get("netmig_real") or 0.0) for n in live)
+        month_total = (real_in or 0.0007 * sum(n["pop"] for n in live)) / 12
+        want = {n["code"]: n["pop"] * n["last"]["leave"] / 1000 / 12 for n in live if n["last"] and not n["conflict"]}
+        k = month_total / (sum(want.values()) or 1)
+
+        def pull(d):
+            if d["conflict"] or not d["last"]:
+                return 0.0
+            m = max(0.0, d.get("netmig_real") or 0.0) / 1000 + 0.02 * d["pop"] / 1e6 * (d["stats"].get("gdp") or 3000) / 10000
+            return m * (0.3 if d.get("sanctions", 0) > 0 else 1.0)
+        P = {d["code"]: pull(d) for d in live}
+        for n in live:
+            n["migrants_in"] = 0.0
+            n.setdefault("mig_year", 0.0)
+        for o in live:
+            out = min(want.get(o["code"], 0.0) * k, o["pop"] * 0.002)
+            if out <= 0:
+                continue
+            nb = set(o["borders"])
+            ws = [(d, P[d["code"]] * (1.0 if d["code"] in nb else 0.45 if d["region"] == o["region"] else 0.15))
+                  for d in live if d is not o and P[d["code"]] > 0]
+            tot = sum(w for _, w in ws)
+            if tot <= 0:
+                continue
+            o["pop"] -= out; o["mig_year"] -= out
+            for d, w in ws:
+                x = out * w / tot
+                d["pop"] += x; d["mig_year"] += x; d["migrants_in"] += x / max(1.0, d["pop"])
+
+    def fit_migration(self):
+        """Once a simulated year: how the world's net migration by country compares with the real figures.
+        Scored on the countries people really leave (real net migration below zero), because that's the
+        simulation's own judgement; where they arrive leans on the real figures, so scoring it would flatter."""
+        live = [n for n in self.w["nations"].values() if n["last"]]
+        pts = []
+        for n in live:
+            n["mig_last"] = round(n.get("mig_year", 0.0) / max(1.0, n["pop"]) * 1000, 2)     # per 1,000 people a year
+            if n.get("netmig_real") is not None and n["netmig_real"] < 0:
+                pts.append((n["mig_last"], n["netmig_real"] / max(1.0, n["pop"]) * 1000))
+            n["mig_year"] = 0.0
+        if len(pts) < 15:
+            return
+        mx, my = sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)
+        sxy = sum((a - mx) * (b - my) for a, b in pts); sxx = sum((a - mx) ** 2 for a, _ in pts); syy = sum((b - my) ** 2 for _, b in pts)
+        rank = lambda v: {i: r for r, i in enumerate(sorted(range(len(v)), key=lambda j: v[j]))}
+        ra, rb = rank([p[0] for p in pts]), rank([p[1] for p in pts])
+        nn = len(pts)
+        rho = 1 - 6 * sum((ra[i] - rb[i]) ** 2 for i in range(nn)) / (nn * (nn * nn - 1))
+        self.w["mig_fit"] = dict(r=round(sxy / math.sqrt(sxx * syy), 3) if sxx > 0 and syy > 0 else None, rank=round(rho, 3), n=nn)
+
     def pressure(self, n):
         p = dict(stress=0.0, irr=0.0, leave=0.0, kind=0.0)
         if n["protests"] > 0:
@@ -310,6 +366,8 @@ class World:
             p["stress"] += 0.03
         if n["refugees_in"] > 0.002:
             p["stress"] += min(0.08, n["refugees_in"] * 10)
+        if n.get("migrants_in", 0) > 0.0005:            # many newcomers in one month strain housing and jobs a little
+            p["stress"] += min(0.03, n["migrants_in"] * 20)
         if n.get("sanctions", 0) > 0:                  # sanctions: shortages, lost jobs, people looking to leave
             p["stress"] += 0.05; p["leave"] += 0.3
         if n.get("tariff", 0) > 0:
@@ -646,14 +704,17 @@ class World:
         # refugees: people leaving conflict zones go to neighbors
         for n in live:
             n["refugees_in"] = 0.0
+            n.setdefault("mig_year", 0.0)
         for n in live:
             if n["conflict"]:
                 out = n["pop"] * n["last"]["leave"] / 1000 / 12
                 nb = [N[b] for b in n["borders"] if b in N]
                 if nb and out > 0:
-                    n["pop"] -= out
+                    n["pop"] -= out; n["mig_year"] = n.get("mig_year", 0.0) - out
                     for m in nb:
                         m["pop"] += out / len(nb); m["refugees_in"] += out / len(nb) / max(1, m["pop"])
+                        m["mig_year"] = m.get("mig_year", 0.0) + out / len(nb)
+        self.migrate(live)
         # border standoffs and wars between neighbors
         pairs = []
         for n in live:
@@ -714,6 +775,8 @@ class World:
             n["series"] = (n["series"] + [[e, round(n["last"]["civ"], 4), round(n["last"]["stress"], 3)]])[-240:]
         if e % 12 == 0 or "happy_fit" not in W:
             self.fit_happiness()
+        if e % 12 == 0:
+            self.fit_migration()
         hw = sum(self.happiness(n) * n["pop"] for n in live) / wsum
         W["world_series"] = (W["world_series"] + [[e, round(hw, 3), round(mean_stress, 3),
                                                      sum(1 for n in live if n["conflict"]), sum(1 for n in live if n["rating"])]])[-600:]
@@ -1021,7 +1084,9 @@ class World:
                 nations[n["num"]] = dict(name=n["name"], happiness=round(self.happiness(n), 2), survey=n["stats"].get("happiness"),
                                          survey_year=n["stats"].get("happiness_year"), gov=GOV_LABEL[n["gov"]],
                                          office=n["title"], ruling=n["ruling"], conflict=n["conflict"], protests=n["protests"] > 0,
-                                         pop=round(n["pop"]), detail=LAYERS[n.get("detail", 0)]["name"])
+                                         pop=round(n["pop"]), detail=LAYERS[n.get("detail", 0)]["name"],
+                                         netmig=n.get("mig_last"),
+                                         netmig_real=round(n["netmig_real"] / max(1.0, n["pop"]) * 1000, 2) if n.get("netmig_real") is not None else None)
             self.maybe_close()
             done = sum(1 for j in self.jobs.values() if j["status"] == "done")
             dnow = [[L["name"], sum(1 for (k, _), j in self.djobs.items() if k == kk and j["result"] is not None),
@@ -1035,6 +1100,6 @@ class World:
             last = W["world_series"][-1] if W["world_series"] else None
             return dict(date=self.date(), epoch=W["epoch"], month_secs=self.month_secs, month_progress=[done, len(self.jobs)], scale=W["scale"],
                         people=round(sum(n["pop"] for n in N.values())), simulated=sum(n["agents"] for n in N.values()),
-                        happiness=last[1] if last else None, fit=W.get("happy_fit"), conflicts=last[3] if last else 0, levels=levels,
+                        happiness=last[1] if last else None, fit=W.get("happy_fit"), mig_fit=W.get("mig_fit"), conflicts=last[3] if last else 0, levels=levels,
                         simulated_detail=sum(n.get("detail_agents", n["agents"]) if n.get("detail") else n["agents"] for n in N.values()),
                         nations=nations, events=ev, series=[[x[0], x[1], x[3], x[4]] for x in W["world_series"][-240:]], source=W.get("data", {}).get("source"))

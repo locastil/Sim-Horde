@@ -5,6 +5,7 @@ markets and trade:
   mktcap  CM.MKT.LCAP.GD.ZS  market capitalization of listed companies, % of GDP: how much its markets matter
   infl    FP.CPI.TOTL.ZG     consumer price inflation, % a year: where each country's prices start
   growth  NY.GDP.MKTP.KD.ZG  real GDP growth, % a year: where each economy starts
+  netmig  SM.POP.NETM        net migration, people a year (arrivals minus departures): where migrants really go
 Writes engine/sim_data/world/economy.json. Countries without a figure get none (the world estimates one).
     python world/trade_data.py
 """
@@ -15,7 +16,7 @@ import urllib.request
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(os.path.dirname(HERE), "engine", "sim_data", "world", "economy.json")
 WB = "https://api.worldbank.org/v2/country/all/indicator/{code}?format=json&per_page=20000&mrnev=1"
-WANT = {"trade": "NE.TRD.GNFS.ZS", "mktcap": "CM.MKT.LCAP.GD.ZS", "infl": "FP.CPI.TOTL.ZG", "growth": "NY.GDP.MKTP.KD.ZG"}
+WANT = {"trade": "NE.TRD.GNFS.ZS", "mktcap": "CM.MKT.LCAP.GD.ZS", "infl": "FP.CPI.TOTL.ZG", "growth": "NY.GDP.MKTP.KD.ZG", "netmig": "SM.POP.NETM"}
 
 
 def fetch(code):
