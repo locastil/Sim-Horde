@@ -3,7 +3,7 @@
 // unless "Run in background" is ticked. Pauses on low battery either way.
 (() => {
   const $ = (id) => document.getElementById(id);
-  const box = $("helpBox");
+  const box = $("helpBox") || $("help");
   if (!box) return;
   const store = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } },
                   set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
