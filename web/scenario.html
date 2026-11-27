@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your own scenario · Sim Horde</title>
+<meta name="description" content="Set up your own what-if world: wars, pandemics, recessions, peace deals. It runs on your device, next to an untouched copy, so you can see what changed.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Run your own what-if world · Sim Horde">
+<meta property="og:description" content="Pick what happens, where and how hard. The whole planet runs on your device next to an untouched copy, so you see exactly what your scenario changed.">
+<meta property="og:url" content="https://sim-horde.org/scenario.html">
+<meta property="og:image" content="https://sim-horde.org/og.png">
+<meta property="og:image:secure_url" content="https://sim-horde.org/og.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" href="/fonts/bricolage-grotesque-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/site.css">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+  <a class="mark" href="/" aria-label="Sim Horde home">
+    <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M5 27V12l6-6h10l6 6v15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><circle cx="11" cy="17" r="2.2" fill="currentColor"/><circle cx="21" cy="17" r="2.2" fill="currentColor"/><circle cx="16" cy="23" r="2.2" fill="currentColor"/></svg>
+    <span>Sim Horde</span>
+  </a>
+  <nav aria-label="Main">
+    <a href="/#live">Live</a>
+    <a href="/scenario.html" aria-current="page">Your scenario</a>
+    <a href="/#board">Leaderboard</a>
+    <a class="btn small" href="/#help">Help now</a>
+  </nav>
+</header>
+
+<main id="main" class="wrap sc">
+  <section class="sc-intro">
+    <h1>What if…?</h1>
+    <p class="lede">Set up what happens, where and how hard. The whole planet then runs on your device twice, side by side: once as it would have gone, once with your events. Both use the same luck, so every difference is your scenario's doing.</p>
+    <p class="sc-fine">Nothing you set up here touches the shared world, and nothing is sent anywhere. It's a simulation built on real country statistics, not a forecast.</p>
+  </section>
+
+  <section class="sc-build" aria-labelledby="buildH">
+    <div class="sc-build-head">
+      <h2 id="buildH">Your events</h2>
+      <div class="sc-presets" role="group" aria-label="Start from an example">
+        <span>Start from:</span>
+        <button type="button" data-preset="pandemic">A pandemic</button>
+        <button type="button" data-preset="war">A regional war</button>
+        <button type="button" data-preset="recession">A world recession</button>
+        <button type="button" data-preset="robots">Hacked robots</button>
+        <button type="button" data-preset="kind">A kinder world</button>
+      </div>
+    </div>
+    <ol class="sc-events" id="events"></ol>
+    <button type="button" class="sc-add" id="addEvent">Add an event</button>
+
+    <div class="sc-run">
+      <label class="sc-len">Run for
+        <select id="years"><option value="1">1 year</option><option value="2" selected>2 years</option><option value="3">3 years</option><option value="5">5 years</option></select>
+      </label>
+      <button type="button" class="btn" id="run">Run on this device</button>
+      <button type="button" class="sc-stop" id="stop" hidden>Stop</button>
+      <p class="sc-est" id="est"></p>
+    </div>
+  </section>
+
+  <section class="sc-out" id="out" hidden aria-live="polite">
+    <div class="sc-progress"><div class="sc-bar"><i id="bar"></i></div><p id="progress"></p></div>
+    <h2 id="headline"></h2>
+    <p class="sc-sub" id="subline"></p>
+    <div class="sc-grid">
+      <figure class="sc-chart">
+        <figcaption>World happiness, month by month <span class="sc-key"><i class="k-normal"></i>As it would have gone <i class="k-yours"></i>Your scenario</span></figcaption>
+        <svg id="chart" role="img" aria-label="World happiness with and without your scenario"></svg>
+      </figure>
+      <figure class="sc-map">
+        <figcaption>What your scenario changed <span class="sc-key"><i class="k-worse"></i>Less happy <i class="k-better"></i>Happier</span></figcaption>
+        <canvas id="map" role="img" aria-label="Map of how much happier or less happy each country ended up"></canvas>
+        <div class="sc-tip" id="mapTip" hidden></div>
+      </figure>
+    </div>
+    <h3>Most affected countries</h3>
+    <div class="table-wrap">
+      <table class="data" id="table">
+        <thead><tr><th scope="col">Country</th><th scope="col" class="num">Happiness, as it would have gone</th><th scope="col" class="num">With your scenario</th><th scope="col" class="num">Change</th><th scope="col" class="num">People leaving each year, per 1,000</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="sc-share">
+      <button type="button" class="btn small" id="share">Copy a link to this scenario</button>
+      <span id="shareNote" role="status"></span>
+    </div>
+  </section>
+
+  <section class="sc-horde">
+    <h2>Bigger runs on the horde</h2>
+    <p>Your device runs the world at Low detail. Soon you'll be able to spend kudos to have volunteers' graphics cards run your scenario at High or Ultra detail, with many more people in every country. <a href="/#board">How kudos work</a>.</p>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap"><p><a href="/">Back to the shared world</a></p></div>
+</footer>
+
+<script src="/scenario.js" defer></script>
+</body>
+</html>

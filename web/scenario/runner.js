@@ -18,6 +18,14 @@ async function run({ nations, theta, months, events, effects, seed }) {
   // nations: [{c, agents, feat, base: {pressure}, b: [borders]}]
   const idx = new Map(nations.map((n, i) => [n.c, i]));
   let stA = null, stB = null;
+  // two quiet months first, so everyone has settled into ordinary life before anything happens
+  for (let w = 0; w < 2 && !stop; w++) {
+    const r = runShard({ nations: nations.map((n) => ({ code: n.c, agents: n.agents, feat: n.feat, pressure: n.base })), theta, days: 30, seed: seed * 7919 + w, state: stA },
+                       (f) => postMessage({ month: 0, progress: (w + f) / 2 }));
+    stA = r.state;
+    if (w === 1) postMessage({ month: 0, normal: r.nations, scenario: r.nations });
+  }
+  stB = stA;
   for (let month = 1; month <= months && !stop; month++) {
     const featB = nations.map((n) => Object.assign({}, n.feat));
     const presB = nations.map((n) => Object.assign({}, n.base));
