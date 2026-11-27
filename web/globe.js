@@ -226,8 +226,7 @@ export function mountGlobe(root, opts = {}) {
       ? (() => {
           const pe = liveSnap.planes.filter((p) => p[7]).length, se = liveSnap.ships.filter((q) => q[6]).length;
           return `Live: ${liveSnap.planes.length.toLocaleString()} flights (OpenSky Network) and ${liveSnap.ships.length.toLocaleString()} ships (AISStream.io), real positions from the last few minutes. `
-            + (pe + se ? `Fainter dots (${(pe + se).toLocaleString()}) are out of range of receivers, mostly over the oceans, and are shown where their last heading and speed would put them. ` : "")
-            + "They don't react to the simulation.";
+            + (pe + se ? `Fainter dots (${(pe + se).toLocaleString()}) are out of range of receivers, mostly over the oceans, and are shown where their last heading and speed would put them.` : "").trim();
         })()
       : "Flights and ships: an illustration driven by the simulation.";
   }
