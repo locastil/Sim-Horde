@@ -131,6 +131,17 @@ export function addTraffic(world, tier, data) {
         add([cs[0][2], cs[0][1]], [C[to][0][2], C[to][0][1]], Math.sqrt(w * W[to]) * 1.6, "far");
       }
     }
+    // overseas: the busiest countries linked across oceans and continents (New York-London, Los Angeles-Tokyo...)
+    const hubs = Object.entries(W).filter(([, w]) => w > 0).sort((a, b) => b[1] - a[1]).slice(0, 45);
+    for (let i = 0; i < hubs.length; i++) for (let j = i + 1; j < hubs.length; j++) {
+      const [a, wa] = hubs[i], [b, wb] = hubs[j];
+      if (!info[a] || !info[b] || info[a].region === info[b].region) continue;
+      add([C[a][0][2], C[a][0][1]], [C[b][0][2], C[b][0][1]], Math.sqrt(wa * wb) * 0.5, "far");
+    }
+    // keep about a third of the planes on long-haul routes, so the oceans have traffic too
+    const sum = (k) => routes.filter((r) => r.kind === k).reduce((a, r) => a + r.w, 0);
+    const farW = sum("far"), restW = sum("dom") + sum("near");
+    if (farW > 0 && restW > 0) { const f = (0.35 / 0.65) * restW / farW; for (const r of routes) if (r.kind === "far") r.w *= f; }
     planes = [];
     const wr = routes.reduce((a, r) => a + r.w, 0) || 1, nPlanes = Math.round(maxPlanes * Math.max(0.6, trade));
     let lines = 0;
@@ -138,7 +149,7 @@ export function addTraffic(world, tier, data) {
       const exact = (nPlanes * r.w) / wr, n = Math.floor(exact) + (Math.random() < exact % 1 ? 1 : 0);
       const speed = 0.012 + 0.02 * Math.min(1, r.ang);                                    // radians a second: long-haul cruises faster on screen
       for (let i = 0; i < n; i++) planes.push({ r, f: Math.random(), dir: Math.random() < 0.5 ? 1 : -1, v: (speed / r.ang) * (0.85 + Math.random() * 0.3) });
-      if (r.kind === "far" && n && lines++ < 160) {
+      if (r.kind === "far" && n && lines++ < 220) {
         const pts = []; const t = new THREE.Vector3();
         for (let k = 0; k <= 32; k++) { const f = k / 32; pts.push(slerp(r.a, r.b, f, t).clone().multiplyScalar(1.004 + 0.06 * Math.sin(Math.PI * f) * Math.min(1, r.ang))); }
         group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.06, depthWrite: false })));
