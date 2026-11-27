@@ -345,3 +345,22 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 @media (max-width: 860px) { .c-facts { grid-template-columns: 1fr 1fr; } }
 .x-chart svg { color: var(--x-up); }
 .x-chart svg.down { color: var(--x-down); }
+
+/* donate page */
+.donate { padding-top: 24px; padding-bottom: 64px; display: grid; gap: 40px; }
+.d-hero { background: var(--paper); border: 1px solid var(--line); border-radius: 22px; padding: 36px 36px 30px; }
+.d-hero h1 { max-width: 16ch; }
+.d-amounts { display: flex; flex-wrap: wrap; gap: 10px; margin: 22px 0 16px; }
+.d-amounts[hidden] { display: none; }
+.d-amt { font: 700 1.05rem/1 var(--display); color: var(--ink); background: var(--ground); border: 2px solid var(--line); border-radius: 12px; padding: 14px 20px; cursor: pointer; min-width: 84px; }
+.d-amt[aria-pressed="true"] { border-color: var(--cobalt); color: var(--cobalt); background: #fff; }
+.d-go { font-size: 1.05rem; padding: 14px 28px; margin-top: 8px; }
+.d-go[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+.d-how { color: var(--ink-3); font-size: .9rem; margin: 12px 0 0; }
+.d-where dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin: 0; }
+.d-where dl div { border-top: 3px solid var(--cobalt); padding-top: 12px; }
+.d-where dt { font: 700 1.1rem/1.2 var(--display); margin-bottom: 6px; }
+.d-where dd { margin: 0; color: var(--ink-2); }
+.d-fine ul { margin: 0; padding-left: 1.2rem; color: var(--ink-2); max-width: 70ch; }
+.d-fine li + li { margin-top: 6px; }
+@media (max-width: 700px) { .d-hero { padding: 26px 20px 22px; } }

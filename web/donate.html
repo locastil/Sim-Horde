@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Support Sim Horde</title>
+<meta name="description" content="Sim Horde is free and run by one person. Donations keep the shared world online.">
+<link rel="preload" href="/fonts/bricolage-grotesque-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/site.css">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+  <a class="mark" href="/" aria-label="Sim Horde home">
+    <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M5 27V12l6-6h10l6 6v15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><circle cx="11" cy="17" r="2.2" fill="currentColor"/><circle cx="21" cy="17" r="2.2" fill="currentColor"/><circle cx="16" cy="23" r="2.2" fill="currentColor"/></svg>
+    <span>Sim Horde</span>
+  </a>
+  <nav aria-label="Main">
+    <a href="/#live">Live</a>
+    <a href="/#how">How it works</a>
+    <a href="/#board">Leaderboard</a>
+    <a class="btn small" href="/#help">Help now</a>
+  </nav>
+</header>
+
+<main id="main" class="wrap donate">
+  <section class="d-hero">
+    <h1>Keep the world running.</h1>
+    <p class="lede">Sim Horde is free, has no ads and never will. One person builds and runs it, and the shared world lives on a single computer that has to stay on day and night. If you'd like to help in a way other than lending your device, a donation goes straight to keeping it online and growing.</p>
+    <div class="d-amounts" role="group" aria-label="Pick an amount">
+      <button type="button" class="d-amt" data-amt="3" aria-pressed="false">$3</button>
+      <button type="button" class="d-amt" data-amt="10" aria-pressed="true">$10</button>
+      <button type="button" class="d-amt" data-amt="25" aria-pressed="false">$25</button>
+      <button type="button" class="d-amt" data-amt="" aria-pressed="false">Other</button>
+    </div>
+    <a class="btn d-go" id="donateGo" href="#" aria-disabled="true">Donate</a>
+    <p class="d-how" id="donateHow">Donations open soon.</p>
+  </section>
+
+  <section class="d-where">
+    <h2>Where it goes</h2>
+    <dl>
+      <div><dt>An always-on server</dt><dd>so the world keeps turning even when the computer it lives on today is off or travelling.</dd></div>
+      <div><dt>A signed installer</dt><dd>so Windows stops warning people that the desktop app is from an unknown publisher.</dd></div>
+      <div><dt>The domain and the rest</dt><dd>sim-horde.org, backups, and the time it takes to build what's next.</dd></div>
+    </dl>
+  </section>
+
+  <section class="d-fine">
+    <h2>Good to know</h2>
+    <ul>
+      <li>Donations go to the person who runs Sim Horde, not to a charity, so they aren't tax-deductible.</li>
+      <li>Giving doesn't change anything in the simulation or on the leaderboard: everyone's device counts the same.</li>
+      <li>Payments are handled by the payment provider. Sim Horde never sees your card details.</li>
+      <li>Lending your phone, tablet or computer helps just as much. <a href="/#help">Help from this device</a>.</li>
+    </ul>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <p><a href="/">Back to the world</a></p>
+  </div>
+</footer>
+
+<script>
+// The donation link lives in /donate.json ({"url": "...", "provider": "PayPal"}) so it can change without touching this page.
+(async () => {
+  const go = document.getElementById("donateGo"), how = document.getElementById("donateHow");
+  const amts = [...document.querySelectorAll(".d-amt")];
+  let cfg = null, amt = "10";
+  try { cfg = await (await fetch("/donate.json", { cache: "no-store" })).json(); } catch (e) {}
+  const ok = cfg && /^https:\/\/(www\.)?(paypal\.com|paypal\.me|buy\.stripe\.com|donate\.stripe\.com)\//.test(cfg.url || "");
+  const update = () => {
+    if (!ok) return;
+    let url = cfg.url;
+    if (amt && /paypal\.me\//.test(url)) url = url.replace(/\/$/, "") + "/" + amt + "USD";          // PayPal.Me takes the amount in the link
+    go.href = url;
+    go.textContent = amt ? `Donate $${amt}` : "Donate";
+  };
+  amts.forEach((b) => b.addEventListener("click", () => {
+    amt = b.dataset.amt; amts.forEach((x) => x.setAttribute("aria-pressed", String(x === b))); update();
+  }));
+  if (!ok || !/paypal\.me\//.test(cfg.url)) document.querySelector(".d-amounts").hidden = true;   // only PayPal.Me takes an amount
+  if (ok) {
+    go.removeAttribute("aria-disabled"); go.target = "_blank"; go.rel = "noopener";
+    how.textContent = `Secure checkout with ${cfg.provider || "the payment provider"}. ` + (/paypal\.me\//.test(cfg.url) ? "You can change the amount there." : "Choose your amount on the next page.");
+    update();
+  } else {
+    go.addEventListener("click", (e) => e.preventDefault());
+  }
+})();
+</script>
+</body>
+</html>
