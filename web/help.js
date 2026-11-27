@@ -133,7 +133,7 @@
     store.set("simhorde.helping", "0");
     if (worker && busy) { worker.terminate(); worker = null; }
     setBar(0);
-    if (!status.textContent.startsWith("A newer")) setStatus(done ? "Stopped. Thanks for helping." : "Not running.");
+    if (!status.textContent.startsWith("A newer")) setStatus(done ? "Stopped in this browser. Thanks for helping." : "This browser isn't helping. (The Sim Horde app, if it's running on this computer, helps on its own.)");
   }
 
   btn.addEventListener("click", () => (running ? stop() : start()));
