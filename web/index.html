@@ -173,10 +173,11 @@
   <section class="wrap" id="runs">
     <div class="section-head">
       <h2>How close the simulation is getting</h2>
-      <p id="progressLine">California tuning: each dot is one test run, scored against real county data on health, crime and people moving away. The line is the best match so far, out of a possible 1.0.</p>
+      <p id="progressLine">California tuning: each dot is one test run, scored by how well its county-by-county pattern matches real data on assaults, distress, loneliness and people moving away (a correlation, where 1.0 would be a perfect match and 0 no match at all). The line is the best so far.</p>
     </div>
     <div class="chart-wrap">
       <svg id="chart" viewBox="0 0 1000 320" role="img" aria-label="Match score of each finished run, with the best so far"></svg>
+      <div class="honest" id="honest" hidden></div>
     </div>
 
     <h3 class="sub">Latest results</h3>

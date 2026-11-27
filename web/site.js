@@ -83,6 +83,30 @@
     g += `<circle cx="${X(last[0])}" cy="${Y(last[2])}" r="5" fill="#1F4BFF"/>`;
     g += `<text x="${Math.min(X(last[0]), W - R - 4)}" y="${Y(last[2]) - 12}" text-anchor="end" style="fill:#0F1B2A;font-weight:650">Best so far ${last[2].toFixed(3)}</text>`;
     svg.innerHTML = g;
+    honest(p, pts.length);
+  }
+  // What the best score really means: checked on counties it wasn't picked on, signal by signal, in words.
+  const STRENGTH = (r) => (r == null ? "–" : r >= 0.7 ? "strong" : r >= 0.5 ? "good" : r >= 0.3 ? "moderate" : r >= 0.1 ? "weak" : "none");
+  const PART = { assault: "Assaults", distress: "Distress", disconnect: "Loneliness", leaving: "Moving away" };
+  function honest(p, runs) {
+    const el = $("honest"), b = p.best;
+    if (!el || !b) { if (el) el.hidden = true; return; }
+    el.hidden = false;
+    el.innerHTML = `<p><b>${b.held_out >= 0.75 ? "Goal reached." : b.held_out < 0.1 ? "No real match yet." : `A ${STRENGTH(b.held_out)} match so far, short of the goal.`}</b> The best run scores ${b.fit.toFixed(2)} on the counties it was picked on, and ${b.held_out.toFixed(2)} on the other ${b.counties} counties it never saw, which is the fairer number. `
+      + `It was picked out of ${fmt.format(runs)} runs; the search tries about 3,000, and the goal is 0.75.</p>`
+      + `<ul>${Object.entries(b.parts).map(([k, v]) => `<li><span>${esc(PART[k] || k)}</span><b class="${v < 0.3 ? "weak" : ""}">${v.toFixed(2)}</b><i>${STRENGTH(v)}</i></li>`).join("")}</ul>`;
+  }
+
+  // How far the simulated happiness is from real surveys, in points, next to the error of just guessing the average
+  function happyCheck(g) {
+    const pts = Object.values(g.nations || {}).filter((n) => n.survey != null && n.happiness != null).map((n) => [n.happiness, n.survey]);
+    if (pts.length < 20) return "";
+    const avg = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+    const err = pts.reduce((a, p) => a + Math.abs(p[0] - p[1]), 0) / pts.length, guess = pts.reduce((a, p) => a + Math.abs(avg - p[1]), 0) / pts.length;
+    const rank = (a) => { const r = []; a.map((v, i) => [v, i]).sort((x, y) => x[0] - y[0]).forEach(([, i], k) => (r[i] = k)); return r; };
+    const rx = rank(pts.map((p) => p[0])), ry = rank(pts.map((p) => p[1])), n = pts.length;
+    const rho = 1 - (6 * rx.reduce((a, v, i) => a + (v - ry[i]) ** 2, 0)) / (n * (n * n - 1));
+    return ` Against real life-satisfaction surveys in ${n} countries, simulated happiness is off by ${err.toFixed(2)} points on average (guessing the world average everywhere would be off by ${guess.toFixed(2)}), and ranks countries in a similar order (rank match ${rho.toFixed(2)} out of 1).`;
   }
 
   let worldKey = null;
@@ -92,7 +116,7 @@
     box.hidden = false;
     $("worldDate").textContent = g.date;
     const nat = Object.keys(g.nations).length;
-    const fit = g.fit && g.fit.r != null ? ` Simulated happiness lines up with real life-satisfaction surveys at r = ${g.fit.r.toFixed(2)} across ${g.fit.n} countries.` : "";
+    const fit = happyCheck(g);
     $("worldStats").innerHTML = `${nat ? fmt.format(nat) + " countries" : "Every country"} and ${big(g.people)} people, simulated as ${fmt.format(g.simulated_detail || g.simulated)}${g.simulated_detail > g.simulated ? " with all the detail volunteers added" : ` (one for every ${fmt.format(g.scale)})`}. `
       + (g.happiness ? `Average happiness ${g.happiness.toFixed(1)} out of 10. ` : "")
       + `${plural(g.conflicts || 0, "armed conflict", "armed conflicts")} under way.` + fit;
