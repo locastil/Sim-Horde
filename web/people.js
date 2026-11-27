@@ -7,7 +7,8 @@ const D = Math.PI / 180;
 const BUDGET = { low: 2500, medium: 5000, high: 8000, epic: 12000 };    // lights on screen
 
 // the same colours as the happiness meter under the globe
-const STOPS = [[3.0, [0.91, 0.30, 0.24]], [4.5, [0.94, 0.55, 0.25]], [5.6, [0.95, 0.78, 0.36]], [6.6, [0.38, 0.78, 0.59]], [7.6, [0.12, 0.67, 0.75]]];
+// (a little more saturated than the meter, since small lights on a dark globe read paler)
+const STOPS = [[3.0, [1.0, 0.24, 0.18]], [4.5, [1.0, 0.5, 0.12]], [5.6, [1.0, 0.8, 0.15]], [6.6, [0.25, 0.9, 0.5]], [7.6, [0.1, 0.78, 1.0]]];
 function moodColor(h) {
   if (h == null) return [0.85, 0.85, 0.8];
   if (h <= STOPS[0][0]) return STOPS[0][1];
@@ -66,7 +67,7 @@ export function addPeople(world, tier, data) {
       const n = Math.max(1, Math.round((p.people / total) * budget));
       // the city itself: a bright core
       pos.push([p.lon, p.lat]); const b0 = Math.min(1, 0.55 + Math.log10(p.cp + 10) / 12);
-      col.push(p.mood.map((v) => Math.min(1, v * b0 + 0.08))); base.push(p.war);
+      col.push(p.mood.map((v) => v * b0)); base.push(p.war);
       // its people: towns and suburbs spreading out, wider for bigger places
       const spread = Math.min(1.6, 0.08 + Math.sqrt(p.people / 1e6) * 0.1);    // degrees
       for (let k = 1; k < n; k++) {
