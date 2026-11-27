@@ -6,6 +6,7 @@
 // while this device is helping simulate, so the simulation gets the graphics chip.
 import * as THREE from "/vendor/three.min.js";
 import { addTraffic } from "/traffic.js";
+import { addPeople } from "/people.js";
 
 const TIERS = {
   low:    { label: "Low",    tex: 1024, seg: 40,  dpr: 1,    light: false, atmo: false, stars: 0,    spec: false, aa: false, layers: ["countries_low"], fps: 30 },
@@ -198,7 +199,14 @@ export function mountGlobe(root, opts = {}) {
   let tier = mode === "auto" ? autoTier : mode;
 
   let worldData = null, painting = false, repaintQueued = false;
-  let traffic = null;
+  let traffic = null, people = null, peopleKey = "";
+  // the city lights only need redrawing when which countries are at war changes
+  const warKey = () => Object.entries((tdata.globe && tdata.globe.nations) || {}).filter(([, n]) => n.conflict).map(([k]) => k).join();
+  const refreshPeople = (force) => {
+    if (!people || !tdata.globe || !tdata.cities) return;
+    const k = warKey(); if (!force && k === peopleKey) return;
+    peopleKey = k; people.setData(tdata);
+  };
   const tdata = { globe: null, markets: null, cities: null };     // flights and ships: an illustration driven by the simulation
   const refreshTraffic = async () => {
     try {
@@ -206,6 +214,7 @@ export function mountGlobe(root, opts = {}) {
                                            tdata.base || fetch("/scenario/base.json").then((r) => r.json()).catch(() => null)]);
       if (m) tdata.markets = m; tdata.cities = c; if (b) tdata.base = b;
       if (traffic && tdata.globe) traffic.setData(tdata);
+      refreshPeople(false);
     } catch (e) {}
   };
   refreshTraffic(); setInterval(refreshTraffic, 120000);
@@ -252,6 +261,7 @@ export function mountGlobe(root, opts = {}) {
     }
     earth = new THREE.Mesh(new THREE.SphereGeometry(1, T.seg, T.seg / 2), mat);
     world.add(earth);
+    people = addPeople(world, tier, null); refreshPeople(true);
     traffic = addTraffic(world, tier, tdata.globe && tdata.cities ? tdata : null);
     drawPiece();
     if (T.atmo) {
@@ -307,6 +317,7 @@ export function mountGlobe(root, opts = {}) {
     world.rotation.y = -(lon + 90) * Math.PI / 180;
     camera.position.set(0, 0, zoom); camera.lookAt(0, 0, 0);
     if (traffic) traffic.update(dt);
+    if (people) people.update(dt);
     renderer.render(scene, camera);
     // smoothness governor (Auto only). It counts late frames rather than averaging, because a
     // choppy 45 fps looks worse than a steady 30. Down: resolution first, then the tier. Up: after
@@ -367,6 +378,7 @@ export function mountGlobe(root, opts = {}) {
   async function setWorld(g) {
     worldData = { nations: g.nations };
     tdata.globe = g; if (traffic && tdata.cities) traffic.setData(tdata);
+    refreshPeople(false);
     if (!tex) return;
     if (painting) { repaintQueued = true; return; }
     painting = true;
