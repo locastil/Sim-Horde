@@ -18,7 +18,7 @@
     tradewar:  { label: "A trade war", hint: "Tariffs push prices up and some jobs away.", p: { stress: 0.03 }, f: { unemp: 0.05 } },
     prices:    { label: "Prices shoot up", hint: "Inflation squeezes everyone's budget.", p: { stress: 0.08 } },
     recession: { label: "A recession", hint: "Jobs disappear and more people fall into poverty.", p: { stress: 0.05 }, f: { unemp: 0.35, pov: 0.1 } },
-    pandemic:  { label: "A pandemic", hint: "People stay home, see fewer others, and some lose work.", p: { stress: 0.12, leave: -0.3 }, f: { dens: -0.6, unemp: 0.2 } },
+    pandemic:  { label: "A pandemic", hint: "People stay home, see fewer others, and some lose work.", p: { stress: 0.05, leave: -0.3 }, f: { dens: -0.4, unemp: 0.15 } },
     disaster:  { label: "A natural disaster", hint: "Homes lost, families displaced.", p: { stress: 0.18, leave: 0.6 }, f: { pov: 0.15 } },
     robots:    { label: "Hacked robots turn on people", hint: "Machines in homes and streets become a danger: a national emergency.", p: { stress: 0.3, irr: 0.5, leave: 0.9, kind: 0.15 }, nb: { stress: 0.03 } },
     cash:      { label: "Cash support for the poorest", hint: "Fewer people in poverty.", p: { stress: -0.04 }, f: { pov: -0.3 } },
