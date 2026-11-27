@@ -473,3 +473,24 @@ html.st-open { overflow: hidden; }
 .sc-horde { border-top: 2px solid var(--ink); padding-top: 16px; max-width: 70ch; }
 .sc-horde h2 { font-size: 1.4rem; }
 @media (max-width: 800px) { .sc-grid { grid-template-columns: 1fr; } .sc-build, .sc-out { padding: 20px 16px; } .sc-row label:first-child select { min-width: 0; width: 100%; } .sc-row label:first-child { flex-basis: 100%; } .sc-addc input { min-width: 0; width: 100%; } }
+
+/* --- scenario assistant (agent.js) */
+.sc-agent { background: var(--ink); color: #E6EDF4; border-radius: 22px; padding: 26px 28px 22px; }
+.sc-agent h2 { color: #fff; margin-bottom: .3em; }
+.sc-agent-note { color: #9FB2C8; font-size: .9rem; max-width: 75ch; margin: 0 0 16px; }
+.ag-log { list-style: none; padding: 0; margin: 0 0 14px; display: grid; gap: 10px; max-height: 460px; overflow-y: auto; }
+.ag-log li { max-width: 80ch; padding: 12px 15px; border-radius: 16px; line-height: 1.5; font-size: .97rem; }
+.ag-log li.ag { background: #18283B; border-top-left-radius: 4px; }
+.ag-log li.me { background: var(--cobalt); color: #fff; justify-self: end; border-top-right-radius: 4px; }
+.ag-log ol { margin: 8px 0; padding-left: 1.3em; }
+.ag-log li.ag ol li { padding: 2px 0; background: none; max-width: none; border-radius: 0; }
+.ag-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.ag-actions button, .ag-ex { font: inherit; font-size: .86rem; color: #fff; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.22); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.ag-actions button:first-child { background: var(--cobalt); border-color: var(--cobalt); }
+.ag-ex { display: inline-block; margin: 6px 4px 0 0; text-align: left; }
+.ag-actions button:hover, .ag-ex:hover { border-color: #fff; }
+.ag-form { display: flex; gap: 8px; }
+.ag-form input { flex: 1; min-width: 0; font: inherit; font-size: 1rem; color: var(--ink); background: #fff; border: 0; border-radius: 10px; padding: 12px 14px; }
+.ag-form .btn { border: 0; font: inherit; font-weight: 600; cursor: pointer; }
+.sc-agent :focus-visible { outline: 3px solid #ffd34d; outline-offset: 2px; }
+@media (max-width: 700px) { .sc-agent { padding: 20px 14px 16px; } }

@@ -42,9 +42,20 @@
     <p class="sc-fine">Nothing you set up here touches the shared world, and nothing is sent anywhere. It's a simulation built on real country statistics, not a forecast.</p>
   </section>
 
+  <section class="sc-agent" aria-labelledby="agentH">
+    <h2 id="agentH">Describe your world</h2>
+    <p class="sc-agent-note">The scenario assistant turns what you write into a plan you can check before anything runs. It works in your browser: nothing you type is sent anywhere. It knows a set list of events, places and timings, so it will say when it doesn't follow.</p>
+    <ol class="ag-log" id="chatLog" aria-live="polite"></ol>
+    <form class="ag-form" id="chatForm">
+      <label class="sr" for="chatIn">Describe what happens</label>
+      <input id="chatIn" autocomplete="off" maxlength="400" placeholder="e.g. a severe war between India and Pakistan, then a recession everywhere">
+      <button type="submit" class="btn small">Send</button>
+    </form>
+  </section>
+
   <section class="sc-build" aria-labelledby="buildH">
     <div class="sc-build-head">
-      <h2 id="buildH">Your events</h2>
+      <h2 id="buildH">The plan</h2>
       <div class="sc-presets" role="group" aria-label="Start from an example">
         <span>Start from:</span>
         <button type="button" data-preset="pandemic">A pandemic</button>
@@ -106,5 +117,6 @@
 </footer>
 
 <script src="/scenario.js" defer></script>
+<script src="/agent.js" defer></script>
 </body>
 </html>

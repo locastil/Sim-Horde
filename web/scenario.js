@@ -85,6 +85,11 @@
     robots: () => [newEvent("robots", "pick", codes(["United States", "Japan", "South Korea", "China"]), "serious", 2, 3), newEvent("crackdown", "pick", codes(["United States"]), "mild", 2, 6)],
     kind: () => [newEvent("peace", "all", [], "serious", 1, 60), newEvent("cash", "all", [], "serious", 2, 60), newEvent("connect", "all", [], "serious", 2, 60)],
   };
+  function listNames(cs) {
+    const N = byCode(), n = cs.map((c) => (N.get(c) || {}).name || c);
+    if (!n.length) return "nowhere yet";
+    return "in " + (n.length <= 3 ? n.join(n.length === 2 ? " and " : ", ") : `${n.slice(0, 3).join(", ")} and ${n.length - 3} more`);
+  }
   function codes(names) { return names.map((nm) => (base.nations.find((n) => n.name === nm) || {}).c).filter(Boolean); }
 
   function nationsFor() {
@@ -272,6 +277,15 @@
     document.querySelectorAll("[data-preset]").forEach((b) => b.addEventListener("click", () => { events = PRESETS[b.dataset.preset](); render(); }));
     $("years").addEventListener("change", estimate);
     $("run").addEventListener("click", run);
+    // what the scenario assistant (agent.js) uses to read and change the plan
+    window.simScenario = {
+      types: TYPES, regions: REGIONS, nations: base.nations,
+      get: () => events, set: (e) => { events = e; render(); }, make: newEvent,
+      years: (y) => { if (y) { $("years").value = String(y); estimate(); } return Number($("years").value); },
+      run: () => { run(); $("out").scrollIntoView({ behavior: "smooth", block: "start" }); }, running: () => running,
+      whereText: (e) => e.where === "all" ? "everywhere" : REGIONS.includes(e.where) ? `in ${e.where}` : listNames(e.countries),
+    };
+    window.dispatchEvent(new Event("simscenario:ready"));
     addEventListener("resize", () => { if (res && res.months.length) draw(!running); });
   })();
 })();
