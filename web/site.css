@@ -532,3 +532,31 @@ html.st-open { overflow: hidden; }
 .music-btn:hover { opacity: 1; text-decoration: underline; }
 .music-player { width: min(300px, 100%); }
 .music-player iframe { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 8px; display: block; }
+
+/* --- the control room: the globe with its controls docked underneath (globe.js + help.js) */
+.room { display: grid; border-radius: 20px; box-shadow: 0 30px 60px -30px rgba(15, 27, 42, .55); overflow: hidden; background: #0a1222; }
+.room .viewport { border-radius: 0; box-shadow: none; }
+.dock { background: #0d1828; border-top: 1px solid rgba(157, 180, 255, .14); padding: 14px 16px 14px; color: #C9D6E6; }
+.dock-row { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: center; }
+.dock .help-btn { width: auto; margin: 0; padding: 11px 20px; font-size: .98rem; }
+.dock .help-btn[aria-pressed="true"] { background: #23344d; }
+.dock-field { display: inline-flex; align-items: center; gap: 7px; font: 600 .78rem/1 var(--body); color: #9FB2C8; }
+.dock-field select, .dock-field input { font: 500 .88rem var(--body); color: #fff; background: rgba(157, 180, 255, .1); border: 1px solid rgba(157, 180, 255, .22); border-radius: 8px; padding: 7px 9px; }
+.dock-field select option { color: var(--ink); }
+.dock-name input { width: 10.5rem; }
+.dock-name input::placeholder { color: #7d90a8; }
+.dock .bg-opt { background: none; border-color: rgba(157, 180, 255, .22); }
+.dock .help-progress { background: rgba(157, 180, 255, .14); margin: 12px 0 8px; height: 4px; }
+.dock .help-progress i { background: #7ee8ff; }
+.dock .help-status { color: #E6EDF4; font-size: .9rem; margin: 0; }
+.dock .help-stats { color: #8FA3BC; margin-top: 3px; }
+.dock :focus-visible { outline: 3px solid #ffd34d; outline-offset: 2px; }
+.piece-tag { position: absolute; left: 50%; top: 92px; transform: translateX(-50%); margin: 0; max-width: calc(100% - 32px); text-align: center;
+  background: rgba(8, 14, 26, .72); backdrop-filter: blur(6px); border: 1px solid rgba(126, 232, 255, .45); color: #DFF8FF;
+  font: 600 .84rem/1.3 var(--body); padding: 7px 14px; border-radius: 999px; pointer-events: none; }
+.fs-btn { pointer-events: auto; font: 600 .78rem/1 var(--body); color: #C9D6E6; background: rgba(8, 14, 26, .62); backdrop-filter: blur(6px);
+  border: 1px solid rgba(157, 180, 255, .16); border-radius: 999px; padding: 7px 12px; cursor: pointer; }
+.fs-btn:hover { color: #fff; }
+.room:fullscreen { width: 100vw; height: 100vh; border-radius: 0; grid-template-rows: minmax(0, 1fr) auto; }
+.room:fullscreen .viewport { aspect-ratio: auto; height: 100%; }
+@media (max-width: 600px) { .dock-name { flex-basis: 100%; } .dock-name input { flex: 1; width: auto; } .piece-tag { top: 112px; font-size: .78rem; } }

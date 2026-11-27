@@ -56,6 +56,7 @@
       <p class="live-line" id="liveLine" aria-live="polite">Connecting to the coordinator…</p>
     </div>
 
+    <div class="room" id="room">
     <figure class="viewport" id="globe" aria-label="3D globe of the world Sim Horde is building">
       <div class="gl" tabindex="0" aria-label="Drag or use the arrow keys to turn the globe; plus and minus to zoom"></div>
       <div class="gtip" role="status" hidden></div>
@@ -69,7 +70,7 @@
           <div class="seg" role="group" aria-label="Graphics quality">
             <button type="button" data-q="auto">Auto</button><button type="button" data-q="low">Low</button><button type="button" data-q="medium">Medium</button><button type="button" data-q="high">High</button><button type="button" data-q="epic">Epic</button>
           </div>
-          <label class="bg-opt" title="Keeps simulating while you switch tabs or minimize this window. Leave the tab open."><input type="checkbox" id="bgRun"> Run in background</label>
+          <button type="button" class="fs-btn" id="fsBtn" aria-pressed="false">Full screen</button>
         </div>
         <p class="note" hidden></p>
       </div>
@@ -79,7 +80,22 @@
         <p class="gh-foot">The Sim Horde desktop app asks which card to use when it starts.</p>
       </div>
       <figcaption><span class="legend" aria-hidden="true"><span>Less happy</span><i class="ramp happy"></i><span>Happier</span></span><span id="globeCap">Drag to turn it; point at a country, or double-click one to see its streets. White dots are flights, amber are ships.</span><span class="tcap">Flights and ships come from the simulated world: they follow its trade, and react to its wars, sanctions and economy.</span></figcaption>
+      <p class="piece-tag" id="pieceTag" hidden></p>
     </figure>
+    <div class="dock" id="help">
+      <div class="dock-row">
+        <button class="btn help-btn" id="helpStart" type="button" aria-pressed="false">Start helping</button>
+        <label class="dock-field"><span>Pace</span>
+          <select id="helpPace"><option value="gentle">Gently</option><option value="normal" selected>Normal</option><option value="full">Flat out (plugged in)</option></select>
+        </label>
+        <label class="bg-opt" title="Keeps simulating while you switch tabs or minimize this window. Leave the tab open."><input type="checkbox" id="bgRun"> Run in background</label>
+        <label class="dock-field dock-name"><span>Your name (optional)</span><input id="helpName" maxlength="32" placeholder="Anonymous" autocomplete="off"></label>
+      </div>
+      <div class="help-progress" aria-hidden="true"><i id="helpBar"></i></div>
+      <p class="help-status" id="helpStatus" aria-live="polite">Not running. Press Start to have this <span id="helpDevice">device</span> simulate a piece of the world.</p>
+      <p class="help-stats" id="helpStats"></p>
+    </div>
+    </div>
   </section>
 
   <section class="wrap world" id="live">
@@ -132,26 +148,15 @@
     </div>
   </section>
 
-  <section class="wrap help" id="help">
+  <section class="wrap help" id="about-help">
     <div class="help-copy">
-      <h2>Help from this device</h2>
-      <p>Your phone, tablet or computer can run a piece of the world right here in the browser: a few countries for one simulated month at a time. Nothing to install.</p>
+      <h2>Helping from this device</h2>
+      <p>Your phone, tablet or computer can run a piece of the world right here in the browser: a few countries for one simulated month at a time. Nothing to install. Press <a href="#help">Start helping</a> under the globe, and the countries your device is simulating light up on it.</p>
       <ul class="help-points">
-        <li>It only runs while this page is open, on screen, and you've pressed Start.</li>
+        <li>It only runs while this page is open and you've pressed Start; tick "Run in background" to keep it going while you use other tabs.</li>
         <li>It pauses when your battery drops below 30% and you're not plugged in.</li>
         <li>It sends back numbers about the simulated people. The only things it shares about you are the name you choose and whether you're on a phone, tablet or computer.</li>
       </ul>
-    </div>
-    <div class="help-panel" id="helpBox">
-      <p class="help-who">Helping from <span id="helpDevice">this device</span></p>
-      <label class="field"><span>Name on the leaderboard (optional)</span><input id="helpName" maxlength="32" placeholder="Anonymous" autocomplete="off"></label>
-      <label class="field"><span>How hard to work</span>
-        <select id="helpPace"><option value="gentle">Gently, with long breaks</option><option value="normal" selected>Normal</option><option value="full">As fast as it can (plugged in)</option></select>
-      </label>
-      <button class="btn help-btn" id="helpStart" type="button" aria-pressed="false">Start helping</button>
-      <div class="help-progress" aria-hidden="true"><i id="helpBar"></i></div>
-      <p class="help-status" id="helpStatus" aria-live="polite">Not running.</p>
-      <p class="help-stats" id="helpStats"></p>
     </div>
   </section>
 

@@ -253,6 +253,7 @@ export function mountGlobe(root, opts = {}) {
     earth = new THREE.Mesh(new THREE.SphereGeometry(1, T.seg, T.seg / 2), mat);
     world.add(earth);
     traffic = addTraffic(world, tier, tdata.globe && tdata.cities ? tdata : null);
+    drawPiece();
     if (T.atmo) {
       const atmo = new THREE.Mesh(new THREE.SphereGeometry(1.07, T.seg / 2, T.seg / 4), new THREE.ShaderMaterial({
         side: THREE.BackSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
@@ -296,7 +297,11 @@ export function mountGlobe(root, opts = {}) {
     const minGap = 1000 / fpsOf(tier) - 2;
     if (now - lastFrame < minGap) return;
     const dt = Math.min(0.05, (now - (lastFrame || now)) / 1000); lastFrame = now;
-    if (!dragging) { lon += vLon * dt * 60 * 0.12; lat += (15 - lat) * 0.004 * dt * 60; vLon += ((reduceMotion ? 0 : 0.035) - vLon) * 0.02; }
+    if (!dragging && focus && now < focus.until) {
+      const dLon = ((focus.lon - lon + 540) % 360) - 180;
+      lon += dLon * Math.min(1, dt * 1.6); lat += (focus.lat - lat) * Math.min(1, dt * 1.6); vLon = 0;
+    } else if (!dragging) { lon += vLon * dt * 60 * 0.12; lat += (15 - lat) * 0.004 * dt * 60; vLon += ((reduceMotion ? 0 : 0.035) - vLon) * 0.02; }
+    if (pieceGroup) { pulse += dt; pieceGroup.children.forEach((l) => (l.material.opacity = piece && piece.state === "done" ? Math.max(0, 1 - (pulse - piece.doneAt) * 0.8) : 0.55 + 0.4 * Math.sin(pulse * 3))); }
     lat = Math.max(-70, Math.min(75, lat));
     tilt.rotation.x = lat * Math.PI / 180;
     world.rotation.y = -(lon + 90) * Math.PI / 180;
@@ -428,6 +433,73 @@ export function mountGlobe(root, opts = {}) {
     }
     tip.hidden = true;
   }
+  // ---- what this device is simulating right now, lit up on the globe
+  let piece = null, pieceGroup = null, focus = null, pulse = 0;
+  const tag = document.getElementById("pieceTag");
+  const D = Math.PI / 180;
+  const v3 = (lo, la, r) => { const phi = (lo + 180) * D, a = la * D; return new THREE.Vector3(-Math.cos(phi) * Math.cos(a) * r, Math.sin(a) * r, Math.sin(phi) * Math.cos(a) * r); };
+  async function numsFor(codes) {
+    tdata.base = tdata.base || (await fetch("/scenario/base.json").then((r) => r.json()).catch(() => null));
+    const by = {}; for (const n of (tdata.base && tdata.base.nations) || []) by[n.c] = n.num;
+    return [...new Set(codes.map((c) => by[c]).filter(Boolean))];
+  }
+  function drawPiece() {
+    if (pieceGroup && pieceGroup.parent) pieceGroup.parent.remove(pieceGroup);
+    pieceGroup = null;
+    if (!piece || !piece.nums || !world || !hoverFeats) return;
+    pieceGroup = new THREE.Group();
+    const want = new Set(piece.nums);
+    for (const [id, rings] of hoverFeats) {
+      if (!want.has(id)) continue;
+      for (const ring of rings) {
+        if (ring.length < 4) continue;
+        const pts = ring.map(([lo, la]) => v3(lo, la, 1.004));
+        pieceGroup.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts),
+          new THREE.LineBasicMaterial({ color: 0x7ee8ff, transparent: true, opacity: 0.9, depthWrite: false })));
+      }
+    }
+    world.add(pieceGroup);
+  }
+  function centreOf(nums) {
+    let best = null, size = 0;
+    for (const [id, rings] of hoverFeats || []) if (nums.includes(id)) for (const r of rings) if (r.length > size) { size = r.length; best = r; }
+    if (!best) return null;
+    const lo = best.map((p) => p[0]), la = best.map((p) => p[1]);
+    return { lon: (Math.min(...lo) + Math.max(...lo)) / 2, lat: Math.max(-50, Math.min(60, (Math.min(...la) + Math.max(...la)) / 2)) };
+  }
+  window.addEventListener("simhorde:piece", async (e) => {
+    const d = e.detail || {};
+    if (d.state === "run") {
+      const nums = await numsFor(d.codes || []);
+      piece = { state: "run", nums, level: d.level };
+      pulse = 0; drawPiece();
+      const c = centreOf(nums);
+      if (c && !reduceMotion) focus = { lon: c.lon, lat: c.lat, until: performance.now() + 9000 };
+      const names = nums.map((n) => (worldData && worldData.nations[n] && worldData.nations[n].name) || null).filter(Boolean);
+      if (tag) {
+        tag.hidden = false;
+        tag.textContent = names.length ? `This ${d.level && d.level !== "Low" ? `${d.level.toLowerCase()}-detail ` : ""}piece: ${names.length <= 3 ? names.join(", ") : `${names.slice(0, 3).join(", ")} and ${names.length - 3} more`}`
+          : "Simulating a piece of the world";
+      }
+    } else if (d.state === "done" && piece) {
+      piece.state = "done"; piece.doneAt = pulse;
+      if (tag) tag.textContent = d.advanced ? "Sent back. The world moved on to the next month." : "Sent back to the world.";
+    } else if (d.state === "idle") {
+      piece = null; drawPiece(); if (tag) tag.hidden = true;
+    }
+  });
+
+  // ---- full screen: the globe and its controls together
+  const room = document.getElementById("room"), fsBtn = document.getElementById("fsBtn");
+  if (fsBtn && room && room.requestFullscreen) {
+    fsBtn.addEventListener("click", () => (document.fullscreenElement ? document.exitFullscreen() : room.requestFullscreen()).catch(() => {}));
+    document.addEventListener("fullscreenchange", () => {
+      const on = document.fullscreenElement === room;
+      fsBtn.textContent = on ? "Exit full screen" : "Full screen"; fsBtn.setAttribute("aria-pressed", String(on));
+      setTimeout(resize, 60);
+    });
+  } else if (fsBtn) fsBtn.hidden = true;
+
   let hoverFeats = null;
   loadLayer("countries_low").then((f) => { hoverFeats = f; });
   function insideFlat(x, y, ring) {

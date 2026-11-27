@@ -30,6 +30,13 @@
   const setBar = (f) => { bar.style.width = Math.round(f * 100) + "%"; };
   const showStats = () => { stats.textContent = done ? `${done} piece${done === 1 ? "" : "s"} of the world simulated here, earning ${kudos.toFixed(1)} kudos to run your own scenarios on the horde. Thank you.` : ""; };
 
+  // tells the globe which countries this device is simulating, so it can light them up
+  const piece_ = (state, extra) => window.dispatchEvent(new CustomEvent("simhorde:piece", { detail: Object.assign({ state }, extra || {}) }));
+  // any "Help from this device" link starts helping and brings the controls into view
+  document.querySelectorAll('a[href="#help"]').forEach((a) => a.addEventListener("click", (e) => {
+    e.preventDefault(); document.getElementById("room").scrollIntoView({ behavior: "smooth", block: "center" }); if (!running) start();
+  }));
+
   async function fingerprint() {
     const text = await (await fetch("/worker/kernel.js", { cache: "no-store" })).arrayBuffer();
     const h = await crypto.subtle.digest("SHA-256", text);
@@ -77,7 +84,7 @@
         if (r.code === 426) { setStatus("A newer version of the world model is out. Reload this page to keep helping."); stop(); break; }
         if (r.code !== 200) throw new Error(r.body.error || "the coordinator isn't answering");
         const job = r.body.job;
-        if (!job || job.kind !== "world") { setStatus("Waiting for the next month of the world to open..."); setBar(0); await sleep(15000); continue; }
+        if (!job || job.kind !== "world") { piece_("idle"); setStatus("Waiting for the next month of the world to open..."); setBar(0); await sleep(15000); continue; }
         const P = job.payload, piece = typeof P.piece === "string" ? P.piece : null;
         let resumed = false;
         if (piece && typeof P.resume === "string") {
@@ -87,6 +94,7 @@
         const n = P.nations.reduce((a, x) => a + x.agents, 0), k = P.nations.length;
         setStatus(piece ? `Simulating ${k} region${k === 1 ? "" : "s"} at ${P.level} detail (${n.toLocaleString()} people) for a month...`
                         : `Simulating ${k} countr${k === 1 ? "y" : "ies"} (${n.toLocaleString()} people) for a month...`);
+        piece_("run", { codes: P.nations.map((x) => String(x.code).split("#")[0]), level: P.level || "Low", people: n });
         const res = await runPiece(job);
         if (piece) {
           pieces.delete(piece); pieces.set(piece, { epoch: Number(job.id.slice(1).split(".")[0]), state: res.out.state });
@@ -95,7 +103,7 @@
         }
         const s = await post("world/result", { key, kernel, client: "browser", job: job.id, out: res.out, secs: res.secs });
         if (s.code === 200) {
-          done++; kudos += s.body.kudos || 0; showStats();
+          done++; kudos += s.body.kudos || 0; showStats(); piece_("done", { advanced: !!s.body.world_advanced });
           setStatus(`Done in ${res.secs.toFixed(1)}s` + (s.body.world_advanced ? ". The world moved on to the next month." : ". Getting the next piece..."));
         } else setStatus(`That piece wasn't accepted (${s.body.error || s.code}). Trying another...`);
       } catch (e) {
@@ -120,6 +128,7 @@
     loop();
   }
   function stop() {
+    piece_("idle");
     running = false; btn.textContent = "Start helping"; btn.setAttribute("aria-pressed", "false"); window.dispatchEvent(new CustomEvent("simhorde:helping", { detail: false }));
     store.set("simhorde.helping", "0");
     if (worker && busy) { worker.terminate(); worker = null; }
@@ -131,7 +140,7 @@
   pace.addEventListener("change", () => { restMs = { gentle: 20000, normal: 3000, full: 0 }[pace.value] || 3000; store.set("simhorde.pace", pace.value); });
   const p0 = store.get("simhorde.pace"); if (p0) { pace.value = p0; pace.dispatchEvent(new Event("change")); }
   const nm = store.get("simhorde.browserName"); if (nm) $("helpName").value = nm;
-  $("helpDevice").textContent = device === "browser" ? "this computer" : `this ${device}`;
+  $("helpDevice").textContent = device === "browser" ? "computer" : device;
   document.addEventListener("visibilitychange", () => { if (!document.hidden && running) setStatus(background ? "Running in the background. You can switch tabs or minimize this window; just leave the tab open." : "Back on screen: carrying on."); });
 
   // "Run in background": keep going while the person does other things. Ticking it starts helping if it isn't already.
