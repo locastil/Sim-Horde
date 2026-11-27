@@ -142,9 +142,8 @@ async function paintBase(tier, W, H, world) {
       if (layer.startsWith("countries")) {
         const v = hash(name);
         const L = tier === "low" ? 30 : 21;
-        const nv = world && world.nations[name];
-        ctx.fillStyle = nv ? happyColor(nv.happiness)
-                           : `hsl(${212 + v * 14}, ${16 + v * 8}%, ${L + v * 6}%)`;
+        // dark land, so the city lights (coloured by happiness) carry where people live and how they feel
+        ctx.fillStyle = `hsl(${212 + v * 14}, ${16 + v * 8}%, ${L + v * 6}%)`;
         ctx.fill("evenodd");
         if (sctx) { sctx.beginPath(); for (const r of rings) drawRing(sctx, r, W / 2, H / 2); sctx.fill("evenodd"); }
         { ctx.strokeStyle = "rgba(150,175,205,.55)"; ctx.lineWidth = Math.max(0.6, 1.1 * lw); ctx.stroke(); }
