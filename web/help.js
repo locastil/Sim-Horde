@@ -1,5 +1,6 @@
 // "Help from this device": runs pieces of the shared world in this browser. No install.
-// Only runs while this page is open and visible and the person has pressed Start. Pauses on low battery.
+// Only runs while this page is open and the person has pressed Start. Pauses when the page is out of sight,
+// unless "Run in background" is ticked. Pauses on low battery either way.
 (() => {
   const $ = (id) => document.getElementById(id);
   const box = $("helpBox");
@@ -16,6 +17,13 @@
   const pieces = new Map();             // detailed pieces this page keeps from month to month (only numbers go back)
   let running = false, busy = false, worker = null, kernel = null, done = 0, kudos = 0, restMs = 3000;
   let key = store.get("simhorde.browserKey");
+  const bg = $("bgRun");
+  let background = store.get("simhorde.background") === "1";
+  // Browsers slow down timers on pages that aren't on screen; a tiny worker keeps the rests between pieces on time.
+  let ticker = null, tick = 0;
+  try { ticker = new Worker(URL.createObjectURL(new Blob(["onmessage=(e)=>setTimeout(()=>postMessage(e.data),e.data.ms)"], { type: "text/javascript" }))); } catch (e) {}
+  const waits = new Map();
+  if (ticker) ticker.onmessage = (e) => { const f = waits.get(e.data.n); if (f) { waits.delete(e.data.n); f(); } };
 
   const btn = $("helpStart"), status = $("helpStatus"), bar = $("helpBar"), stats = $("helpStats"), pace = $("helpPace");
   const setStatus = (t) => { status.textContent = t; };
@@ -36,7 +44,7 @@
   }
 
   async function okToRun() {
-    if (document.hidden) { setStatus("Paused while this page isn't on screen."); return false; }
+    if (document.hidden && !background) { setStatus("Paused while this page isn't on screen. Tick \"Run in background\" to keep going."); return false; }
     if (navigator.getBattery) {
       try {
         const b = await navigator.getBattery();
@@ -98,7 +106,9 @@
     }
   }
 
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const sleep = (ms) => new Promise((r) => {
+    if (ticker && document.hidden) { const n = ++tick; waits.set(n, r); ticker.postMessage({ n, ms }); } else setTimeout(r, ms);
+  });
 
   async function start() {
     if (!window.Worker || !window.crypto || !crypto.subtle) { setStatus("This browser is too old to help, sorry."); return; }
@@ -122,5 +132,20 @@
   const p0 = store.get("simhorde.pace"); if (p0) { pace.value = p0; pace.dispatchEvent(new Event("change")); }
   const nm = store.get("simhorde.browserName"); if (nm) $("helpName").value = nm;
   $("helpDevice").textContent = device === "browser" ? "this computer" : `this ${device}`;
-  document.addEventListener("visibilitychange", () => { if (!document.hidden && running) setStatus("Back on screen: carrying on."); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && running) setStatus(background ? "Running in the background. You can switch tabs or minimize this window; just leave the tab open." : "Back on screen: carrying on."); });
+
+  // "Run in background": keep going while the person does other things. Ticking it starts helping if it isn't already.
+  if (bg) {
+    bg.checked = background;
+    bg.addEventListener("change", () => {
+      background = bg.checked; store.set("simhorde.background", background ? "1" : "0");
+      if (background) {
+        if (!running) start();
+        setStatus(phone || device === "tablet"
+          ? "Running in the background while this tab is open. Phones may still pause it when the screen is off or the browser is closed."
+          : "Running in the background. You can switch tabs or minimize this window; just leave the tab open.");
+      } else if (running && document.hidden) setStatus("Will pause when this page is out of sight.");
+    });
+  }
+  addEventListener("beforeunload", (e) => { if (running && background) { e.preventDefault(); e.returnValue = ""; } });
 })();

@@ -389,3 +389,11 @@ html.st-open { overflow: hidden; }
 .x-street { margin-top: 12px; font: inherit; border-radius: 999px; border: 0; background: var(--cobalt); color: #fff; padding: 9px 16px; cursor: pointer; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 @media (max-width: 600px) { .st-layers { bottom: 104px; } .street .maplibregl-ctrl-attrib { margin-bottom: 150px; } }
+
+/* --- run in background (help.js) */
+.hud-right { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; pointer-events: auto; }
+.bg-opt { display: inline-flex; align-items: center; gap: 7px; font: 600 .78rem/1 var(--body); color: #C9D6E6; cursor: pointer;
+  background: rgba(8, 14, 26, .62); backdrop-filter: blur(6px); border: 1px solid rgba(157, 180, 255, .16); border-radius: 999px; padding: 6px 12px 6px 9px; }
+.bg-opt input { width: 15px; height: 15px; margin: 0; accent-color: var(--cobalt); cursor: pointer; }
+.bg-opt:has(input:checked) { color: #fff; border-color: rgba(31, 75, 255, .8); }
+.bg-opt:has(input:focus-visible) { outline: 3px solid #ffd34d; outline-offset: 2px; }
