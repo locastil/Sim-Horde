@@ -1,0 +1,20 @@
+Sim Horde server code: source available for evaluation only
+
+Copyright (c) 2026 Louie Castillo. All rights reserved.
+
+The files in this folder (server/) are NOT covered by the GNU AGPL that applies to the rest of this
+repository. They are published so that anyone can read them and judge for themselves how Sim Horde
+works: how pieces of the world are handed out, how results are checked, how kudos and trust are
+counted, and what is and isn't collected from volunteers.
+
+You may:
+  - view, read and study these files, and
+  - describe, discuss and quote short excerpts from them when reporting on how Sim Horde works.
+
+You may not, without written permission from the copyright holder:
+  - copy, modify, merge, translate or build on these files, in whole or in part;
+  - run them, or use them to operate a server, service or "horde" of your own or for anyone else;
+  - distribute, publish, sublicense or sell them or anything derived from them.
+
+These files are provided "as is", without warranty of any kind. In no event shall the copyright holder be
+liable for any claim, damages or other liability arising from them.

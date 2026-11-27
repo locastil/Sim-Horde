@@ -63,3 +63,14 @@ They have no money value.
 ## Live progress
 
 The live globe, this month's headlines and the leaderboard are at [sim-horde.org](https://sim-horde.org).
+
+## License
+
+Everything in this repository is free software under the **GNU Affero General Public License v3.0**
+([LICENSE](LICENSE)): you can read, run, change and share it, and if you run a changed version for others
+over a network, you must publish your changes too. The one exception is the [`server/`](server/) folder,
+the code behind sim-horde.org, which is published **read-only for evaluation** under its own
+[license](server/LICENSE).
+
+Bundled libraries keep their own licenses: three.js (MIT) and MapLibre GL JS (BSD-3-Clause) in
+`web/vendor/`. Map data: © OpenStreetMap contributors, OpenFreeMap, Natural Earth, GeoNames (CC BY 4.0).
