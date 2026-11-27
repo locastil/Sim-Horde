@@ -180,7 +180,7 @@ export function addTraffic(world, tier, data) {
   const LIVE_CAP = { low: 2500, medium: 4500, high: 9000, epic: 9000 }[tier] || 4500;
   function setLive(snap) {
     clear();
-    live = null; pGeo = sGeo = null;
+    live = null; pGeo = sGeo = tGeo = null;
     if (!snap) return;
     const step = (arr) => { const k = Math.max(1, Math.ceil(arr.length / LIVE_CAP)); return arr.filter((_, i) => i % k === 0); };
     const P = step(snap.planes || []), S = step(snap.ships || []);
@@ -194,9 +194,14 @@ export function addTraffic(world, tier, data) {
     sGeo.setAttribute("color", colors(S, 6, [1, 0.71, 0.28], [0.55, 0.42, 0.24]));
     group.add(new THREE.Points(pGeo, new THREE.PointsMaterial({ vertexColors: true, size: big ? 2.4 : 2.0, sizeAttenuation: false, transparent: true, opacity: 0.95 })));
     group.add(new THREE.Points(sGeo, new THREE.PointsMaterial({ vertexColors: true, size: big ? 2.2 : 1.8, sizeAttenuation: false, transparent: true, opacity: 0.95 })));
+    // a short trail behind each plane (where it was 10 minutes ago), so you can see which way it's going:
+    // at globe scale a real airliner moves less than a pixel a second
+    tGeo = new THREE.BufferGeometry(); tGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(Math.max(1, P.length) * 6), 3));
+    group.add(new THREE.LineSegments(tGeo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.32, depthWrite: false })));
     liveUpdate(true);
   }
-  let lastLive = 0;
+  let lastLive = 0, tGeo = null;
+  const TRAIL_SECS = 600, tmp = new Float32Array(3);
   function put(arr, i, lon, lat, r) {
     const phi = (lon + 180) * D, la = lat * D, c = Math.cos(la);
     arr[i * 3] = -Math.cos(phi) * c * r; arr[i * 3 + 1] = Math.sin(la) * r; arr[i * 3 + 2] = Math.sin(phi) * c * r;
@@ -210,9 +215,15 @@ export function addTraffic(world, tier, data) {
     live.P.forEach((q, i) => {                            // [lon, lat, alt m, heading, speed m/s, callsign, category]
       const h = q[3] * D, d = q[4] * dp, lat = q[1] + (d * Math.cos(h)) / 111320;
       const lon = q[0] + (d * Math.sin(h)) / (111320 * Math.max(0.05, Math.cos(q[1] * D)));
-      put(pa, i, lon, lat, 1.004 + Math.min(13000, Math.max(0, q[2])) / 13000 * 0.012);
+      const r = 1.004 + Math.min(13000, Math.max(0, q[2])) / 13000 * 0.012;
+      put(pa, i, lon, lat, r);
+      const back = q[4] * TRAIL_SECS, ta = tGeo.attributes.position.array;
+      ta[i * 6] = pa[i * 3]; ta[i * 6 + 1] = pa[i * 3 + 1]; ta[i * 6 + 2] = pa[i * 3 + 2];
+      put(tmp, 0, lon - (back * Math.sin(h)) / (111320 * Math.max(0.05, Math.cos(lat * D))), lat - (back * Math.cos(h)) / 111320, r);
+      ta[i * 6 + 3] = tmp[0]; ta[i * 6 + 4] = tmp[1]; ta[i * 6 + 5] = tmp[2];
     });
     pGeo.attributes.position.needsUpdate = true;
+    tGeo.attributes.position.needsUpdate = true;
     const ds = still ? 0 : Math.min(1800, Math.max(0, (now - live.st) / 1000));
     live.S.forEach((q, i) => {                            // [lon, lat, course, knots, name, kind]
       const h = q[2] * D, d = q[3] * 0.5144 * ds;
