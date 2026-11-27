@@ -15,7 +15,7 @@
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const KIND = {
-    MARKETS: ["Markets", "mkt"], TARIFF: ["Tariffs", "trade"], DEAL: ["Trade deal", "trade"], SANCTIONS: ["Sanctions", "trade"],
+    MARKETS: ["Markets", "mkt"], ECONOMY: ["Economy", "mkt"], TARIFF: ["Tariffs", "trade"], DEAL: ["Trade deal", "trade"], SANCTIONS: ["Sanctions", "trade"],
     BAN: ["Export ban", "trade"], TRADE: ["Trade", "trade"],
     PROTEST: ["Protests", "pol"], CRACKDOWN: ["Crackdown", "pol"], COUP: ["Coup", "pol"], CONFLICT: ["Conflict", "pol"],
     WAR: ["War", "pol"], PEACE: ["Ceasefire", "pol"], BORDER: ["Border", "pol"], ELECTION: ["Election", "pol"],
@@ -77,6 +77,9 @@
     const c = $("wChg");
     c.textContent = `${pct(w.m1)} this month · ${pct(w.m12)} this year`;
     c.className = `x-chg ${dir(w.m1)}`;
+    const ec = $("wEcon");
+    ec.innerHTML = w.infl == null ? "" : `<span>Inflation <b>${w.infl.toFixed(1)}%</b></span><span>Growth <b class="${w.growth < 0 ? "down" : ""}">${w.growth.toFixed(1)}%</b></span>`
+      + (w.stag ? `<span class="flag stagflation">stagflation</span>` : "");
     const h = state.range ? w.h.slice(-state.range - 1) : w.h;
     bigChart($("wChart"), $("wTip"), h);
   }
@@ -118,9 +121,13 @@
     const c = $("cChg"); c.textContent = `${pct(r.m1)} this month · ${pct(r.m12)} this year`; c.className = `x-chg ${dir(r.m1)}`;
     const e0 = state.m.epoch - r.h.length;
     bigChart($("cChart"), $("cTip"), r.h.map((v, i) => [e0 + i, v]));
-    $("cFacts").innerHTML = `<div><dt>Happiness</dt><dd>${r.happy != null ? r.happy.toFixed(1) + " / 10" : "–"}</dd></div>`
-      + `<div><dt>Trade</dt><dd>${r.open != null ? Math.round(r.open) + "% of GDP" : "–"}${r.real_open ? " (World Bank)" : " (estimated)"}</dd></div>`
-      + `<div><dt>Trades most with</dt><dd>${r.partners.slice(0, 3).map(esc).join(", ") || "–"}</dd></div>`;
+    const fl = r.flags.filter((f) => f === "stagflation" || f === "recession" || f === "sanctions").map((f) => `<span class="flag ${f}">${f}</span>`).join(" ");
+    $("cFacts").innerHTML = `<div><dt>Inflation</dt><dd>${r.infl != null ? r.infl.toFixed(1) + "% a year" : "–"}</dd></div>`
+      + `<div><dt>Growth</dt><dd class="${r.growth < 0 ? "down" : ""}">${r.growth != null ? r.growth.toFixed(1) + "% a year" : "–"}</dd></div>`
+      + `<div><dt>Happiness</dt><dd>${r.happy != null ? r.happy.toFixed(1) + " / 10" : "–"}</dd></div>`
+      + `<div><dt>Trade</dt><dd>${r.open != null ? Math.round(r.open) + "% of GDP" : "–"}${r.real_open ? "" : " (est.)"}</dd></div>`
+      + `<div class="c-wide"><dt>Trades most with</dt><dd>${r.partners.slice(0, 3).map(esc).join(", ") || "–"}</dd></div>`
+      + (fl ? `<div class="c-wide"><dt>Right now</dt><dd>${fl}</dd></div>` : "");
     const ev = feedItems().filter((e) => e[1] === r.name).slice(0, 3);
     $("cEvents").innerHTML = ev.length ? ev.map((e) => `<li><span class="chip ${(KIND[e[2]] || ["", "pol"])[1]}">${esc((KIND[e[2]] || [e[2]])[0])}</span><span class="c-date">${esc(e[0])}</span><p>${esc(e[3])}</p></li>`).join("")
       : "";

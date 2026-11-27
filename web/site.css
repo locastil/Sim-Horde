@@ -335,3 +335,13 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
   .feed li:nth-child(n+7) { display: none; }
 }
 .mv-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.x-econ { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0 0; font-size: .85rem; color: var(--x-dim); }
+.x-econ b { color: var(--x-ink); font-variant-numeric: tabular-nums; }
+.xchg .flag { font: 700 .68rem/1 var(--body); padding: 4px 7px; border-radius: 6px; background: rgba(255, 255, 255, .08); color: var(--x-ink); }
+.xchg .flag.stagflation, .xchg .flag.recession { background: rgba(255, 107, 87, .16); color: var(--x-down); }
+.xchg .flag.sanctions { background: rgba(255, 190, 80, .15); color: #FFC46B; }
+.c-facts { grid-template-columns: repeat(4, 1fr); }
+.c-facts .c-wide { grid-column: span 2; }
+@media (max-width: 860px) { .c-facts { grid-template-columns: 1fr 1fr; } }
+.x-chart svg { color: var(--x-up); }
+.x-chart svg.down { color: var(--x-down); }

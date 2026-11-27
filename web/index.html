@@ -76,7 +76,7 @@
           <div class="x-main">
             <div class="x-card x-index">
               <div class="x-index-top">
-                <div><span class="x-label">World index</span><b class="x-big" id="wIdx"></b><span class="x-chg" id="wChg"></span></div>
+                <div><span class="x-label">World index</span><b class="x-big" id="wIdx"></b><span class="x-chg" id="wChg"></span><p class="x-econ" id="wEcon"></p></div>
                 <div class="x-seg" role="group" aria-label="Time range">
                   <button type="button" data-range="12" aria-pressed="false">1Y</button><button type="button" data-range="60" aria-pressed="true">5Y</button><button type="button" data-range="0" aria-pressed="false">All</button>
                 </div>
@@ -92,12 +92,12 @@
           </div>
           <section class="x-card x-feed" aria-label="Headlines">
             <div class="x-seg x-tabs" role="tablist" aria-label="Show">
-              <button type="button" role="tab" data-feed="all" aria-selected="true">All</button><button type="button" role="tab" data-feed="pol" aria-selected="false">Politics</button><button type="button" role="tab" data-feed="mkt" aria-selected="false">Markets</button><button type="button" role="tab" data-feed="trade" aria-selected="false">Trade laws</button>
+              <button type="button" role="tab" data-feed="all" aria-selected="true">All</button><button type="button" role="tab" data-feed="pol" aria-selected="false">Politics</button><button type="button" role="tab" data-feed="mkt" aria-selected="false">Economy</button><button type="button" role="tab" data-feed="trade" aria-selected="false">Trade laws</button>
             </div>
             <ul class="feed" id="feed" aria-live="polite"></ul>
           </section>
         </div>
-        <p class="x-note">A simulated market and simulated events, not real prices or news. Indexes move with what happens in the simulated world and between trading partners; no real person is named.</p>
+        <p class="x-note">A simulated market and economy, not real prices or news. Each country starts from its real inflation and growth; after that, prices, growth and indexes move with what happens in the simulated world and between trading partners, and rising prices weigh on the simulated people. No real person is named.</p>
       </div>
       <dialog class="x-country" id="xCountry" aria-labelledby="cName">
         <div class="c-head"><div><h3 id="cName"></h3><p id="cTicker"></p></div><button type="button" class="c-close" id="cClose" aria-label="Close">Close</button></div>
