@@ -34,7 +34,7 @@ OUT_DIR = os.path.join(HERE, "backtest")
 YEARS = list(range(2015, 2025))
 PEOPLE = int(os.environ.get("BACKTEST_PEOPLE", "2000000"))       # simulated people, shared by population
 UA = {"User-Agent": "SimHorde/1.0 (backtest)"}
-WB = "https://api.worldbank.org/v2/country/all/indicator/{code}?format=json&per_page=30000&date=2012:2024"
+WB = "https://api.worldbank.org/v2/country/all/indicator/{code}?format=json&per_page=5000&date=2012:2024"
 IND = dict(pop="SP.POP.TOTL", urban="SP.URB.TOTL.IN.ZS", gdp="NY.GDP.PCAP.PP.CD", unemp="SL.UEM.TOTL.ZS",
            young="SP.POP.1564.TO.ZS", gini="SI.POV.GINI", net="IT.NET.USER.ZS", infl="FP.CPI.TOTL.ZG",
            netmig="SM.POP.NETM")
@@ -58,15 +58,34 @@ PROTESTS = {"FRA": [2018, 2019, 2023], "CHL": [2019], "COL": [2021], "IRN": [201
 PANDEMIC = (2020, 3, 2021, 12)          # COVID-19 lockdowns and distancing, everywhere
 
 
-def get(url):
-    with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=90) as r:
-        return r.read()
+def get(url, tries=4):
+    """Downloads, waiting longer and trying again when a server is slow (the World Bank's often is)."""
+    for k in range(tries):
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=120 + 60 * k) as r:
+                return r.read()
+        except Exception as e:
+            if k == tries - 1:
+                raise
+            print(f"    slow answer ({type(e).__name__}); trying again in {10 * (k + 1)}s...")
+            time.sleep(10 * (k + 1))
+
+
+def cached(name, fetch):
+    """Keeps each download in backtest/cache, so a second run doesn't fetch it again."""
+    d = os.path.join(OUT_DIR, "cache"); os.makedirs(d, exist_ok=True)
+    p = os.path.join(d, name + ".json")
+    if os.path.exists(p):
+        return json.load(open(p))
+    v = fetch()
+    json.dump(v, open(p, "w"))
+    return v
 
 
 def world_bank():
     data = {}
     for key, code in IND.items():
-        rows = json.loads(get(WB.format(code=code)))
+        rows = cached("wb_" + key, lambda: json.loads(get(WB.format(code=code))))
         rows = rows[1] if isinstance(rows, list) and len(rows) > 1 and rows[1] else []
         for r in rows:
             iso, v = r.get("countryiso3code"), r.get("value")
@@ -77,7 +96,7 @@ def world_bank():
 
 
 def happiness():
-    rows = list(csv.reader(io.StringIO(get(HAPPY_URL).decode("utf-8"))))
+    rows = cached("happiness", lambda: list(csv.reader(io.StringIO(get(HAPPY_URL).decode("utf-8")))))
     head, out = rows[0], {}
     ci, yi = head.index("Code"), head.index("Year")
     for row in rows[1:]:
