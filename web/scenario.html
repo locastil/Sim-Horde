@@ -28,9 +28,15 @@
     <span>Sim Horde</span>
   </a>
   <nav aria-label="Main">
+    <button type="button" class="menu-btn" aria-expanded="false" aria-controls="mainLinks">Menu</button>
+    <div class="nav-links" id="mainLinks">
     <a href="/#live">Live</a>
+    <a href="/#how">How it works</a>
+    <a href="/#runs">Results</a>
     <a href="/scenario.html" aria-current="page">Your scenario</a>
     <a href="/#board">Leaderboard</a>
+    <a href="/donate.html">Donate</a>
+    </div>
     <a class="btn small" href="/#help">Help now</a>
   </nav>
 </header>
@@ -118,5 +124,6 @@
 
 <script src="/scenario.js" defer></script>
 <script src="/agent.js" defer></script>
+<script src="/menu.js" defer></script>
 </body>
 </html>

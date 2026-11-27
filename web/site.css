@@ -130,7 +130,6 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 @media (max-width: 900px) {
   .hero, .two, .section-head { grid-template-columns: 1fr; gap: 32px; }
   .hero { padding-top: 16px; }
-  .top nav a:not(.btn) { display: none; }
   .next { border-left: 0; padding-left: 0; border-top: 1px solid #33465B; padding-top: 32px; }
   .facts div { grid-template-columns: 1fr; gap: 4px; }
   .wrap, .top, .hero { padding-left: 20px; padding-right: 20px; }
@@ -494,3 +493,18 @@ html.st-open { overflow: hidden; }
 .ag-form .btn { border: 0; font: inherit; font-weight: 600; cursor: pointer; }
 .sc-agent :focus-visible { outline: 3px solid #ffd34d; outline-offset: 2px; }
 @media (max-width: 700px) { .sc-agent { padding: 20px 14px 16px; } }
+
+/* --- main menu: links in a row on wide screens, behind a Menu button on phones */
+.nav-links { display: flex; align-items: center; gap: 28px; }
+.nav-links a[aria-current="page"] { color: var(--ink); font-weight: 600; }
+.menu-btn { display: none; font: inherit; font-size: .95rem; font-weight: 600; color: var(--ink); background: none; border: 1px solid var(--line-strong); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+.top { position: relative; }
+@media (max-width: 900px) {
+  .menu-btn { display: inline-block; }
+  .top nav { gap: 10px; }
+  .nav-links { display: none; position: absolute; top: 100%; left: 12px; right: 12px; z-index: 50; flex-direction: column; align-items: stretch; gap: 0;
+    background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 6px; box-shadow: 0 14px 34px rgba(15, 27, 42, .16); }
+  .nav-links.open { display: flex; }
+  .nav-links a { padding: 13px 14px; border-radius: 8px; font-size: 1.02rem; }
+  .nav-links a:hover, .nav-links a:focus-visible { background: var(--mid); }
+}
