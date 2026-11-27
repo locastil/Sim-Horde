@@ -398,3 +398,12 @@ html.st-open { overflow: hidden; }
 .bg-opt:has(input:checked) { color: #fff; border-color: rgba(31, 75, 255, .8); }
 .bg-opt:has(input:focus-visible) { outline: 3px solid #ffd34d; outline-offset: 2px; }
 .viewport figcaption .tcap { display: block; margin-top: 4px; opacity: .85; }
+
+/* --- how kudos work (leaderboard) */
+.kudos-how { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; margin-top: 32px; }
+.kudos-how section { border-top: 2px solid var(--ink); padding-top: 14px; }
+.kudos-how h3 { font-size: 1.15rem; margin-bottom: .5em; }
+.kudos-how p, .kudos-how li { color: var(--ink-2); font-size: .95rem; line-height: 1.55; }
+.kudos-how ul { padding-left: 1.1em; margin: .4em 0 .8em; }
+.kudos-how li + li { margin-top: .3em; }
+@media (max-width: 900px) { .kudos-how { grid-template-columns: 1fr; gap: 22px; } }
