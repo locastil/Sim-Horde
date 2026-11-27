@@ -451,9 +451,9 @@ export function mountGlobe(root, opts = {}) {
     const want = new Set(piece.nums);
     for (const [id, rings] of hoverFeats) {
       if (!want.has(id)) continue;
-      for (const ring of rings) {
-        if (ring.length < 4) continue;
-        const pts = ring.map(([lo, la]) => v3(lo, la, 1.004));
+      for (const ring of rings) {                    // rings are flat: lon, lat, lon, lat...
+        if (ring.length < 8) continue;
+        const pts = []; for (let i = 0; i < ring.length; i += 2) pts.push(v3(ring[i], ring[i + 1], 1.004));
         pieceGroup.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts),
           new THREE.LineBasicMaterial({ color: 0x7ee8ff, transparent: true, opacity: 0.9, depthWrite: false })));
       }
@@ -464,8 +464,9 @@ export function mountGlobe(root, opts = {}) {
     let best = null, size = 0;
     for (const [id, rings] of hoverFeats || []) if (nums.includes(id)) for (const r of rings) if (r.length > size) { size = r.length; best = r; }
     if (!best) return null;
-    const lo = best.map((p) => p[0]), la = best.map((p) => p[1]);
-    return { lon: (Math.min(...lo) + Math.max(...lo)) / 2, lat: Math.max(-50, Math.min(60, (Math.min(...la) + Math.max(...la)) / 2)) };
+    let a = 180, b = -180, c = 90, d = -90;
+    for (let i = 0; i < best.length; i += 2) { a = Math.min(a, best[i]); b = Math.max(b, best[i]); c = Math.min(c, best[i + 1]); d = Math.max(d, best[i + 1]); }
+    return { lon: (a + b) / 2, lat: Math.max(-50, Math.min(60, (c + d) / 2)) };
   }
   window.addEventListener("simhorde:piece", async (e) => {
     const d = e.detail || {};
