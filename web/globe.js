@@ -202,8 +202,9 @@ export function mountGlobe(root, opts = {}) {
   const tdata = { globe: null, markets: null, cities: null };     // flights and ships: an illustration driven by the simulation
   const refreshTraffic = async () => {
     try {
-      const [m, c] = await Promise.all([fetch("/api/v1/markets").then((r) => r.json()).catch(() => null), tdata.cities || fetch("/geo/cities.json").then((r) => r.json())]);
-      if (m) tdata.markets = m; tdata.cities = c;
+      const [m, c, b] = await Promise.all([fetch("/api/v1/markets").then((r) => r.json()).catch(() => null), tdata.cities || fetch("/geo/cities.json").then((r) => r.json()),
+                                           tdata.base || fetch("/scenario/base.json").then((r) => r.json()).catch(() => null)]);
+      if (m) tdata.markets = m; tdata.cities = c; if (b) tdata.base = b;
       if (traffic && tdata.globe) traffic.setData(tdata);
     } catch (e) {}
   };

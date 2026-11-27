@@ -54,7 +54,7 @@ function along(p, s, out) {
   return out.copy(p.pts[lo]).lerp(p.pts[hi], f);
 }
 
-const COUNTS = { low: [90, 70], medium: [160, 110], high: [260, 160], epic: [420, 240] };   // [planes, ships]
+const COUNTS = { low: [600, 250], medium: [1400, 450], high: [2600, 700], epic: [4000, 1000] };   // [planes, ships]
 
 export function addTraffic(world, tier, data) {
   const group = new THREE.Group();
@@ -68,7 +68,8 @@ export function addTraffic(world, tier, data) {
     lines = [];
   }
 
-  function setData({ globe, markets, cities }) {
+  function setData(data) {
+    const { globe, markets, cities } = data;
     clear();
     const G = (globe && globe.nations) || {}, M = (markets && markets.nations) || {}, C = (cities && cities.cities) || {};
     const fighting = (num) => !!(G[num] && G[num].conflict);
@@ -94,36 +95,61 @@ export function addTraffic(world, tier, data) {
       group.add(new THREE.Line(lg, new THREE.LineBasicMaterial({ color: 0xffb547, transparent: true, opacity: 0.12 * Math.min(1, l.w / 3), depthWrite: false })));
     }
 
-    // ---- flights: biggest countries to their main trading partners
+    // ---- flights: domestic hops between each country's main cities, short hops to neighbours, and long-haul
+    // routes to main trading partners. Busier the bigger and richer a country is; none where there's fighting.
+    const B = (data.base && data.base.nations) || [], byIso = {}, info = {};
+    for (const n of B) { byIso[n.c] = n.num; info[n.num] = n; }
     const byName = {};
     for (const [num, r] of Object.entries(M)) byName[r.name] = num;
-    const top = Object.entries(G).filter(([n]) => C[n] && !fighting(n)).sort((a, b) => (b[1].pop || 0) - (a[1].pop || 0)).slice(0, 70);
+    const weight = (num) => {
+      const n = info[num], g = G[num] || {}, pop = (n && n.pop) || g.pop || 0;
+      if (!C[num] || fighting(num) || !pop) return 0;
+      const wealth = Math.exp(-0.9 * ((n && n.feat && n.feat.pov) || 0));        // richer countries fly far more
+      const sanc = ((M[num] && M[num].flags) || []).includes("sanctions") ? 0.3 : 1;
+      return Math.pow(pop / 1e6, 0.85) * wealth * sanc;
+    };
     const routes = [], seen = new Set();
-    for (const [num] of top) {
-      for (const pn of ((M[num] && M[num].partners) || []).slice(0, 3)) {
-        const to = byName[pn];
-        if (!to || !C[to] || fighting(to)) continue;
-        const key = [num, to].sort().join("-"); if (seen.has(key)) continue; seen.add(key);
-        const sanc = (M[num] && M[num].flags || []).includes("sanctions") || (M[to] && M[to].flags || []).includes("sanctions");
-        routes.push({ a: vec(C[num][0][2], C[num][0][1], 1), b: vec(C[to][0][2], C[to][0][1], 1), w: sanc ? 0.3 : 1 });
+    const add = (a, b, w, kind) => {
+      if (!(w > 0)) return;
+      const key = a.join() + "|" + b.join(); if (seen.has(key)) return; seen.add(key);
+      const A = vec(a[0], a[1], 1), Bv = vec(b[0], b[1], 1), ang = A.angleTo(Bv);
+      if (ang < 0.012) return;                                                     // under ~75 km: nobody flies that
+      routes.push({ a: A, b: Bv, ang, w, kind });
+    };
+    const W = {}; for (const num of Object.keys(C)) W[num] = weight(num);
+    for (const [num, w] of Object.entries(W)) {
+      if (!w) continue;
+      const cs = C[num];
+      for (let i = 0; i < cs.length; i++) for (let j = i + 1; j < cs.length; j++)          // domestic
+        add([cs[i][2], cs[i][1]], [cs[j][2], cs[j][1]], w * Math.sqrt(cs[i][3] * cs[j][3]) / 1e6 * 0.6, "dom");
+      for (const iso of (info[num] && info[num].b) || []) {                                // neighbours
+        const to = byIso[iso]; if (!to || !W[to] || to < num) continue;
+        add([cs[0][2], cs[0][1]], [C[to][0][2], C[to][0][1]], Math.sqrt(w * W[to]) * 1.2, "near");
+      }
+      for (const pn of ((M[num] && M[num].partners) || []).slice(0, 4)) {                 // long-haul to trading partners
+        const to = byName[pn]; if (!to || !W[to]) continue;
+        add([cs[0][2], cs[0][1]], [C[to][0][2], C[to][0][1]], Math.sqrt(w * W[to]) * 1.6, "far");
       }
     }
     planes = [];
     const wr = routes.reduce((a, r) => a + r.w, 0) || 1, nPlanes = Math.round(maxPlanes * Math.max(0.6, trade));
+    let lines = 0;
     for (const r of routes) {
-      r.ang = r.a.angleTo(r.b);
-      const n = Math.max(r.w >= 1 ? 1 : 0, Math.round(nPlanes * r.w / wr));
-      for (let i = 0; i < n; i++) planes.push({ r, f: Math.random(), dir: Math.random() < 0.5 ? 1 : -1, v: 0.035 / Math.max(0.3, r.ang) * (0.85 + Math.random() * 0.3) });
-      const pts = []; const t = new THREE.Vector3();
-      for (let k = 0; k <= 32; k++) { const f = k / 32; pts.push(slerp(r.a, r.b, f, t).clone().multiplyScalar(1.004 + 0.06 * Math.sin(Math.PI * f) * Math.min(1, r.ang))); }
-      group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.07, depthWrite: false })));
+      const exact = (nPlanes * r.w) / wr, n = Math.floor(exact) + (Math.random() < exact % 1 ? 1 : 0);
+      const speed = 0.012 + 0.02 * Math.min(1, r.ang);                                    // radians a second: long-haul cruises faster on screen
+      for (let i = 0; i < n; i++) planes.push({ r, f: Math.random(), dir: Math.random() < 0.5 ? 1 : -1, v: (speed / r.ang) * (0.85 + Math.random() * 0.3) });
+      if (r.kind === "far" && n && lines++ < 160) {
+        const pts = []; const t = new THREE.Vector3();
+        for (let k = 0; k <= 32; k++) { const f = k / 32; pts.push(slerp(r.a, r.b, f, t).clone().multiplyScalar(1.004 + 0.06 * Math.sin(Math.PI * f) * Math.min(1, r.ang))); }
+        group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.06, depthWrite: false })));
+      }
     }
 
     pGeo = new THREE.BufferGeometry(); pGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(Math.max(1, planes.length) * 3), 3));
     sGeo = new THREE.BufferGeometry(); sGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(Math.max(1, ships.length) * 3), 3));
     const big = tier === "epic" || tier === "high";
-    group.add(new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0xffffff, size: big ? 3.2 : 2.6, sizeAttenuation: false, transparent: true, opacity: 0.95 })));
-    group.add(new THREE.Points(sGeo, new THREE.PointsMaterial({ color: 0xffb547, size: big ? 3.0 : 2.4, sizeAttenuation: false, transparent: true, opacity: 0.95 })));
+    group.add(new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0xffffff, size: big ? 2.4 : 2.0, sizeAttenuation: false, transparent: true, opacity: 0.95 })));
+    group.add(new THREE.Points(sGeo, new THREE.PointsMaterial({ color: 0xffb547, size: big ? 2.2 : 1.8, sizeAttenuation: false, transparent: true, opacity: 0.95 })));
     update(0);
   }
 
