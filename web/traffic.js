@@ -54,7 +54,7 @@ function along(p, s, out) {
   return out.copy(p.pts[lo]).lerp(p.pts[hi], f);
 }
 
-const COUNTS = { low: [600, 250], medium: [1400, 450], high: [2600, 700], epic: [4000, 1000] };   // [planes, ships]
+const COUNTS = { low: [300, 250], medium: [700, 450], high: [1200, 700], epic: [1800, 1000] };   // [planes, ships]
 
 export function addTraffic(world, tier, data) {
   const group = new THREE.Group();
@@ -148,7 +148,7 @@ export function addTraffic(world, tier, data) {
     pGeo = new THREE.BufferGeometry(); pGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(Math.max(1, planes.length) * 3), 3));
     sGeo = new THREE.BufferGeometry(); sGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(Math.max(1, ships.length) * 3), 3));
     const big = tier === "epic" || tier === "high";
-    group.add(new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0xffffff, size: big ? 2.4 : 2.0, sizeAttenuation: false, transparent: true, opacity: 0.95 })));
+    group.add(new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0xffffff, size: big ? 1.8 : 1.5, sizeAttenuation: false, transparent: true, opacity: 0.8 })));
     group.add(new THREE.Points(sGeo, new THREE.PointsMaterial({ color: 0xffb547, size: big ? 2.2 : 1.8, sizeAttenuation: false, transparent: true, opacity: 0.95 })));
     update(0);
   }
