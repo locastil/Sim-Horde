@@ -162,8 +162,12 @@ export function addTraffic(world, tier, data) {
     pGeo = new THREE.BufferGeometry(); pGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(Math.max(1, P.length) * 3), 3));
     sGeo = new THREE.BufferGeometry(); sGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(Math.max(1, S.length) * 3), 3));
     const big = tier === "epic" || tier === "high";
-    group.add(new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0xffffff, size: big ? 2.4 : 2.0, sizeAttenuation: false, transparent: true, opacity: 0.9 })));
-    group.add(new THREE.Points(sGeo, new THREE.PointsMaterial({ color: 0xffb547, size: big ? 2.2 : 1.8, sizeAttenuation: false, transparent: true, opacity: 0.9 })));
+    // tracked ones bright; ones out of receiver range (moved along their last heading) dimmer
+    const colors = (arr, est, on, off) => { const c = new Float32Array(Math.max(1, arr.length) * 3); arr.forEach((q, i) => c.set(q[est] ? off : on, i * 3)); return new THREE.BufferAttribute(c, 3); };
+    pGeo.setAttribute("color", colors(P, 7, [1, 1, 1], [0.42, 0.5, 0.62]));
+    sGeo.setAttribute("color", colors(S, 6, [1, 0.71, 0.28], [0.55, 0.42, 0.24]));
+    group.add(new THREE.Points(pGeo, new THREE.PointsMaterial({ vertexColors: true, size: big ? 2.4 : 2.0, sizeAttenuation: false, transparent: true, opacity: 0.95 })));
+    group.add(new THREE.Points(sGeo, new THREE.PointsMaterial({ vertexColors: true, size: big ? 2.2 : 1.8, sizeAttenuation: false, transparent: true, opacity: 0.95 })));
     liveUpdate(true);
   }
   let lastLive = 0;
@@ -176,7 +180,7 @@ export function addTraffic(world, tier, data) {
     if (!force && now - lastLive < 250) return;            // four position updates a second is plenty at this scale
     lastLive = now;
     const pa = pGeo.attributes.position.array, sa = sGeo.attributes.position.array;
-    const dp = still ? 0 : Math.min(600, Math.max(0, (now - live.pt) / 1000));
+    const dp = still ? 0 : Math.min(1200, Math.max(0, (now - live.pt) / 1000));
     live.P.forEach((q, i) => {                            // [lon, lat, alt m, heading, speed m/s, callsign, category]
       const h = q[3] * D, d = q[4] * dp, lat = q[1] + (d * Math.cos(h)) / 111320;
       const lon = q[0] + (d * Math.sin(h)) / (111320 * Math.max(0.05, Math.cos(q[1] * D)));

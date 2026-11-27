@@ -11,7 +11,7 @@ this program writes a slim snapshot to logs\\traffic.json, and the coordinator s
 
 Run:  python live_traffic.py           (the background service starts it for you)
 """
-import base64, json, os, socket, ssl, struct, threading, time, urllib.parse, urllib.request
+import base64, json, math, os, socket, ssl, struct, threading, time, urllib.parse, urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 KEYS = os.path.join(HERE, "secrets", "live_keys.json")
@@ -20,10 +20,12 @@ LOG = os.path.join(HERE, "logs", "live_traffic.log")
 UA = "SimHorde-live/1.0 (+https://sim-horde.org)"
 TOKEN_URL = "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token"
 STATES_URL = "https://opensky-network.org/api/states/all?extended=1"
-MAX_PLANES, MAX_SHIPS, SHIP_TTL = 9000, 9000, 1800
+MAX_PLANES, MAX_SHIPS, SHIP_TTL = 14000, 12000, 1800
+PLANE_EST_SECS, SHIP_EST_SECS = 6 * 3600, 12 * 3600   # how long to keep moving a plane or ship that has left receiver range
 
 lock = threading.Lock()
 planes, planes_t = [], 0
+seen = {}                       # icao24 -> [lon, lat, alt, heading, speed, callsign, category, time seen, cruising]
 ships = {}                      # mmsi -> [lon, lat, cog, sog, name, kind, t]
 names = {}                      # mmsi -> (name, kind)
 status = dict(planes="starting", ships="starting")
@@ -56,6 +58,15 @@ def keys():
     return k
 
 
+def ahead(lon, lat, heading, metres):
+    """Where something ends up after `metres` along `heading` (degrees from north), on a sphere."""
+    R = 6371000.0
+    d, h, p1, l1 = metres / R, math.radians(heading), math.radians(lat), math.radians(lon)
+    p2 = math.asin(math.sin(p1) * math.cos(d) + math.cos(p1) * math.sin(d) * math.cos(h))
+    l2 = l1 + math.atan2(math.sin(h) * math.sin(d) * math.cos(p1), math.cos(d) - math.sin(p1) * math.sin(p2))
+    return (math.degrees(l2) + 540) % 360 - 180, math.degrees(p2)
+
+
 # ------------------------------------------------------------------ aircraft (OpenSky)
 def opensky_loop():
     global planes, planes_t
@@ -75,18 +86,35 @@ def opensky_loop():
             with urllib.request.urlopen(urllib.request.Request(STATES_URL, headers=hdr), timeout=60) as resp:
                 d = json.load(resp)
                 left = resp.headers.get("X-Rate-Limit-Remaining")
-            out = []
+            now_t = int(d.get("time") or time.time())
+            here = set()
             for s in d.get("states") or []:
                 lon, lat = s[5], s[6]
                 if lon is None or lat is None or s[8]:            # no position, or on the ground
+                    seen.pop(s[0], None)
                     continue
                 alt = s[13] if s[13] is not None else s[7]
-                out.append([round(lon, 3), round(lat, 3), int(alt or 0), int(s[10] or 0), int(s[9] or 0),
-                            (s[1] or "").strip(), s[17] if len(s) > 17 and s[17] is not None else 0])
-            out.sort(key=lambda p: -p[2])
+                if alt is None or not (0 <= alt <= 16000) or (s[9] or 0) > 350:    # drop garbled reports
+                    continue
+                t_pos = s[3] or now_t
+                cruising = alt >= 7000 and (s[11] or 0) > -3          # high up and not coming down to land
+                seen[s[0]] = [lon, lat, int(alt), int(s[10] or 0), int(s[9] or 0), (s[1] or "").strip(),
+                              s[17] if len(s) > 17 and s[17] is not None else 0, t_pos, cruising]
+                here.add(s[0])
+            out = []
+            for k, v in list(seen.items()):
+                age = now_t - v[7]
+                if k in here and age < 120:
+                    out.append([round(v[0], 3), round(v[1], 3), v[2], v[3], v[4], v[5], v[6], 0])
+                elif v[8] and age < PLANE_EST_SECS:                 # out of range over the sea: carry on along its heading
+                    lon, lat = ahead(v[0], v[1], v[3], v[4] * age)
+                    out.append([round(lon, 3), round(lat, 3), v[2], v[3], v[4], v[5], v[6], 1])
+                else:
+                    del seen[k]
+            out.sort(key=lambda p: (p[7], -p[2]))                    # tracked first, then estimated
             with lock:
                 planes, planes_t = out[:MAX_PLANES], int(d.get("time") or time.time())
-            status["planes"] = f"ok: {len(out)} in the air" + (f", {left} credits left today" if left else "")
+            status["planes"] = f"ok: {len(out)} in the air ({sum(p[7] for p in out)} estimated)" + (f", {left} credits left today" if left else "")
             if left is not None and int(left) < 40:
                 wait = max(wait, 1800)
         except urllib.error.HTTPError as e:
@@ -221,11 +249,20 @@ def writer_loop():
         time.sleep(30)
         now = time.time()
         with lock:
-            for k in [k for k, v in ships.items() if now - v[6] > SHIP_TTL]:
+            for k in [k for k, v in ships.items() if now - v[6] > (SHIP_EST_SECS if v[3] >= 3 else SHIP_TTL)]:
                 del ships[k]
-            sh = sorted(ships.values(), key=lambda v: (v[3] < 0.5, -v[6]))[:MAX_SHIPS]   # moving ships first
-            snap = dict(t=int(now), planes_t=planes_t, planes=planes,
-                        ships=[v[:6] for v in sh], status=dict(status),
+            sh = []
+            for v in ships.values():
+                age = now - v[6]
+                if age <= SHIP_TTL:
+                    sh.append([v[0], v[1], v[2], v[3], v[4], v[5], 0])
+                else:                                               # out of range at sea: carry on along its course
+                    lon, lat = ahead(v[0], v[1], v[2], v[3] * 0.5144 * age)
+                    sh.append([round(lon, 3), round(lat, 3), v[2], v[3], v[4], v[5], 1])
+            sh.sort(key=lambda v: (v[6], v[3] < 0.5))                 # reported, then estimated; moving first
+            sh = sh[:MAX_SHIPS]
+            snap = dict(t=int(now), planes_t=planes_t, planes=planes, estimated=dict(planes_hours=PLANE_EST_SECS // 3600, ships_hours=SHIP_EST_SECS // 3600),
+                        ships=sh, status=dict(status),
                         sources=["Aircraft: The OpenSky Network, https://opensky-network.org",
                                  "Ships: AISStream.io, https://aisstream.io"])
         tmp = OUT + ".tmp"
