@@ -169,7 +169,7 @@
 
   function flyTo(c, intro) {
     run.city = c;
-    map.flyTo({ center: [c[2], c[1]], zoom: small() ? 15.3 : 15.8, pitch: 62, bearing: -25 + Math.random() * 50, duration: intro ? 7000 : 3500, essential: true });
+    map.flyTo({ center: [c[2], c[1]], zoom: small() ? 15.3 : 15.8, pitch: 50, bearing: -25 + Math.random() * 50, duration: intro ? 7000 : 3500, essential: true });
   }
 
   function close() {
@@ -288,5 +288,6 @@
     run.raf = requestAnimationFrame(frame);
   }
 
+  window.simhordeStreet = () => run && { cars: run.cars.length, people: run.people.length, flights: run.flights.length, zoom: map && map.getZoom() };
   addEventListener("simhorde:street", (e) => { const num = e.detail && e.detail.num; if (num != null) open(String(num)).catch((err) => console.warn("street view", err)); });
 })();
