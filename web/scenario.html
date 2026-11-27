@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Your own scenario · Sim Horde</title>
-<meta name="description" content="Set up your own what-if world: wars, pandemics, recessions, peace deals. It runs on your device, next to an untouched copy, so you can see what changed.">
+<meta name="description" content="An experimental sandbox: set up your own what-if world (wars, pandemics, recessions, peace deals) and watch it play out on your device.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Run your own what-if world · Sim Horde">
-<meta property="og:description" content="Pick what happens, where and how hard. The whole planet runs on your device next to an untouched copy, so you see exactly what your scenario changed.">
+<meta property="og:description" content="An experimental sandbox: pick what happens, where and how hard, and watch the whole planet play it out on your device.">
 <meta property="og:url" content="https://sim-horde.org/scenario.html">
 <meta property="og:image" content="https://sim-horde.org/og.png">
 <meta property="og:image:secure_url" content="https://sim-horde.org/og.png">
@@ -38,7 +38,7 @@
 <main id="main" class="wrap sc">
   <section class="sc-intro">
     <h1>What if…?</h1>
-    <p class="lede">Set up what happens, where and how hard. The whole planet then runs on your device twice, side by side: once as it would have gone, once with your events. Both use the same luck, so every difference is your scenario's doing.</p>
+    <p class="lede">An experimental sandbox: set up what happens, where and how hard, then watch the whole planet play it out on your device, month by month.</p>
     <p class="sc-fine">Nothing you set up here touches the shared world, and nothing is sent anywhere. It's a simulation built on real country statistics, not a forecast.</p>
   </section>
 
@@ -84,19 +84,19 @@
     <p class="sc-sub" id="subline"></p>
     <div class="sc-grid">
       <figure class="sc-chart">
-        <figcaption>World happiness, month by month <span class="sc-key"><i class="k-normal"></i>As it would have gone <i class="k-yours"></i>Your scenario</span></figcaption>
-        <svg id="chart" role="img" aria-label="World happiness with and without your scenario"></svg>
+        <figcaption>World happiness, month by month <span class="sc-key"><i class="k-normal"></i>Where it began <i class="k-yours"></i>Your world</span></figcaption>
+        <svg id="chart" role="img" aria-label="World happiness month by month in your world"></svg>
       </figure>
       <figure class="sc-map">
-        <figcaption>What your scenario changed <span class="sc-key"><i class="k-worse"></i>Less happy <i class="k-better"></i>Happier</span></figcaption>
+        <figcaption>How each country changed since the start <span class="sc-key"><i class="k-worse"></i>Less happy <i class="k-better"></i>Happier</span></figcaption>
         <canvas id="map" role="img" aria-label="Map of how much happier or less happy each country ended up"></canvas>
         <div class="sc-tip" id="mapTip" hidden></div>
       </figure>
     </div>
-    <h3>Most affected countries</h3>
+    <h3>Countries that changed most</h3>
     <div class="table-wrap">
       <table class="data" id="table">
-        <thead><tr><th scope="col">Country</th><th scope="col" class="num">Happiness, as it would have gone</th><th scope="col" class="num">With your scenario</th><th scope="col" class="num">Change</th><th scope="col" class="num">People leaving each year, per 1,000</th></tr></thead>
+        <thead><tr><th scope="col">Country</th><th scope="col" class="num">Happiness at the start</th><th scope="col" class="num">At the end</th><th scope="col" class="num">Change</th><th scope="col" class="num">People leaving each year, per 1,000</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>

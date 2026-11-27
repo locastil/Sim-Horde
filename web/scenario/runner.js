@@ -1,6 +1,5 @@
-// Runs a personal scenario on this device: two copies of the world side by side, month by month.
-// One carries on normally, the other gets the visitor's events. Both use the same random numbers,
-// so the difference between them is the scenario's doing, not luck. Nothing is sent anywhere.
+// Runs a personal scenario on this device, month by month: an experimental sandbox, one world with the
+// visitor's events in it. Nothing is sent anywhere.
 importScripts("/worker/kernel.js");
 
 let stop = false;
@@ -23,7 +22,7 @@ async function run({ nations, theta, months, events, effects, seed }) {
     const r = runShard({ nations: nations.map((n) => ({ code: n.c, agents: n.agents, feat: n.feat, pressure: n.base })), theta, days: 30, seed: seed * 7919 + w, state: stA },
                        (f) => postMessage({ month: 0, progress: (w + f) / 2 }));
     stA = r.state;
-    if (w === 1) postMessage({ month: 0, normal: r.nations, scenario: r.nations });
+    if (w === 1) postMessage({ month: 0, scenario: r.nations });
   }
   stB = stA;
   for (let month = 1; month <= months && !stop; month++) {
@@ -42,15 +41,12 @@ async function run({ nations, theta, months, events, effects, seed }) {
       }
     }
     const clampAll = (o) => { for (const k of Object.keys(o)) o[k] = Math.max(-9.5, Math.min(9.5, Math.round(o[k] * 10000) / 10000)); return o; };
-    const jobA = { nations: nations.map((n) => ({ code: n.c, agents: n.agents, feat: n.feat, pressure: n.base })), theta, days: 30, seed: seed * 1009 + month, state: stA };
     const jobB = { nations: nations.map((n, i) => ({ code: n.c, agents: n.agents, feat: clampAll(featB[i]), pressure: clampAll(presB[i]) })), theta, days: 30, seed: seed * 1009 + month, state: stB };
-    for (const j of [jobA, jobB]) { const err = checkWorldJob(j); if (err) throw new Error(err); }
+    const err = checkWorldJob(jobB); if (err) throw new Error(err);
     const t0 = Date.now();
-    const a = runShard(jobA, (f) => postMessage({ month, progress: f / 2 }));
-    if (stop) break;
-    const b = runShard(jobB, (f) => postMessage({ month, progress: 0.5 + f / 2 }));
-    stA = a.state; stB = b.state;
-    postMessage({ month, normal: a.nations, scenario: b.nations, secs: (Date.now() - t0) / 1000 });
+    const b = runShard(jobB, (f) => postMessage({ month, progress: f }));
+    stB = b.state;
+    postMessage({ month, scenario: b.nations, secs: (Date.now() - t0) / 1000 });
   }
   postMessage({ done: true, stopped: stop });
 }

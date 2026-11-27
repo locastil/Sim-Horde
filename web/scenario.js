@@ -1,5 +1,5 @@
-// Personal scenarios: the visitor picks events from menus; the whole world then runs in a Web Worker on this
-// device twice (as it would have gone, and with the events), using the same random numbers for both.
+// Personal scenarios: an experimental sandbox. The visitor sets up events; the whole world then runs in a
+// Web Worker on this device with those events in it, and the page shows how it changed from where it began.
 (() => {
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -30,7 +30,7 @@
   const REGIONS = ["Africa", "Americas", "Asia", "Europe", "Oceania"];
 
   let base = null, live = null, events = [], worker = null, running = false;
-  let res = null;     // {months: [{month, normal, scenario}], fit}
+  let res = null;     // {months: [{month, scenario}], start, fit}
 
   // ------------------------------------------------------------ the form
   const byCode = () => new Map(base.nations.map((n) => [n.c, n]));
@@ -105,7 +105,7 @@
   }
   function estimate() {
     const months = Number($("years").value) * 12 + 2;
-    const secs = months * (small ? 2.2 : 4.5);
+    const secs = months * (small ? 1.1 : 2.3);
     $("est").textContent = `About ${secs < 90 ? Math.round(secs / 10) * 10 + " seconds" : Math.round(secs / 60) + " minutes"} on a typical ${small ? "phone" : "computer"}. Keep this page open while it runs.`;
   }
 
@@ -132,8 +132,8 @@
         $("progress").textContent = d.month === 0 ? "Settling everyone into ordinary life…" : `Month ${d.month} of ${months}`;
         return;
       }
-      if (d.normal) {
-        if (d.month === 0) { res.fit = fitFrom(d.normal); return; }
+      if (d.scenario) {
+        if (d.month === 0) { res.fit = fitFrom(d.scenario); res.start = d.scenario; return; }
         res.months.push(d);
         draw(false);
       }
@@ -167,19 +167,19 @@
   const nf = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 });
   const sgn = (x) => (x > 0 ? "+" : x < 0 ? "−" : "") + nf.format(Math.abs(x));
   function draw(final) {
-    const last = res.months[res.months.length - 1]; if (!last) return;
-    const wn = worldHappy(last.normal), ws = worldHappy(last.scenario), dw = ws - wn;
+    const last = res.months[res.months.length - 1]; if (!last || !res.start) return;
+    const w0 = worldHappy(res.start), w1 = worldHappy(last.scenario), dw = w1 - w0;
     const yrsDone = (last.month / 12);
     const when = last.month % 12 === 0 ? `${yrsDone} year${yrsDone > 1 ? "s" : ""}` : `${last.month} months`;
     $("headline").textContent = Math.abs(dw) < 0.02
-      ? `After ${when}, the world is about as happy as it would have been.`
-      : `After ${when}, the world is ${dw < 0 ? "less" : "more"} happy than it would have been: ${nf.format(ws)} instead of ${nf.format(wn)} out of 10.`;
+      ? `After ${when}, the world is about as happy as when it began: ${nf.format(w1)} out of 10.`
+      : `After ${when}, world happiness has ${dw < 0 ? "fallen" : "risen"} from ${nf.format(w0)} to ${nf.format(w1)} out of 10.`;
     const rows = base.nations.map((n) => {
-      const a = last.normal[n.c], b = last.scenario[n.c];
+      const a = res.start[n.c], b = last.scenario[n.c];
       return a && b ? { n, hn: H(a.happy), hs: H(b.happy), d: H(b.happy) - H(a.happy), ln: a.leave, ls: b.leave } : null;
     }).filter(Boolean);
     const worse = rows.filter((r) => r.d < -0.05).length, better = rows.filter((r) => r.d > 0.05).length;
-    $("subline").textContent = (final ? "" : "Still running. ") + `${worse} countr${worse === 1 ? "y is" : "ies are"} noticeably less happy, ${better} happier.`
+    $("subline").textContent = (final ? "" : "Still running. ") + `Since the start, ${worse} countr${worse === 1 ? "y has" : "ies have"} grown noticeably less happy and ${better} happier.`
       + (res.fit && res.fit.b !== 1 ? " Happiness is lined up with real survey results, as in the shared world." : "");
     rows.sort((x, y) => Math.abs(y.d) - Math.abs(x.d));
     $("table").querySelector("tbody").innerHTML = rows.slice(0, 15).map((r) => `<tr><th scope="row">${esc(r.n.name)}</th><td class="num">${nf.format(r.hn)}</td><td class="num">${nf.format(r.hs)}</td>`
@@ -190,7 +190,7 @@
   function chart() {
     const svg = $("chart"), W = svg.clientWidth || 600, Hh = svg.clientHeight || 260, pad = { l: 40, r: 12, t: 12, b: 26 };
     const ms = res.months, total = res.yrs * 12;
-    const a = ms.map((m) => worldHappy(m.normal)), b = ms.map((m) => worldHappy(m.scenario));
+    const b = ms.map((m) => worldHappy(m.scenario)), a = b.map(() => worldHappy(res.start));   // a: where it began
     let lo = Math.min(...a, ...b), hi = Math.max(...a, ...b); const span = Math.max(0.2, hi - lo); lo -= span * 0.15; hi += span * 0.15;
     const x = (i) => pad.l + ((i + 1) / total) * (W - pad.l - pad.r), y = (v) => pad.t + (1 - (v - lo) / (hi - lo)) * (Hh - pad.t - pad.b);
     const line = (arr) => arr.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
