@@ -62,12 +62,51 @@
   </section>
 
   <section class="wrap world" id="live">
-    <div class="news" id="worldNews" hidden>
-      <h2>This month in the world</h2>
-      <p class="news-date" id="worldDate"></p>
-      <p class="news-stats" id="worldStats"></p>
-      <ul id="worldEvents"></ul>
-      <p class="news-note">These are simulated events, not news. Each country's income, jobs, inequality, crowding and starting kind of government come from real statistics, and coups, conflicts and protests happen about as often worldwide as they have in recent decades. No real person is named: leaders appear only by office and parties by broad family.</p>
+    <div class="xchg" id="xchg" hidden>
+      <div class="tape" aria-label="Country stock indexes, this month"><div class="tape-track" id="tape"></div></div>
+      <div class="x-in">
+        <header class="x-head">
+          <div>
+            <h2>The World Exchange</h2>
+            <p class="x-date"><span class="live-dot" aria-hidden="true"></span><span id="worldDate"></span></p>
+          </div>
+          <p class="x-stats" id="worldStats"></p>
+        </header>
+        <div class="x-grid">
+          <div class="x-main">
+            <div class="x-card x-index">
+              <div class="x-index-top">
+                <div><span class="x-label">World index</span><b class="x-big" id="wIdx"></b><span class="x-chg" id="wChg"></span></div>
+                <div class="x-seg" role="group" aria-label="Time range">
+                  <button type="button" data-range="12" aria-pressed="false">1Y</button><button type="button" data-range="60" aria-pressed="true">5Y</button><button type="button" data-range="0" aria-pressed="false">All</button>
+                </div>
+              </div>
+              <div class="x-chart"><svg id="wChart" role="img" aria-label="World index over time"></svg><div class="x-tip" id="wTip" hidden></div></div>
+            </div>
+            <div class="x-card">
+              <div class="x-seg x-tabs" role="tablist" aria-label="Biggest moves this month">
+                <button type="button" role="tab" data-movers="up" aria-selected="true">Biggest gains</button><button type="button" role="tab" data-movers="down" aria-selected="false">Biggest falls</button>
+              </div>
+              <ol class="movers" id="movers"></ol>
+            </div>
+          </div>
+          <section class="x-card x-feed" aria-label="Headlines">
+            <div class="x-seg x-tabs" role="tablist" aria-label="Show">
+              <button type="button" role="tab" data-feed="all" aria-selected="true">All</button><button type="button" role="tab" data-feed="pol" aria-selected="false">Politics</button><button type="button" role="tab" data-feed="mkt" aria-selected="false">Markets</button><button type="button" role="tab" data-feed="trade" aria-selected="false">Trade laws</button>
+            </div>
+            <ul class="feed" id="feed" aria-live="polite"></ul>
+          </section>
+        </div>
+        <p class="x-note">A simulated market and simulated events, not real prices or news. Indexes move with what happens in the simulated world and between trading partners; no real person is named.</p>
+      </div>
+      <dialog class="x-country" id="xCountry" aria-labelledby="cName">
+        <div class="c-head"><div><h3 id="cName"></h3><p id="cTicker"></p></div><button type="button" class="c-close" id="cClose" aria-label="Close">Close</button></div>
+        <div class="c-index"><b class="x-big" id="cIdx"></b><span class="x-chg" id="cChg"></span></div>
+        <div class="x-chart"><svg id="cChart" role="img" aria-label="This country's index over time"></svg><div class="x-tip" id="cTip" hidden></div></div>
+        <dl class="c-facts" id="cFacts"></dl>
+        <ul class="feed" id="cEvents"></ul>
+      </dialog>
+      <div class="x-legacy" id="worldNews" hidden><ul id="worldEvents"></ul></div>
     </div>
   </section>
 
@@ -170,5 +209,6 @@
 
 <script src="/site.js" defer></script>
 <script src="/help.js" defer></script>
+<script src="/markets.js" defer></script>
 </body>
 </html>
