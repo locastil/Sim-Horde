@@ -1,7 +1,7 @@
 """
 Sim Horde coordinator
 =====================
-Hands out simulation jobs to volunteer GPUs, checks and scores what comes back, keeps the volunteer
+Hands out simulation jobs to volunteer GPUs, checks and scores what comes back, keeps the kudos
 ledger, and serves the public website. An expansion of the California simulation (LA-Sim): the
 engine and data come from the folder above this one.
 
@@ -31,6 +31,7 @@ sys.path.insert(0, ENGINE)
 
 import calibrate as CAL                          # noqa: E402  (the engine's own calibration code)
 import world_engine                              # noqa: E402
+import scenarios as SC                           # noqa: E402  (kudos, link codes, horde-run scenarios)
 from ca_region_gpu import COUNTIES, W_DEFAULT, MEET    # noqa: E402
 MEET_MODE = MEET["mode"]                         # how people meet, as the engine copy's trained weights say
 
@@ -75,6 +76,7 @@ def init_db():
     CREATE INDEX IF NOT EXISTS jobs_status ON jobs(status);
     CREATE TABLE IF NOT EXISTS signups(ip TEXT, t REAL);
     """)
+    SC.init(c)
     c.close()
 
 
@@ -172,7 +174,8 @@ def submit(c, w, job_id, out, secs):
     payload = json.loads(j["payload"])
     c.execute("""UPDATE jobs SET status='done', done_at=?, result=?, score_fit=?, score_test=?, civ=?, secs=? WHERE id=?""",
               (time.time(), json.dumps(out), s_fit, s_test, float(out["civ"]), float(secs), job_id))
-    c.execute("UPDATE workers SET jobs_done=jobs_done+1, secs_total=secs_total+? WHERE id=?", (float(secs), w["id"]))
+    kd = SC.kudos_for(payload["agents"], CAL.BURN + CAL.MEASURE)
+    c.execute("UPDATE workers SET jobs_done=jobs_done+1, kudos=kudos+?, secs_total=secs_total+? WHERE id=?", (kd, float(secs), w["id"]))
     msg = None
     if j["verify_of"] is not None:
         orig = c.execute("SELECT * FROM jobs WHERE id=?", (j["verify_of"],)).fetchone()
@@ -199,7 +202,7 @@ def submit(c, w, job_id, out, secs):
     elif random.random() < VERIFY_SHARE:
         c.execute("INSERT INTO jobs(kind, tag, payload, status, created, verify_of) VALUES(?,?,?,'queued',?,?)",
                   (j["kind"], j["tag"], j["payload"], time.time(), job_id))
-    return dict(ok=True, kudos=0, score_fit=round(s_fit, 4), score_test=round(s_test, 4), note=msg), 200
+    return dict(ok=True, kudos=kd, score_fit=round(s_fit, 4), score_test=round(s_test, 4), note=msg), 200
 
 
 # ------------------------------------------------------------------ public numbers
@@ -445,6 +448,27 @@ class H(BaseHTTPRequestHandler):
                     return self._send(401, dict(error="unknown worker key - run the worker's setup again"))
                 if w["flagged"]:
                     return self._send(403, dict(error="this worker is paused: its results didn't match other volunteers' runs"))
+                if path == "/api/v1/me":
+                    return self._send(200, dict(name=w["name"], **SC.balance(c, SC.wallet_of(w))))
+                if path == "/api/v1/link/new":
+                    return self._send(200, SC.new_link(c, SC.wallet_of(w), secrets))
+                if path == "/api/v1/link/use":
+                    body, code = SC.use_link(c, w, d.get("code", ""))
+                    return self._send(code, dict(body, **SC.balance(c, SC.wallet_of(worker_for(c, d.get("key"))))) if code == 200 else body)
+                if path == "/api/v1/scenarios/new":
+                    if not WORLD:
+                        return self._send(503, dict(error="the world isn't running right now"))
+                    with WORLD.lock:
+                        body, code = SC.submit(c, w, d.get("spec"), WORLD.w["nations"], WORLD.theta, WORLD.pressure, random.randrange(1, 2**31))
+                    return self._send(code, body)
+                if path == "/api/v1/scenarios/status":
+                    try:
+                        body, code = SC.status(c, w, int(d.get("id")))
+                    except (TypeError, ValueError):
+                        body, code = dict(error="bad id"), 400
+                    return self._send(code, body)
+                if path == "/api/v1/scenarios/mine":
+                    return self._send(200, dict(scenarios=SC.mine(c, w), **SC.balance(c, SC.wallet_of(w))))
                 c.execute("UPDATE workers SET last_seen=?, status=?, gpu=COALESCE(NULLIF(?, ''), gpu), vram_gb=COALESCE(?, vram_gb) WHERE id=?",
                           (time.time(), str(d.get("status", "ready"))[:20], str(d.get("gpu", ""))[:60],
                            float(d["vram_gb"]) if d.get("vram_gb") else None, w["id"]))
@@ -471,7 +495,11 @@ class H(BaseHTTPRequestHandler):
                         cap = int(d["cap"]) if d.get("cap") else None    # the most people this device wants in one piece
                     except (TypeError, ValueError):
                         pass
-                    j = WORLD.job_for(w["id"], cap) if WORLD else None  # the shared world comes first
+                    j = None
+                    if not browser and d.get("scenarios") and cap is None and (not WORLD or WORLD.low_done()):
+                        j = SC.pop(c, w)                                  # someone's scenario, paid for with kudos
+                    if j is None:
+                        j = WORLD.job_for(w["id"], cap) if WORLD else None  # the shared world comes first
                     if j is None and not browser:                       # California tuning needs the full engine
                         j = pop_job(c, w)
                     return self._send(200, dict(job=j))
@@ -480,12 +508,23 @@ class H(BaseHTTPRequestHandler):
                         return self._send(404, dict(error="no world running"))
                     body, code = WORLD.submit(w["id"], str(d.get("job", "")), d.get("out"))
                     if code == 200:
-                        c.execute("UPDATE workers SET jobs_done=jobs_done+1, secs_total=secs_total+? WHERE id=?",
-                                  (float(d.get("secs") or 0), w["id"]))
-                        body["kudos"] = 0                                # kept (always 0) only so older apps don't break
+                        kd = SC.kudos_for(WORLD.job_agents(str(d.get("job", ""))), world_engine.EPOCH_DAYS)
+                        c.execute("UPDATE workers SET jobs_done=jobs_done+1, kudos=kudos+?, secs_total=secs_total+? WHERE id=?",
+                                  (kd, float(d.get("secs") or 0), w["id"]))
+                        body["kudos"] = kd
                         for wid, dt in (body.pop("trust", None) or {}).items():   # spot-checks: agree +1, disagree -2
                             c.execute("UPDATE workers SET trust=trust+?, flagged=CASE WHEN trust+?<=-4 THEN 1 ELSE flagged END WHERE id=?",
                                       (dt, dt, wid))
+                    return self._send(code, body)
+                if path in ("/api/v1/scenarios/progress", "/api/v1/scenarios/result") and not browser:
+                    try:
+                        sid = int(str(d.get("id", "")).lstrip("s"))
+                    except ValueError:
+                        return self._send(400, dict(error="bad id"))
+                    if path.endswith("progress"):
+                        body, code = SC.progress(c, w, sid, d.get("month") or 0)
+                    else:
+                        body, code = SC.finish(c, w, sid, d.get("out"))
                     return self._send(code, body)
                 if path.startswith("/api/v1/jobs/") and path.endswith("/result"):
                     try:

@@ -78,9 +78,29 @@
       <label class="sc-len">Run for
         <select id="years"><option value="1">1 year</option><option value="2" selected>2 years</option><option value="3">3 years</option><option value="5">5 years</option></select>
       </label>
-      <button type="button" class="btn" id="run">Run on this device</button>
+      <button type="button" class="btn" id="run">Run on this device (free)</button>
       <button type="button" class="sc-stop" id="stop" hidden>Stop</button>
       <p class="sc-est" id="est"></p>
+    </div>
+
+    <div class="sc-hordebox" aria-labelledby="hordeH">
+      <h3 id="hordeH">Or run it on the horde, with kudos</h3>
+      <p class="sc-hint">A volunteer's graphics card runs your world with far more people in every country than this device can. You earn kudos by helping power the shared world.</p>
+      <div class="sc-run">
+        <label class="sc-len">Detail
+          <select id="level"><option value="Medium">Medium: 1 million people</option><option value="High" selected>High: 2 million people</option><option value="Ultra">Ultra: 4 million people</option></select>
+        </label>
+        <button type="button" class="btn" id="hordeRun">Run on the horde</button>
+        <p class="sc-est" id="hordeCost"></p>
+      </div>
+      <p class="sc-wallet" id="wallet"></p>
+      <details class="sc-link">
+        <summary>Use kudos from another device</summary>
+        <p>The Sim Horde desktop app shows a link code each time it starts. On a phone or another browser that has helped, tap "Show my code". Enter that code here, and both devices share one pool of kudos.</p>
+        <form id="linkForm" class="sc-linkrow"><label class="sr" for="linkCode">Link code</label><input id="linkCode" placeholder="ABCD-EFGH" maxlength="12" autocomplete="off"><button type="submit" class="btn small">Link</button></form>
+        <p><button type="button" class="sc-add" id="showCode">Show my code</button> <span id="myCode" role="status"></span></p>
+      </details>
+      <ul class="sc-runs" id="hordeRuns"></ul>
     </div>
   </section>
 
@@ -113,8 +133,8 @@
   </section>
 
   <section class="sc-horde">
-    <h2>Bigger worlds need more devices</h2>
-    <p>Your device runs the world at Low detail. The shared world runs at up to Ultra detail, with many more people in every country, because volunteers power it together. <a href="/#help">Help power it</a>.</p>
+    <h2>How kudos work</h2>
+    <p>Every piece of the shared world your device simulates earns kudos: your share of the horde's computing time. Spend them to have the horde run your own scenarios in more detail. A Medium run for a year costs about 4 kudos, which is about 35 phone-sized pieces of the shared world; a graphics card earns that much far faster. Kudos are private to your devices: there's no ranking, and they can't be bought. No account needed: they belong to this browser, or to the devices you link.</p>
   </section>
 </main>
 

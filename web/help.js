@@ -15,7 +15,7 @@
   // people per piece this device will take: phones and tablets get phone-sized pieces, computers bigger ones
   const CAP = (phone || device === "tablet") ? 45000 : 250000;
   const pieces = new Map();             // detailed pieces this page keeps from month to month (only numbers go back)
-  let running = false, busy = false, worker = null, kernel = null, done = 0, restMs = 3000;
+  let running = false, busy = false, worker = null, kernel = null, done = 0, kudos = 0, restMs = 3000;
   let key = store.get("simhorde.browserKey");
   const bg = $("bgRun");
   let background = store.get("simhorde.background") === "1";
@@ -28,7 +28,7 @@
   const btn = $("helpStart"), status = $("helpStatus"), bar = $("helpBar"), stats = $("helpStats"), pace = $("helpPace");
   const setStatus = (t) => { status.textContent = t; };
   const setBar = (f) => { bar.style.width = Math.round(f * 100) + "%"; };
-  const showStats = () => { stats.textContent = done ? `${done} piece${done === 1 ? "" : "s"} of the world simulated here. Thank you.` : ""; };
+  const showStats = () => { stats.textContent = done ? `${done} piece${done === 1 ? "" : "s"} of the world simulated here, earning ${kudos.toFixed(1)} kudos to run your own scenarios on the horde. Thank you.` : ""; };
 
   async function fingerprint() {
     const text = await (await fetch("/worker/kernel.js", { cache: "no-store" })).arrayBuffer();
@@ -95,7 +95,7 @@
         }
         const s = await post("world/result", { key, kernel, client: "browser", job: job.id, out: res.out, secs: res.secs });
         if (s.code === 200) {
-          done++; showStats();
+          done++; kudos += s.body.kudos || 0; showStats();
           setStatus(`Done in ${res.secs.toFixed(1)}s` + (s.body.world_advanced ? ". The world moved on to the next month." : ". Getting the next piece..."));
         } else setStatus(`That piece wasn't accepted (${s.body.error || s.code}). Trying another...`);
       } catch (e) {

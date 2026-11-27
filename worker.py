@@ -31,7 +31,7 @@ CONFIG = os.path.join(HERE, "worker_config.json")
 STOP = os.path.join(HERE, "worker_stop.flag")
 PIECES = os.path.join(HERE, "pieces")        # detailed pieces of the world this device keeps from month to month
 DIRECTORY = "https://raw.githubusercontent.com/locastil/Sim-Horde/main/coordinator.json"
-VERSION = "0.2"
+VERSION = "0.3"
 _h = hashlib.sha256()
 for _f in ("sim_kernel.py", "world_kernel.py"):
     _h.update(open(os.path.join(HERE, _f), "rb").read())
@@ -40,6 +40,78 @@ KERNEL_SHA = _h.hexdigest()
 
 def say(msg):
     print(time.strftime("%H:%M:%S"), msg, flush=True)
+
+
+SCENARIO_KEYS = {"p": ("stress", "irr", "leave", "kind"), "f": ("pov", "dens", "unemp", "ineq", "young", "net"), "nb": ("stress", "irr", "leave", "kind")}
+
+
+def check_scenario(p, WK):
+    """Someone's scenario: only numbers, known names and sane sizes (each month is also checked like a world piece)."""
+    try:
+        assert isinstance(p.get("nations"), list) and isinstance(p.get("events"), list) and len(p["events"]) <= 12
+        assert isinstance(p.get("months"), int) and 1 <= p["months"] <= 60 and isinstance(p.get("warm"), int) and 0 <= p["warm"] <= 3
+        assert isinstance(p.get("effects"), dict)
+        for fx in p["effects"].values():
+            assert set(fx) <= {"p", "f", "nb", "calm"}
+            for part, keys in SCENARIO_KEYS.items():
+                for k, v in (fx.get(part) or {}).items():
+                    assert k in keys and isinstance(v, (int, float)) and abs(v) <= 3
+        codes = {n["code"] for n in p["nations"]}
+        for e in p["events"]:
+            assert e["type"] in p["effects"] and isinstance(e["strength"], (int, float)) and 0 < e["strength"] <= 2
+            assert isinstance(e["start"], int) and isinstance(e["months"], int) and set(e["where"]) <= codes
+        for n in p["nations"]:
+            assert set(n.get("base") or {}) <= set(SCENARIO_KEYS["p"]) and all(abs(v) <= 10 for v in n["base"].values())
+    except Exception:
+        return "not a scenario this app can run"
+    first = dict(nations=[dict(code=n["code"], agents=n["agents"], feat=n["feat"], pressure=n["base"]) for n in p["nations"]],
+                 theta=p.get("theta"), days=p.get("days"), seed=p.get("seed"), state=None)
+    return WK.check_world_job(first)
+
+
+def run_scenario(p, WK, dev, tell):
+    """Run the world month by month with the events switched on and off at their times; send back, for
+    every month, each country's happiness and how many people want to leave."""
+    nat = p["nations"]
+    idx = {n["code"]: i for i, n in enumerate(nat)}
+    clamp = lambda d: {k: max(-9.5, min(9.5, round(v, 4))) for k, v in d.items()}
+    job = lambda feat, pres, seed, state: dict(nations=[dict(code=n["code"], agents=n["agents"], feat=feat[i], pressure=pres[i]) for i, n in enumerate(nat)],
+                                               theta=p["theta"], days=p["days"], seed=seed, state=state)
+    state, months, last = None, [], 0
+    for w in range(p["warm"]):                                      # quiet months first, so everyone settles in
+        r = WK.run_shard(job([n["feat"] for n in nat], [n["base"] for n in nat], p["seed"] * 7919 + w, state), dev)
+        state = r["state"]
+    months.append({c: [v["happy"], v["leave"]] for c, v in r["nations"].items()})
+    for m in range(1, p["months"] + 1):
+        feat = [dict(n["feat"]) for n in nat]
+        pres = [dict(n["base"]) for n in nat]
+        for e in p["events"]:
+            if not (e["start"] <= m < e["start"] + e["months"]):
+                continue
+            fx, s = p["effects"][e["type"]], e["strength"]
+            for c in e["where"]:
+                i = idx[c]
+                if fx.get("calm"):
+                    pres[i] = {k: min(v, 0.0) for k, v in pres[i].items()}
+                for k, v in (fx.get("p") or {}).items():
+                    pres[i][k] = pres[i].get(k, 0.0) + v * s
+                for k, v in (fx.get("f") or {}).items():
+                    feat[i][k] = feat[i].get(k, 0.0) + v * s
+                for b in nat[i].get("b") or []:
+                    j = idx.get(b)
+                    if j is not None and b not in e["where"]:
+                        for k, v in (fx.get("nb") or {}).items():
+                            pres[j][k] = pres[j].get(k, 0.0) + v * s
+        jb = job([clamp(f) for f in feat], [clamp(q) for q in pres], p["seed"] * 1009 + m, state)
+        err = WK.check_world_job(jb)
+        if err:
+            raise ValueError(err)
+        r = WK.run_shard(jb, dev)
+        state = r["state"]
+        months.append({c: [v["happy"], v["leave"]] for c, v in r["nations"].items()})
+        if time.time() - last > 10:
+            tell(m); last = time.time()
+    return dict(months=months)
 
 
 def call(server, path, body, timeout=60, raw=False):
@@ -219,6 +291,10 @@ def main():
     K, data = load_from_coordinator(server, key)
     total = sum(d["pop"] for d in data.values())
     say(f"Working on {gpu}{f' ({vram} GB)' if vram else ''}. Close this window to stop.")
+    code, r = call(server, "/api/v1/link/new", dict(key=key), timeout=20)
+    if code == 200 and r.get("code"):
+        say(f"Kudos: this computer earns kudos you can spend on your own scenarios. To use them on sim-horde.org,"
+            f" enter the code {r['code']} on the scenario page (it works for {r.get('hours', 24)} hours; a new one appears each start).")
 
     idle, done = 5, 0
     if os.path.exists(STOP):
@@ -226,7 +302,7 @@ def main():
     while not os.path.exists(STOP):
         # the biggest piece of the world this device should take: a GPU takes any; a CPU, phone-sized ones
         cap = None if dev.type == "cuda" else 100_000
-        code, r = call(server, "/api/v1/jobs/pop", dict(key=key, gpu=gpu, vram_gb=vram, status="ready", cap=cap))
+        code, r = call(server, "/api/v1/jobs/pop", dict(key=key, gpu=gpu, vram_gb=vram, status="ready", cap=cap, scenarios=True))
         if code in (401, 403, 426):
             sys.exit(f"The coordinator turned this worker away: {r.get('error')}")
         job = r.get("job") if code == 200 else None
@@ -237,6 +313,31 @@ def main():
             idle = min(idle * 2, 120)
             continue
         idle = 5
+        if job.get("kind") == "scenario":
+            import world_kernel as WK
+            p = job.get("payload") or {}
+            err = check_scenario(p, WK)
+            if err:
+                say(f"Refused scenario {job.get('id')}: {err}")
+                time.sleep(10)
+                continue
+            people = sum(n["agents"] for n in p["nations"])
+            say(f"Scenario {job['id']}: someone's what-if world, {people:,} simulated people, {p['months']} months")
+            t0 = time.time()
+            try:
+                out = run_scenario(p, WK, dev, lambda m: call(server, "/api/v1/scenarios/progress", dict(key=key, id=job["id"], month=m), timeout=20))
+            except torch.cuda.OutOfMemoryError:
+                torch.cuda.empty_cache()
+                say("Ran out of GPU memory on that scenario; it will go to another volunteer.")
+                time.sleep(60)
+                continue
+            code, r = call(server, "/api/v1/scenarios/result", dict(key=key, id=job["id"], out=out), timeout=300)
+            if code == 200:
+                done += 1
+                say(f"Scenario done in {time.time() - t0:.0f}s. {done} piece{'s' if done != 1 else ''} this session.")
+            else:
+                say(f"Scenario result not accepted: {r.get('error', code)}")
+            continue
         if job.get("kind") == "world":
             import world_kernel as WK
             err = WK.check_world_job(job.get("payload"))

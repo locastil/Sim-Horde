@@ -264,6 +264,93 @@
     catch (e) { $("shareNote").textContent = url; }
   });
 
+  // ------------------------------------------------------------ horde runs, paid with kudos
+  const LEVELS = { Medium: 1e6, High: 2e6, Ultra: 4e6 };
+  const store = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
+  const post = (path, body) => fetch("/api/v1/" + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+    .then(async (r) => ({ code: r.status, body: await r.json().catch(() => ({})) }));
+  let me = null, watching = new Set();
+  const myKey = () => store.get("simhorde.browserKey");
+  async function ensureKey() {
+    if (myKey()) return myKey();
+    const r = await post("workers", { name: "Anonymous browser", gpu: "Web browser", vram_gb: 0, client: "browser" });
+    if (r.code !== 200) throw new Error(r.body.error || "couldn't set up kudos for this browser");
+    store.set("simhorde.browserKey", r.body.key); return r.body.key;
+  }
+  const hordeCost = () => Math.round(LEVELS[$("level").value] * (Number($("years").value) * 12 + 2) * 30 / 1e8 * 10) / 10;
+  function showWallet() {
+    $("hordeCost").textContent = `This run costs ${hordeCost()} kudos.`;
+    $("wallet").textContent = me ? `You have ${me.kudos.toLocaleString(undefined, { maximumFractionDigits: 1 })} kudos${me.devices > 1 ? ` across ${me.devices} linked devices` : ""}.`
+      : "You have no kudos yet. Help power the shared world from this device (Help now, at the top), or link a device that has.";
+  }
+  async function refreshMe() {
+    if (!myKey()) { me = null; showWallet(); return; }
+    const r = await post("scenarios/mine", { key: myKey() }).catch(() => null);
+    if (r && r.code === 200) { me = r.body; listRuns(r.body.scenarios); } else if (r && r.code === 401) me = null;
+    showWallet();
+  }
+  function listRuns(list) {
+    const ul = $("hordeRuns");
+    ul.innerHTML = (list || []).map((x) => {
+      const ev = x.spec.events.length, st = x.status === "queued" ? "waiting for a volunteer's card" : x.status === "running" ? `running: month ${x.progress} of ${x.spec.years * 12}`
+        : x.status === "done" ? "finished" : "couldn't run: kudos returned";
+      return `<li><b>${esc(x.spec.level)}, ${x.spec.years} year${x.spec.years > 1 ? "s" : ""}, ${ev} event${ev === 1 ? "" : "s"}</b><span class="st">${st}</span>${x.status === "done" ? `<button type="button" data-show="${x.id}">Show results</button>` : ""}</li>`;
+    }).join("");
+    (list || []).filter((x) => x.status === "queued" || x.status === "running").forEach((x) => watch(x.id));
+  }
+  function watch(id) {
+    if (watching.has(id)) return; watching.add(id);
+    const tick = async () => {
+      const r = await post("scenarios/status", { key: myKey(), id }).catch(() => null);
+      if (!r || r.code !== 200) { setTimeout(tick, 15000); return; }
+      if (r.body.status === "done" || r.body.status === "failed") { watching.delete(id); refreshMe(); if (r.body.status === "done") showHorde(r.body); return; }
+      refreshMe(); setTimeout(tick, 8000);
+    };
+    setTimeout(tick, 3000);
+  }
+  function showHorde(st) {
+    if (running) return;
+    const m = st.result.months, toObj = (row) => Object.fromEntries(Object.entries(row).map(([c, v]) => [c, { happy: v[0], leave: v[1] }]));
+    const spec = st.spec, N = byCode();
+    res = { months: m.slice(1).map((row, i) => ({ month: i + 1, scenario: toObj(row) })), start: toObj(m[0]), yrs: spec.years,
+            events: spec.events.map((e) => ({ type: e.type, start: e.start, months: e.months })) };
+    res.fit = fitFrom(res.start);
+    $("out").hidden = false; $("bar").style.width = "100%"; $("progress").textContent = `Run by the horde at ${spec.level} detail.`;
+    draw(true); $("out").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  async function hordeRun() {
+    const btn = $("hordeRun"); btn.disabled = true;
+    try {
+      await ensureKey();
+      const spec = { level: $("level").value, years: Number($("years").value),
+                     events: events.map((e) => ({ type: e.type, where: whereCodes(e), strength: e.strength, start: e.start, months: e.months })).filter((e) => e.where.length) };
+      const r = await post("scenarios/new", { key: myKey(), spec });
+      if (r.code === 200) { $("wallet").textContent = `Sent to the horde (${r.body.cost} kudos). ${r.body.ahead ? `${r.body.ahead} run${r.body.ahead > 1 ? "s" : ""} ahead of yours. ` : ""}You can leave this page and come back.`; watch(r.body.id); setTimeout(refreshMe, 1500); }
+      else $("wallet").textContent = r.body.error || "That didn't go through.";
+    } catch (e) { $("wallet").textContent = e.message; }
+    btn.disabled = false;
+  }
+  $("hordeRun").addEventListener("click", hordeRun);
+  $("level").addEventListener("change", showWallet);
+  $("years").addEventListener("change", showWallet);
+  $("hordeRuns").addEventListener("click", async (e) => {
+    const id = e.target.dataset && e.target.dataset.show; if (!id) return;
+    const r = await post("scenarios/status", { key: myKey(), id: Number(id) }); if (r.code === 200) showHorde(r.body);
+  });
+  $("linkForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await ensureKey();
+      const r = await post("link/use", { key: myKey(), code: $("linkCode").value });
+      $("myCode").textContent = r.code === 200 ? "Linked." : (r.body.error || "That code didn't work.");
+      if (r.code === 200) { $("linkCode").value = ""; refreshMe(); }
+    } catch (err) { $("myCode").textContent = err.message; }
+  });
+  $("showCode").addEventListener("click", async () => {
+    try { await ensureKey(); const r = await post("link/new", { key: myKey() }); $("myCode").textContent = r.code === 200 ? `${r.body.code} (works for ${r.body.hours} hours)` : (r.body.error || ""); }
+    catch (err) { $("myCode").textContent = err.message; }
+  });
+
   // ------------------------------------------------------------ start
   (async () => {
     [base, live] = await Promise.all([fetch("/scenario/base.json").then((r) => r.json()), fetch("/api/v1/globe").then((r) => r.json()).catch(() => null)]);
@@ -277,6 +364,7 @@
     document.querySelectorAll("[data-preset]").forEach((b) => b.addEventListener("click", () => { events = PRESETS[b.dataset.preset](); render(); }));
     $("years").addEventListener("change", estimate);
     $("run").addEventListener("click", run);
+    refreshMe();
     // what the scenario assistant (agent.js) uses to read and change the plan
     window.simScenario = {
       types: TYPES, regions: REGIONS, nations: base.nations,
