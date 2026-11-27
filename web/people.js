@@ -21,6 +21,24 @@ function moodColor(h) {
   return STOPS[STOPS.length - 1][1];
 }
 
+// is a point on this country's land? (rings are flat lon, lat, lon, lat... arrays, as the globe loads them)
+function landTest(rings) {
+  if (!rings || !rings.length) return () => true;
+  const boxes = rings.map((r) => { let a = 180, b = -180, c = 90, d = -90; for (let i = 0; i < r.length; i += 2) { a = Math.min(a, r[i]); b = Math.max(b, r[i]); c = Math.min(c, r[i + 1]); d = Math.max(d, r[i + 1]); } return [a, b, c, d]; });
+  return (x, y) => {
+    for (let k = 0; k < rings.length; k++) {
+      const [a, b, c, d] = boxes[k]; if (x < a || x > b || y < c || y > d) continue;
+      const r = rings[k]; let inside = false;
+      for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) {
+        const xi = r[i], yi = r[i + 1], xj = r[j], yj = r[j + 1];
+        if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+      }
+      if (inside) return true;
+    }
+    return false;
+  };
+}
+
 function put(arr, i, lon, lat, r) {
   const phi = (lon + 180) * D, la = lat * D, c = Math.cos(la);
   arr[i * 3] = -Math.cos(phi) * c * r; arr[i * 3 + 1] = Math.sin(la) * r; arr[i * 3 + 2] = Math.sin(phi) * c * r;
@@ -47,7 +65,7 @@ export function addPeople(world, tier, data) {
     pts = null;
   }
 
-  function setData({ globe, cities }) {
+  function setData({ globe, cities, shapes }) {
     clear();
     const G = (globe && globe.nations) || {}, C = (cities && cities.cities) || {};
     // how many people each listed city stands for: the country's population, shared out by city size
@@ -58,7 +76,7 @@ export function addPeople(world, tier, data) {
       const csum = list.reduce((a, c) => a + c[3], 0) || 1;
       for (const [, lat, lon, cp] of list) {
         const people = pop * (cp / csum);                    // includes the towns and countryside nearest each city
-        places.push({ lon, lat, people, cp, war: !!g.conflict, mood: moodColor(g.happiness), detail: DETAIL[g.detail] || 0.35 });
+        places.push({ lon, lat, people, cp, war: !!g.conflict, mood: moodColor(g.happiness), detail: DETAIL[g.detail] || 0.35, land: landTest(shapes && shapes.get(num)) });
         total += people;
       }
     }
@@ -73,8 +91,12 @@ export function addPeople(world, tier, data) {
       // its people: towns and suburbs, thick near the city and thinning out, wider for bigger places
       const spread = Math.min(2.6, 0.1 + Math.sqrt(p.people / 1e6) * 0.17);    // degrees
       for (let k = 1; k < n; k++) {
-        const r = spread * Math.pow(Math.random(), 1.8) * 1.6, a = Math.random() * Math.PI * 2;
-        const la = p.lat + r * Math.sin(a), lo = p.lon + (r * Math.cos(a)) / Math.max(0.2, Math.cos(p.lat * D));
+        let r, lo, la, tries = 0;
+        do {                                                   // towns only on the country's own land, never at sea
+          r = spread * Math.pow(Math.random(), 1.8) * 1.6; const a = Math.random() * Math.PI * 2;
+          la = p.lat + r * Math.sin(a); lo = p.lon + (r * Math.cos(a)) / Math.max(0.2, Math.cos(p.lat * D));
+        } while (!p.land(lo, la) && ++tries < 6);
+        if (tries >= 6) continue;
         tpos.push([lo, la]);
         const b = 0.35 + 0.45 * Math.random() * Math.exp(-r / spread);
         tcol.push(p.mood.map((v) => v * b)); tbase.push(p.war);

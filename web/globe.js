@@ -514,7 +514,7 @@ export function mountGlobe(root, opts = {}) {
   } else if (fsBtn) fsBtn.hidden = true;
 
   let hoverFeats = null;
-  loadLayer("countries_low").then((f) => { hoverFeats = f; });
+  loadLayer("countries_low").then((f) => { hoverFeats = f; tdata.shapes = new Map(f); refreshPeople(true); });
   function insideFlat(x, y, ring) {
     let c = false;
     for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2) {
