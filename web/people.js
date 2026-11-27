@@ -4,7 +4,9 @@
 import * as THREE from "/vendor/three.min.js";
 
 const D = Math.PI / 180;
-const BUDGET = { low: 2500, medium: 5000, high: 8000, epic: 12000 };    // lights on screen
+const BUDGET = { low: 6000, medium: 20000, high: 60000, epic: 120000 };   // lights on screen: a strong card draws far more
+// countries the horde simulates in more detail (more simulated people) get more lights
+const DETAIL = { Low: 0.35, Medium: 0.55, High: 0.8, Ultra: 1 };
 
 // the same colours as the happiness meter under the globe
 // (a little more saturated than the meter, since small lights on a dark globe read paler)
@@ -37,12 +39,12 @@ function glowTexture() {
 export function addPeople(world, tier, data) {
   const group = new THREE.Group();
   world.add(group);
-  let pts = null, flick = [], t = 0;
+  let pts = null, t = 0;
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function clear() {
     for (const o of [...group.children]) { group.remove(o); o.geometry && o.geometry.dispose(); if (o.material) { o.material.map && o.material.map.dispose(); o.material.dispose(); } }
-    pts = null; flick = [];
+    pts = null;
   }
 
   function setData({ globe, cities }) {
@@ -56,54 +58,57 @@ export function addPeople(world, tier, data) {
       const csum = list.reduce((a, c) => a + c[3], 0) || 1;
       for (const [, lat, lon, cp] of list) {
         const people = pop * (cp / csum);                    // includes the towns and countryside nearest each city
-        places.push({ lon, lat, people, cp, war: !!g.conflict, mood: moodColor(g.happiness) });
+        places.push({ lon, lat, people, cp, war: !!g.conflict, mood: moodColor(g.happiness), detail: DETAIL[g.detail] || 0.35 });
         total += people;
       }
     }
     if (!places.length) return;
     const budget = BUDGET[tier] || BUDGET.medium;
-    const pos = [], col = [], base = [];
+    const pos = [], col = [], base = [], tpos = [], tcol = [], tbase = [];
     for (const p of places) {
-      const n = Math.max(1, Math.round((p.people / total) * budget));
+      const n = Math.max(1, Math.round((p.people / total) * budget * p.detail));
       // the city itself: a bright core
       pos.push([p.lon, p.lat]); const b0 = Math.min(1, 0.55 + Math.log10(p.cp + 10) / 12);
       col.push(p.mood.map((v) => v * b0)); base.push(p.war);
-      // its people: towns and suburbs spreading out, wider for bigger places
-      const spread = Math.min(1.6, 0.08 + Math.sqrt(p.people / 1e6) * 0.1);    // degrees
+      // its people: towns and suburbs, thick near the city and thinning out, wider for bigger places
+      const spread = Math.min(2.6, 0.1 + Math.sqrt(p.people / 1e6) * 0.17);    // degrees
       for (let k = 1; k < n; k++) {
-        const r = Math.abs(gauss()) * spread, a = Math.random() * Math.PI * 2;
+        const r = spread * Math.pow(Math.random(), 1.8) * 1.6, a = Math.random() * Math.PI * 2;
         const la = p.lat + r * Math.sin(a), lo = p.lon + (r * Math.cos(a)) / Math.max(0.2, Math.cos(p.lat * D));
-        pos.push([lo, la]);
-        const b = 0.45 + 0.4 * Math.random();
-        col.push(p.mood.map((v) => v * b)); base.push(p.war);
+        tpos.push([lo, la]);
+        const b = 0.35 + 0.45 * Math.random() * Math.exp(-r / spread);
+        tcol.push(p.mood.map((v) => v * b)); tbase.push(p.war);
       }
     }
-    const P = new Float32Array(pos.length * 3), Cc = new Float32Array(pos.length * 3);
-    pos.forEach(([lo, la], i) => { put(P, i, lo, la, 1.0018); Cc.set(col[i], i * 3); if (base[i]) flick.push(i); });
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.BufferAttribute(P, 3));
-    geo.setAttribute("color", new THREE.BufferAttribute(Cc, 3));
-    geo.userData.base = Cc.slice();
     const big = tier === "epic" || tier === "high";
-    pts = new THREE.Points(geo, new THREE.PointsMaterial({ size: big ? 2.6 : 2.2, sizeAttenuation: false, map: glowTexture(), vertexColors: true,
-      transparent: true, opacity: 0.95, depthWrite: false }));
-    group.add(pts);
-    // war: lights at about half strength
-    for (const i of flick) for (let k = 0; k < 3; k++) Cc[i * 3 + k] *= 0.45;
-    geo.attributes.color.needsUpdate = true;
+    const layer = (list, colors, wars, size) => {
+      const P = new Float32Array(list.length * 3), Cc = new Float32Array(list.length * 3), f = [];
+      list.forEach(([lo, la], i) => { put(P, i, lo, la, 1.0018); Cc.set(colors[i], i * 3); if (wars[i]) f.push(i); });
+      for (const i of f) for (let k = 0; k < 3; k++) Cc[i * 3 + k] *= 0.45;        // war: lights at about half strength
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.BufferAttribute(P, 3));
+      geo.setAttribute("color", new THREE.BufferAttribute(Cc, 3));
+      geo.userData.base = Cc.slice(); geo.userData.flick = f;
+      const pt = new THREE.Points(geo, new THREE.PointsMaterial({ size, sizeAttenuation: false, map: glowTexture(), vertexColors: true, transparent: true, opacity: 0.95, depthWrite: false }));
+      group.add(pt); return pt;
+    };
+    pts = [layer(tpos, tcol, tbase, big ? 1.7 : 1.5), layer(pos, col, base, big ? 2.8 : 2.3)];
   }
 
   function update(dt) {
-    if (!pts || !flick.length || still) return;
+    if (!pts || still) return;
     t += dt;
     if (t < 0.25) return;                                    // blackouts flicker a few times a second
     t = 0;
-    const c = pts.geometry.attributes.color.array, b = pts.geometry.userData.base;
-    for (let n = 0; n < Math.min(80, flick.length); n++) {
-      const i = flick[(Math.random() * flick.length) | 0], f = Math.random() < 0.3 ? 0.05 : 0.45;
-      for (let k = 0; k < 3; k++) c[i * 3 + k] = b[i * 3 + k] * f;
+    for (const pt of pts) {
+      const g = pt.geometry, f = g.userData.flick; if (!f.length) continue;
+      const c = g.attributes.color.array, b = g.userData.base;
+      for (let n = 0; n < Math.min(200, f.length); n++) {
+        const i = f[(Math.random() * f.length) | 0], m = Math.random() < 0.3 ? 0.1 : 1;
+        for (let k = 0; k < 3; k++) c[i * 3 + k] = b[i * 3 + k] * m;
+      }
+      g.attributes.color.needsUpdate = true;
     }
-    pts.geometry.attributes.color.needsUpdate = true;
   }
 
   if (data) setData(data);
