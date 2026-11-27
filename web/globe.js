@@ -367,7 +367,17 @@ export function mountGlobe(root, opts = {}) {
       const k = 0.2 * (zoom / 4.0); lon -= dx * k; lat += dy * k; vLon = -dx * k * 0.6;
     } else hover(e);
   });
-  el.addEventListener("pointerup", () => { dragging = false; });
+  let tapT = 0, tapX = 0, tapY = 0;
+  const street = (e) => { hover(e); if (hitId != null) window.dispatchEvent(new CustomEvent("simhorde:street", { detail: { num: hitId } })); };
+  el.addEventListener("pointerup", (e) => {
+    dragging = false;
+    if (e.pointerType !== "mouse" && moved < 12) {          // double-tap on phones and tablets
+      const now = performance.now();
+      if (now - tapT < 350 && Math.hypot(e.clientX - tapX, e.clientY - tapY) < 40) { tapT = 0; street(e); return; }
+      tapT = now; tapX = e.clientX; tapY = e.clientY; hover(e);
+    }
+  });
+  el.addEventListener("dblclick", (e) => { e.preventDefault(); street(e); });
   el.addEventListener("pointerleave", () => { tip.hidden = true; });
   el.addEventListener("wheel", (e) => { e.preventDefault(); zoom = Math.max(1.9, Math.min(6, zoom * (1 + Math.sign(e.deltaY) * 0.08))); }, { passive: false });
   el.addEventListener("keydown", (e) => {
@@ -377,7 +387,9 @@ export function mountGlobe(root, opts = {}) {
   });
 
   const ray = new THREE.Raycaster(), v2 = new THREE.Vector2();
+  let hitId = null;
   function hover(e) {
+    hitId = null;
     if (!earth) return;
     const r = el.getBoundingClientRect();
     v2.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
@@ -390,11 +402,11 @@ export function mountGlobe(root, opts = {}) {
       let hit = null;
       for (const [id, rings] of hoverFeats) {
         const nv = worldData.nations[id];
-        if (nv && rings.some((r) => insideFlat(lo, la, r))) { hit = nv; break; }
+        if (nv && rings.some((r) => insideFlat(lo, la, r))) { hit = nv; hitId = id; break; }
       }
       if (hit) {
         const flags = [hit.conflict ? "armed conflict" : "", hit.protests ? "protests" : ""].filter(Boolean);
-        tip.innerHTML = `<b>${esc(hit.name)}</b> <i style="opacity:.6">simulated</i><br>${esc(hit.gov)}: ${esc(hit.ruling)} hold${/^the ruling|^the armed|^the opposition/.test(hit.ruling) ? "s" : ""} power<br>Happiness ${hit.happiness.toFixed(1)} / 10` + (hit.survey != null ? ` <span style="opacity:.6">(surveys: ${hit.survey.toFixed(1)})</span>` : "") + (flags.length ? `<br>${flags.join(", ")}` : "") + (hit.detail && hit.detail !== "Low" ? `<br><span style="opacity:.6">Simulated at ${esc(hit.detail)} detail</span>` : "");
+        tip.innerHTML = `<b>${esc(hit.name)}</b> <i style="opacity:.6">simulated</i><br>${esc(hit.gov)}: ${esc(hit.ruling)} hold${/^the ruling|^the armed|^the opposition/.test(hit.ruling) ? "s" : ""} power<br>Happiness ${hit.happiness.toFixed(1)} / 10` + (hit.survey != null ? ` <span style="opacity:.6">(surveys: ${hit.survey.toFixed(1)})</span>` : "") + (flags.length ? `<br>${flags.join(", ")}` : "") + (hit.detail && hit.detail !== "Low" ? `<br><span style="opacity:.6">Simulated at ${esc(hit.detail)} detail</span>` : "") + `<br><span style="opacity:.6">Double-click to see its streets</span>`;
       } else if (Math.abs(la) < 80) { tip.hidden = true; return; }
       tip.style.left = e.clientX - r.left + "px"; tip.style.top = e.clientY - r.top + "px"; tip.hidden = false;
       return;

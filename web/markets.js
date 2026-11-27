@@ -132,6 +132,7 @@
     $("cEvents").innerHTML = ev.length ? ev.map((e) => `<li><span class="chip ${(KIND[e[2]] || ["", "pol"])[1]}">${esc((KIND[e[2]] || [e[2]])[0])}</span><span class="c-date">${esc(e[0])}</span><p>${esc(e[3])}</p></li>`).join("")
       : "";
     state.open = num;
+    $("cStreet").onclick = () => { dlg.close(); window.dispatchEvent(new CustomEvent("simhorde:street", { detail: { num } })); };
     if (!dlg.open) dlg.showModal();
   }
 

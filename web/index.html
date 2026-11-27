@@ -5,6 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sim Horde: one shared world, powered by everyone's devices</title>
 <meta name="description" content="Sim Horde is building a simulation of how people everywhere treat each other, powered by volunteers' phones, tablets and computers.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Sim Horde">
+<meta property="og:url" content="https://sim-horde.org/">
+<meta property="og:title" content="Sim Horde: one shared world, powered by everyone's devices">
+<meta property="og:description" content="A whole planet, simulated: 207 countries running on volunteers' phones and PCs. Watch it live, zoom down to the streets, or lend your device.">
+<meta property="og:image" content="https://sim-horde.org/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Sim Horde: a globe with every country colored by how happy its simulated people are.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://sim-horde.org/og.png">
 <link rel="preload" href="/fonts/bricolage-grotesque-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/site.css">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -58,7 +69,7 @@
         <ol class="gh-steps"></ol>
         <p class="gh-foot">The Sim Horde desktop app asks which card to use when it starts.</p>
       </div>
-      <figcaption><span class="legend" aria-hidden="true"><span>Less happy</span><i class="ramp happy"></i><span>Happier</span></span><span id="globeCap">Drag to turn it; point at a country.</span></figcaption>
+      <figcaption><span class="legend" aria-hidden="true"><span>Less happy</span><i class="ramp happy"></i><span>Happier</span></span><span id="globeCap">Drag to turn it; point at a country. Double-click (or double-tap) one to zoom down to its streets.</span></figcaption>
     </figure>
   </section>
 
@@ -106,6 +117,7 @@
         <div class="x-chart"><svg id="cChart" role="img" aria-label="This country's index over time"></svg><div class="x-tip" id="cTip" hidden></div></div>
         <dl class="c-facts" id="cFacts"></dl>
         <ul class="feed" id="cEvents"></ul>
+        <button type="button" class="x-street" id="cStreet">See its streets</button>
       </dialog>
       <div class="x-legacy" id="worldNews" hidden><ul id="worldEvents"></ul></div>
     </div>
@@ -211,5 +223,6 @@
 <script src="/site.js" defer></script>
 <script src="/help.js" defer></script>
 <script src="/markets.js" defer></script>
+  <script src="/street.js" defer></script>
 </body>
 </html>
