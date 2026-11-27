@@ -560,3 +560,14 @@ html.st-open { overflow: hidden; }
 .room:fullscreen { width: 100vw; height: 100vh; border-radius: 0; grid-template-rows: minmax(0, 1fr) auto; }
 .room:fullscreen .viewport { aspect-ratio: auto; height: 100%; }
 @media (max-width: 600px) { .dock-name { flex-basis: 100%; } .dock-name input { flex: 1; width: auto; } .piece-tag { top: 112px; font-size: .78rem; } }
+
+/* --- backtest card (backtest.js) */
+.backtest { margin: 36px 0 8px; }
+.bt-lede { color: var(--ink-2); max-width: 75ch; }
+.bt-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 16px 0 10px; }
+.bt-card { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 16px 16px 12px; }
+.bt-card b { display: block; font: 700 2rem/1.1 var(--display); font-variant-numeric: tabular-nums; }
+.bt-card span { display: block; font-weight: 600; margin: 4px 0 6px; }
+.bt-card p { margin: 0; color: var(--ink-3); font-size: .88rem; line-height: 1.45; }
+.bt-note { color: var(--ink-3); font-size: .9rem; max-width: 80ch; }
+@media (max-width: 900px) { .bt-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
