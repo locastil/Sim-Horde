@@ -325,7 +325,7 @@ export function mountGlobe(root, opts = {}) {
     if (atmoMat) atmoMat.uniforms.k.value = (tier === "epic" ? 0.85 : 0.65) * Math.min(1, alt() / 0.4);
     if (traffic) traffic.update(dt);
     if (people) people.update(dt);
-    if (local) { const keep = local.update(dt, lon, lat, alt(), camera.aspect, scaleTag); if (people) people.setFade(keep); }
+    if (local) { const keep = local.update(dt, lon, lat, alt(), camera.aspect, scaleTag); if (people) people.setFade(keep); world.updateMatrixWorld(); local.labels(camera, cityNames, lon, lat, alt(), camera.aspect); }
     renderer.render(scene, camera);
     // smoothness governor (Auto only). It counts late frames rather than averaging, because a
     // choppy 45 fps looks worse than a steady 30. Down: resolution first, then the tier. Up: after
@@ -502,6 +502,7 @@ export function mountGlobe(root, opts = {}) {
   const tag = document.getElementById("pieceTag");
   window.simhordeGlobe = { view: () => ({ lon, lat, alt: alt() }), go: (lo, la, a) => { lon = lo; lat = la; zoom = 1 + a; vLon = 0; focus = null; } };   // for checking the view
   const scaleTag = document.getElementById("scaleTag");
+  const cityNames = document.createElement("div"); cityNames.className = "city-names"; cityNames.hidden = true; cityNames.setAttribute("aria-hidden", "true"); canvasWrap.after(cityNames);
   const D = Math.PI / 180;
   const v3 = (lo, la, r) => { const phi = (lo + 180) * D, a = la * D; return new THREE.Vector3(-Math.cos(phi) * Math.cos(a) * r, Math.sin(a) * r, Math.sin(phi) * Math.cos(a) * r); };
   async function numsFor(codes) {

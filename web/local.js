@@ -65,10 +65,10 @@ export function addLocal(world, tier) {
     for (const [num, rows] of Object.entries(list)) {
       const g = G[num] || {}, csum = rows.reduce((a, c) => a + c[3], 0) || 1, pop = g.pop || csum * 3;
       if (!lands.has(num)) lands.set(num, landTest(shapes && shapes.get(num)));
-      rows.forEach(([, lat, lon, cp], k) => {
+      rows.forEach(([name, lat, lon, cp], k) => {
         const people = pop * (cp / csum);
         const s2 = 8 + Math.sqrt(people / 1000) * 0.7, s1 = Math.max(1.5, 1 + Math.sqrt(cp / 1000) * 0.18);
-        const c = { lon, lat, people, cp, s1, s2, mood: moodColor(g.happiness), war: !!g.conflict, protest: !!g.protests,
+        const c = { name, lon, lat, people, cp, s1, s2, mood: moodColor(g.happiness), war: !!g.conflict, protest: !!g.protests,
                     land: lands.get(num), angle: (hash(+num, k, 7) >>> 0) / 4294967296 * Math.PI / 2, id: hash(+num, k, 1) };
         cities.push(c);
         const bk = Math.floor(lon / 5) + ":" + Math.floor(lat / 5);
@@ -310,5 +310,32 @@ export function addLocal(world, tier) {
     return 1 - fade;                                         // how much of the far-off city lights to keep
   }
 
-  return { setData, update, dispose: () => { for (const lv of levels.values()) drop(lv); world.remove(group); tex.dispose(); } };
+  // city names, once you're close enough to see the streets: biggest places first, none overlapping
+  const v = new THREE.Vector3(), pool = [];
+  function labels(camera, box, lon, lat, alt, aspect) {
+    const op = ready ? Math.min(1, (0.03 - alt) / 0.01) : 0;
+    if (op <= 0) { if (!box.hidden) box.hidden = true; return; }
+    box.hidden = false; box.style.opacity = op;
+    const W = box.clientWidth, H = box.clientHeight, halfKm = alt * 6371 * Math.tan(16 * D) * Math.max(1, aspect);
+    const list = near(lon, lat, halfKm * 1.6 + 5).sort((a, b) => b.people - a.people), taken = [];
+    let n = 0;
+    for (const c of list) {
+      if (n >= 14) break;
+      const pa = new Float32Array(3); put(pa, 0, c.lon, c.lat); v.set(pa[0], pa[1], pa[2]);
+      world.localToWorld(v); if (v.z < 0) continue;          // the far side of the world
+      v.project(camera); if (v.z > 1) continue;
+      const x = (v.x + 1) / 2 * W, y = (1 - v.y) / 2 * H;
+      if (x < -40 || x > W + 40 || y < -20 || y > H + 20) continue;
+      const big = c.cp > 1e6 ? 1 : c.cp > 2e5 ? 2 : 3, w = c.name.length * (big === 1 ? 9 : big === 2 ? 7.5 : 6.5) + 10, h = big === 1 ? 22 : 18;
+      if (taken.some((r) => Math.abs(r[0] - x) < (r[2] + w) / 2 && Math.abs(r[1] - y) < (r[3] + h) / 2)) continue;
+      taken.push([x, y, w, h]);
+      let el = pool[n]; if (!el) { el = document.createElement("span"); box.appendChild(el); pool.push(el); }
+      if (el.textContent !== c.name) el.textContent = c.name;
+      el.className = "s" + big; el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`; el.hidden = false;
+      n++;
+    }
+    for (let i = n; i < pool.length; i++) pool[i].hidden = true;
+  }
+
+  return { setData, update, labels, dispose: () => { for (const lv of levels.values()) drop(lv); world.remove(group); tex.dispose(); } };
 }

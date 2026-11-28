@@ -557,6 +557,11 @@ html.st-open { overflow: hidden; }
 .scale-tag { position: absolute; left: 50%; top: 136px; transform: translateX(-50%); margin: 0; max-width: calc(100% - 32px); text-align: center;
   background: rgba(8, 14, 26, .7); backdrop-filter: blur(6px); border: 1px solid rgba(157, 180, 255, .2); color: #C9D6E6;
   font: 500 .78rem/1.3 var(--body); padding: 6px 12px; border-radius: 999px; pointer-events: none; }
+.city-names { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.city-names span { position: absolute; left: 0; top: 0; white-space: nowrap; color: #EEF4FF; font: 600 .74rem/1 var(--body); letter-spacing: .02em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .9), 0 0 10px rgba(4, 8, 18, .9); }
+.city-names span.s1 { font-size: .98rem; font-weight: 700; }
+.city-names span.s2 { font-size: .84rem; }
 .fs-btn { pointer-events: auto; font: 600 .78rem/1 var(--body); color: #C9D6E6; background: rgba(8, 14, 26, .62); backdrop-filter: blur(6px);
   border: 1px solid rgba(157, 180, 255, .16); border-radius: 999px; padding: 7px 12px; cursor: pointer; }
 .fs-btn:hover { color: #fff; }
