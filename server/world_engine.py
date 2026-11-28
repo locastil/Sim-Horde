@@ -51,6 +51,10 @@ LAYERS = [dict(name="Low", mult=1, piece=SHARD_AGENTS),
 WARM_MONTHS = 3             # a detail piece counts once it has run this many months in a row from its own state
 HOLD_SECS = 45              # at the start of a month, a detail piece waits this long for the device that holds its state
 REFUGEE_MAX = 120.0         # the most of a war zone's people who flee in a year, per 1,000 (12%: about the worst ever seen)
+# Who actually leaves, beyond how many want to: tested on real 2015-2023 migration in migration_test.py and
+# chosen on half the countries, scored on the other half (see the Model lab page). Standard units per country
+# come from world/migration_vars.json; a country with no figure counts as typical.
+MIG_PUSH = dict(remittances=1.2, immigrants=1.5)      # in a broad range that scores about the same (0.43 vs 0.06 now)
 GUARD = dict(happy=1.5, civ=0.08, stress=0.5)    # a detail result far from the Low result for the same nation is ignored
 
 PER_YEAR = dict(coup=3.0, conflict=3.5, protest=24.0, standoff=1.2, war=0.25)    # world totals a year
@@ -153,6 +157,10 @@ class World:
             self.save()
         self.theta = self.load_theta()
         self.load_trade()
+        try:
+            self.mig_vars = json.load(open(os.path.join(HERE, "world", "migration_vars.json")))
+        except (OSError, ValueError):
+            self.mig_vars = {}
         self.open_epoch()
         self.opened = 0.0                     # after a restart, carry on right away
 
@@ -329,7 +337,8 @@ class World:
         richer countries, nearby ones, and the places migrants already go."""
         real_in = sum(max(0.0, n.get("netmig_real") or 0.0) for n in live)
         month_total = (real_in or 0.0007 * sum(n["pop"] for n in live)) / 12
-        want = {n["code"]: n["pop"] * n["last"]["leave"] / 1000 / 12 for n in live if n["last"] and not n["conflict"]}
+        push = lambda c: math.exp(max(-3.0, min(3.0, sum(b * self.mig_vars.get(k, {}).get(c, 0.0) for k, b in MIG_PUSH.items()))))
+        want = {n["code"]: n["pop"] * n["last"]["leave"] / 1000 / 12 * push(n["code"]) for n in live if n["last"] and not n["conflict"]}
         k = month_total / (sum(want.values()) or 1)
 
         def pull(d):

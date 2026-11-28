@@ -121,16 +121,16 @@
     "countries": 150
    },
    "status": "passed",
-   "why": "Passed: on unseen countries it lifted the migration ranking from about 0.03 to 0.24 and 0.31. Chain migration is real (people follow family who already left), though remittances partly measure that past emigration itself.",
+   "why": "Passed: on unseen countries it lifted the migration ranking from about 0.03 to 0.31 and 0.36; together with immigrants, to 0.30 and 0.55. Chain migration is real (people follow family who already left), though remittances partly measure that past emigration itself. Goes into the live world at its next restart.",
    "full": {
     "migration": [
      [
       0.035,
-      0.237
+      0.307
      ],
      [
       0.032,
-      0.31
+      0.362
      ]
     ]
    }
@@ -146,16 +146,16 @@
     "countries": 163
    },
    "status": "passed",
-   "why": "Passed, with a question mark: 0.16 and 0.39 on unseen countries. Small, open countries with many immigrants also lose many people, so it may be measuring how mobile a country is rather than what draws people in.",
+   "why": "Passed, with a question mark: 0.19 and 0.43 on unseen countries. Small, open countries with many immigrants also lose many people, so it may be measuring how mobile a country is rather than what draws people in. Goes into the live world at its next restart, alongside money sent home.",
    "full": {
     "migration": [
      [
       0.035,
-      0.164
+      0.194
      ],
      [
       0.032,
-      0.39
+      0.428
      ]
     ]
    }
