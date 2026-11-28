@@ -190,7 +190,9 @@ export function addOSM(world, tier, sim) {
       for (let n = 0, tries = 0; n < nP && tries < nP * 8; tries++) {
         const home = n >= nOut;
         let lo, la, dx = 0, dy = 0, ct;
-        if (home && homes.length) {                          // a home inside a residential area
+        // the map doesn't mark every neighbourhood as residential, so where little is marked some homes
+        // go along the local streets instead
+        if (home && homes.length && rnd() < Math.min(1, homes.length / 65536 / 0.25)) {   // a home inside a residential area
           const c = homes[(rnd() * homes.length) | 0], u = ((c & 255) + rnd()) / 256, v = ((c >> 8) + rnd()) / 256;
           lo = lonOf(x + u, z); la = latOf(y + v, z);
           if (!(ct = keep(lo, la))) continue;
