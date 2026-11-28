@@ -480,7 +480,7 @@ class World:
         if today.get("conflicts"):
             print(f"Starting as today's real world: {sum(1 for n in N.values() if n['conflict'])} countries in armed conflict ({today.get('source')}).")
         w = dict(created=time.strftime("%Y-%m-%d"), epoch=0, scale=scale, seed=seed, data=d.get("meta", {}),
-                 start=[start.tm_year, start.tm_mon], version=sim_version(), region_cap=REGION_CAP, today=dict(source=today.get("source"), year=today.get("year")) if today else None,
+                 start=[start.tm_year, start.tm_mon], version=sim_version(), region_cap=REGION_CAP, pop_fix_1="new", today=dict(source=today.get("source"), year=today.get("year")) if today else None,
                  nations=N, shards=shards, events=[], world_series=[])
         self.build_layers(w)
         return w
