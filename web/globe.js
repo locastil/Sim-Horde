@@ -568,7 +568,7 @@ export function mountGlobe(root, opts = {}) {
   // ---- what this device is simulating right now, lit up on the globe
   let piece = null, pieceGroup = null, focus = null, pulse = 0;
   const tag = document.getElementById("pieceTag");
-  window.simhordeGlobe = { view: () => ({ lon, lat, alt: alt(), pitch, heading }), go: (lo, la, a, p, h) => { lon = lo; lat = la; zoom = 1 + a; vLon = 0; focus = null; if (p != null) pitch = p; if (h != null) heading = h; } };   // for checking the view
+  window.simhordeGlobe = { view: () => ({ lon, lat, alt: alt(), pitch, heading }), pick: (x, y) => lonLatAt(x, y), cam: () => ({ pos: camera.position.toArray(), up: camera.up.toArray(), zoom }), go: (lo, la, a, p, h) => { lon = lo; lat = la; zoom = 1 + a; vLon = 0; focus = null; if (p != null) pitch = p; if (h != null) heading = h; } };   // for checking the view
   const scaleTag = document.getElementById("scaleTag");
   const cityNames = document.createElement("div"); cityNames.className = "city-names"; cityNames.hidden = true; cityNames.setAttribute("aria-hidden", "true"); canvasWrap.after(cityNames);
   const streetNames = document.createElement("div"); streetNames.className = "street-names"; streetNames.hidden = true; streetNames.setAttribute("aria-hidden", "true"); cityNames.after(streetNames);
