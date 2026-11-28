@@ -72,6 +72,7 @@ def main():
         raise SystemExit("Couldn't download the UCDP conflict data; the world keeps starting at peace.")
     year = max(int(r["year"]) for r in rows)
     now = [r for r in rows if int(r["year"]) == year]
+    borders = {n["iso3"]: set(n.get("borders") or []) for n in nations}
     conflicts, unmatched = {}, set()
     for r in now:
         kind = "war" if r["type_of_conflict"] == "2" else "civil"
@@ -80,6 +81,11 @@ def main():
         for raw, code in here:
             if not code:
                 unmatched.add(raw); continue
+            # a war between states lists every government taking part, wherever the fighting is. A country counts
+            # as at war at home only if it borders an enemy or the war is a major one (1,000+ deaths a year): so
+            # strikes from far away (say, on shipping lanes) don't put the striking country itself at war.
+            if kind == "war" and r["intensity_level"] != "2" and not any(x and x != code and x in borders.get(code, ()) for _, x in here):
+                continue
             c = conflicts.setdefault(code, dict(kind=kind, since=start, intensity=1, wars_with=[]))
             if kind == "war":
                 c["kind"] = "war"

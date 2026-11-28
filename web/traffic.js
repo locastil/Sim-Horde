@@ -1,5 +1,5 @@
 // Air and sea traffic on the zoomed-out globe. An illustration driven by the simulation, not real tracking:
-// flights link each country's main city to its main trading partners, and stop where there's fighting;
+// flights link each country's main city to its main trading partners, and thin out where there's fighting;
 // ships follow the real main sea lanes, thin out when the world economy shrinks, and reroute around the
 // Cape of Good Hope when there's fighting by the Red Sea, or stay out of the Gulf when fighting closes Hormuz.
 import * as THREE from "/vendor/three.min.js";
@@ -96,17 +96,18 @@ export function addTraffic(world, tier, data) {
     }
 
     // ---- flights: domestic hops between each country's main cities, short hops to neighbours, and long-haul
-    // routes to main trading partners. Busier the bigger and richer a country is; none where there's fighting.
+    // routes to main trading partners. Busier the bigger and richer a country is; far fewer where there's fighting.
     const B = (data.base && data.base.nations) || [], byIso = {}, info = {};
     for (const n of B) { byIso[n.c] = n.num; info[n.num] = n; }
     const byName = {};
     for (const [num, r] of Object.entries(M)) byName[r.name] = num;
     const weight = (num) => {
       const n = info[num], g = G[num] || {}, pop = (n && n.pop) || g.pop || 0;
-      if (!C[num] || fighting(num) || !pop) return 0;
+      if (!C[num] || !pop) return 0;
+      const war = fighting(num) ? 0.3 : 1;                                       // fighting cuts flights, but big countries keep flying
       const wealth = Math.exp(-0.9 * ((n && n.feat && n.feat.pov) || 0));        // richer countries fly far more
       const sanc = ((M[num] && M[num].flags) || []).includes("sanctions") ? 0.3 : 1;
-      return Math.pow(pop / 1e6, 0.85) * wealth * sanc;
+      return Math.pow(pop / 1e6, 0.85) * wealth * sanc * war;
     };
     const routes = [], seen = new Set();
     const add = (a, b, w, kind) => {
