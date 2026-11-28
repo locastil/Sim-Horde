@@ -34,6 +34,7 @@ import world_kernel as WK
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
+WARMUP = 3                           # hidden months before day one, so the simulated people settle in first
 REGION_CAP = 480_000                 # people in one region of a job: under the worker's limit of 500,000
 
 
@@ -506,7 +507,7 @@ class World:
         if today.get("conflicts"):
             print(f"Starting as today's real world: {sum(1 for n in N.values() if n['conflict'])} countries in armed conflict ({today.get('source')}).")
         w = dict(created=time.strftime("%Y-%m-%d"), epoch=0, scale=scale, seed=seed, data=d.get("meta", {}),
-                 start=[start.tm_year, start.tm_mon], version=sim_version(), region_cap=REGION_CAP, pop_fix_1="new", today=dict(source=today.get("source"), year=today.get("year")) if today else None,
+                 start=[start.tm_year, start.tm_mon], version=sim_version(), region_cap=REGION_CAP, warmup=WARMUP, pop_fix_1="new", today=dict(source=today.get("source"), year=today.get("year")) if today else None,
                  nations=N, shards=shards, events=[], world_series=[])
         self.build_layers(w)
         return w
@@ -628,6 +629,9 @@ class World:
         e = self.w["epoch"] if epoch is None else epoch
         months = ["January", "February", "March", "April", "May", "June", "July", "August", "September",
                   "October", "November", "December"]
+        if e < self.w.get("warmup", 0):     # still warming up: not on the calendar yet
+            return None
+        e -= self.w.get("warmup", 0)
         if self.w.get("start"):            # a world started as a copy of the real one runs on the real calendar
             m = self.w["start"][0] * 12 + self.w["start"][1] - 1 + e
             return f"{months[m % 12]} {m // 12}"
@@ -878,7 +882,7 @@ class World:
         resumed = bool((out or {}).get("resumed")) and rec.get("holder") == worker_id and rec.get("epoch") == e - 1
         self.w["detail"][key] = dict(holder=worker_id, epoch=e, age=(rec.get("age", 0) + 1) if resumed else 1)
         adv = self.maybe_close()
-        return dict(ok=True, month=self.date(e), world_advanced=adv, level=LAYERS[k]["name"],
+        return dict(ok=True, month=self.date(e) or "warm-up", world_advanced=adv, level=LAYERS[k]["name"],
                     note=None if resumed else "a fresh start at this level: it counts after a few months on this device"), 200
 
     def submit_recheck(self, worker_id, i, out):
@@ -893,7 +897,7 @@ class World:
         ok = self.agree(i, j["result"], dict(nations=res))
         first = j["done"][0][0]
         trust = {worker_id: 1, first: 1} if ok else {worker_id: -1}
-        return dict(ok=True, month=self.date(), world_advanced=self.maybe_close(), trust=trust,
+        return dict(ok=True, month=self.date() or "warm-up", world_advanced=self.maybe_close(), trust=trust,
                     note="checked: matched another volunteer's run" if ok else "didn't match the first run"), 200
 
     def submit(self, worker_id, job_id, out):
@@ -944,7 +948,7 @@ class World:
             j.setdefault("t_first", time.time())
             trust, note = self.settle(i, j)
             done = self.maybe_close()
-            return dict(ok=True, month=self.date(e), world_advanced=done, note=note, trust=trust), 200
+            return dict(ok=True, month=self.date(e) or "warm-up", world_advanced=done, note=note, trust=trust), 200
 
     def agree(self, i, a, b):
         """Two runs of the same piece from the same start, with different random draws (and maybe different
@@ -992,6 +996,16 @@ class World:
                 N[c]["detail"] = 0
         self.apply_detail(N)
         live = [n for n in N.values() if n["last"]]
+        if e < W.get("warmup", 0):
+            # warming up: the simulated people settle into their country's conditions; nothing happens in the world
+            # (no conflicts, elections, markets or migration), and at the end the happiness scale is set once
+            W["epoch"] = e + 1
+            if W["epoch"] >= W["warmup"]:
+                self.fit_happiness()
+            self.save()
+            self.open_epoch()
+            print(f"World: warm-up month {e + 1} of {W['warmup']} done." + (f" Day one: {self.date()}." if self.date() else ""), flush=True)
+            return
         wsum = sum(n["pop"] for n in live) or 1
         mean_stress = sum(n["last"]["stress"] * n["pop"] for n in live) / wsum
         mean_unciv = sum((1 - n["last"]["civ"]) * n["pop"] for n in live) / wsum
@@ -1140,8 +1154,8 @@ class World:
         for n in live:
             n["stab"] = max(0.02, min(0.98, n["stab"]))
             n["series"] = (n["series"] + [[e, round(n["last"]["civ"], 4), round(n["last"]["stress"], 3)]])[-240:]
-        if e % 12 == 0 or "happy_fit" not in W:
-            self.fit_happiness()
+        if not W.get("warmup") and (e % 12 == 0 or "happy_fit" not in W):
+            self.fit_happiness()          # worlds from before 1.6 still refit yearly; newer ones keep the scale set at day one
         if e % 12 == 0:
             self.fit_migration()
         hw = sum(self.happiness(n) * n["pop"] for n in live) / wsum
@@ -1376,7 +1390,7 @@ class World:
             wh = [x[1] for x in wm["h"]]
             kinds = ("TARIFF", "DEAL", "SANCTIONS", "BAN", "TRADE", "MARKETS", "ECONOMY")
             ev = [[x[1], x[3], x[4], x[5]] for x in W["events"][-400:] if x[4] in kinds][::-1][:60]
-            return dict(date=self.date(), epoch=W["epoch"], start=W.get("start"), version=W.get("version"), month_secs=self.month_secs,
+            return dict(date=self.date(), warming=[W["epoch"], W["warmup"]] if W["epoch"] < W.get("warmup", 0) else None, epoch=W["epoch"], start=W.get("start"), version=W.get("version"), month_secs=self.month_secs,
                         world=dict(i=wm["i"], m1=chg(wh, 1), m12=chg(wh, 12), h=wm["h"][-240:], infl=wm.get("infl"), growth=wm.get("growth"),
                                    stag=wm.get("stag", False)),
                         nations=rows, events=ev,
@@ -1446,6 +1460,13 @@ class World:
         mx = sum(x * w for x, _, w in pts) / sw; my = sum(y * w for _, y, w in pts) / sw
         sxx = sum(w * (x - mx) ** 2 for x, _, w in pts); sxy = sum(w * (x - mx) * (y - my) for x, y, w in pts)
         syy = sum(w * (y - my) ** 2 for _, y, w in pts)
+        if self.w.get("warmup"):
+            # set once, at the end of the warm-up: the simulation's spread matched to the surveys' spread (not a
+            # least-squares line, which squeezes every country toward the middle), and kept from then on
+            b = math.sqrt(syy / sxx) if sxx > 0 and sxy > 0 else 1.0
+            self.w["happy_fit"] = dict(a=round(my - b * mx, 4), b=round(b, 4), n=len(pts), frozen=self.w["epoch"],
+                                       r=round(sxy / math.sqrt(sxx * syy), 3) if sxx > 0 and syy > 0 else None)
+            return
         b = max(0.3, min(3.0, sxy / sxx)) if sxx > 0 else 1.0
         self.w["happy_fit"] = dict(a=round(my - b * mx, 4), b=round(b, 4), n=len(pts),
                                    r=round(sxy / math.sqrt(sxx * syy), 3) if sxx > 0 and syy > 0 else None)
@@ -1589,7 +1610,7 @@ class World:
             # (spot-checked pieces count once they're settled)
             ev = [[x[1], x[3], x[4], x[5]] for x in W["events"][-40:]][::-1]     # no country codes: names only
             last = W["world_series"][-1] if W["world_series"] else None
-            return dict(date=self.date(), epoch=W["epoch"], start=W.get("start"), version=W.get("version"), month_secs=self.month_secs, month_progress=[done, len(self.jobs)], scale=W["scale"],
+            return dict(date=self.date(), warming=[W["epoch"], W["warmup"]] if W["epoch"] < W.get("warmup", 0) else None, epoch=W["epoch"], start=W.get("start"), version=W.get("version"), month_secs=self.month_secs, month_progress=[done, len(self.jobs)], scale=W["scale"],
                         people=round(sum(n["pop"] for n in N.values())), simulated=sum(n["agents"] for n in N.values()),
                         happiness=last[1] if last else None, fit=W.get("happy_fit"), mig_fit=W.get("mig_fit"), conflicts=last[3] if last else 0, levels=levels,
                         simulated_detail=sum(n.get("detail_agents", n["agents"]) if n.get("detail") else n["agents"] for n in N.values()),
