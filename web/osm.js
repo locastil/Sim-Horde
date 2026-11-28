@@ -5,7 +5,7 @@
 import * as THREE from "/vendor/three.min.js";
 
 const D = Math.PI / 180, R = 1.000035;
-const START = 0.5, NAMES = 0.0009, PEOPLE_Z = 13;           // camera heights (earth radius = 1)
+const START = 0.5, NAMES = 0.0009, PEOPLE_Z = 8, WALK_Z = 13;           // camera heights (earth radius = 1)
 const BUDGET = { low: [800, 120], medium: [2000, 300], high: [3500, 600], epic: [6000, 1000] };   // [people, cars] per tile
 const CLASS = {                                              // colour, cars per km, drawn width weight
   motorway: [[1, 0.78, 0.45], 9], trunk: [[1, 0.78, 0.45], 7], primary: [[0.96, 0.88, 0.68], 5], secondary: [[0.9, 0.86, 0.74], 3.5],
@@ -128,7 +128,7 @@ export function addOSM(world, tier, sim) {
   function fetchTile(T, z, x, y) {
     const n = 1 << z, xx = ((x % n) + n) % n;
     fetch(template.replace("{z}", z).replace("{x}", xx).replace("{y}", y)).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject()))
-      .then((ab) => build(T, z, x, y, decode(new Uint8Array(ab), z >= 14 ? ["transportation", "transportation_name"] : ["transportation"])))
+      .then((ab) => build(T, z, x, y, decode(new Uint8Array(ab), z >= 14 ? ["transportation", "transportation_name", "landuse"] : z >= PEOPLE_Z ? ["transportation", "landuse"] : ["transportation"])))
       .catch(() => { T.state = "failed"; T.failedAt = t; })
       .finally(() => { inflight--; pump(); });
   }
@@ -168,18 +168,43 @@ export function addOSM(world, tier, sim) {
     for (let a = 0; a < 4; a++) for (let b = 0; b < 4; b++) { const dd = sim.density(lon0 + (a + 0.5) * (lon1 - lon0) / 4, lat0 + (b + 0.5) * (lat1 - lat0) / 4)[0]; dsum += dd; dmax = Math.max(dmax, dd); }
     const people = (dsum / 16) * area;
     const hour = ((new Date().getUTCHours() + new Date().getUTCMinutes() / 60 + (lon0 + lon1) / 30) % 24 + 24) % 24;
-    // people on the pavements, close up only. Most people are indoors: only a share are out, more by day than at night
-    if (z >= PEOPLE_Z && roads.length) {
+    // where people live: the map's residential areas, drawn into a small mask for this tile
+    const homes = [];                                        // mask cells (0..255 x 0..255) that are residential
+    if (z >= PEOPLE_Z) {
+      const N = 256, cv = document.createElement("canvas"); cv.width = cv.height = N;
+      const g = cv.getContext("2d"); g.fillStyle = "#fff"; g.beginPath();
+      for (const f of L.landuse || []) if (["residential", "suburb", "quarter", "neighbourhood"].includes(f.props.class))
+        for (const ring of f.lines) { g.moveTo(ring[0] * N, ring[1] * N); for (let i = 2; i < ring.length; i += 2) g.lineTo(ring[i] * N, ring[i + 1] * N); g.closePath(); }
+      g.fill("evenodd");
+      const px = g.getImageData(0, 0, N, N).data;
+      for (let i = 0; i < N * N; i++) if (px[i * 4 + 3] > 127) homes.push(i);
+    }
+    // the simulation's people: most at home in those areas, a share out on the pavements close up (more by day
+    // than at night). Where the map has no residential areas, homes go just off the roads instead.
+    if (z >= PEOPLE_Z && (homes.length || roads.length)) {
       ppd = Math.max(1, Math.ceil(people / PB));
-      const outShare = hour < 6 ? 0.02 : hour < 8 ? 0.08 : hour < 19 ? 0.13 : hour < 23 ? 0.07 : 0.03;
-      const nP = Math.min(PB, Math.round(people / ppd)), nOut = Math.max(1, Math.round(nP * outShare)), pick = () => { let r = rnd() * totalLen; for (const rd of roads) if ((r -= rd.len) <= 0) return rd; return roads[roads.length - 1]; };
-      for (let n = 0, tries = 0; n < nP && tries < nP * 6; tries++) {
-        const rd = pick(); if (rd.cls === "motorway" || rd.cls === "trunk") continue;
-        const [lo, la, dx, dy] = at(rd, rnd() * rd.len), [d, ct] = sim.density(lo, la);
-        if (!ct || rnd() * (dmax * 1.3 + 50) > d + 50) continue;
-        const home = n >= nOut;                                 // at home: set back from the street, a dimmer, still light
-        const side = (rnd() < 0.5 ? -1 : 1) * (home ? 0.02 + rnd() * 0.05 : 0.009), nl = Math.hypot(dx, dy) || 1, b = (home ? 0.28 + 0.12 * rnd() : 0.8 + 0.2 * rnd()) * (ct.war ? 0.45 : 1);
-        walkers.push({ lo: lo - (dy / nl) * side / (111.32 * Math.cos(la * D)), la: la + (dx / nl) * side / 110.57, dx: dx / nl, dy: dy / nl, ph: rnd() * 6.28, sp: home ? 0 : 0.3 + rnd(), c: ct.mood.map((v) => v * b) });
+      const close = z >= WALK_Z, outShare = !close ? 0 : hour < 6 ? 0.02 : hour < 8 ? 0.08 : hour < 19 ? 0.13 : hour < 23 ? 0.07 : 0.03;
+      const nP = Math.min(PB, Math.round(people / ppd)), nOut = Math.round(nP * outShare);
+      const pick = () => { let r = rnd() * totalLen; for (const rd of roads) if ((r -= rd.len) <= 0) return rd; return roads[roads.length - 1]; };
+      const keep = (lo, la) => { const [d, ct] = sim.density(lo, la); return ct && rnd() * (dmax * 1.3 + 50) <= d + 50 ? ct : null; };
+      for (let n = 0, tries = 0; n < nP && tries < nP * 8; tries++) {
+        const home = n >= nOut;
+        let lo, la, dx = 0, dy = 0, ct;
+        if (home && homes.length) {                          // a home inside a residential area
+          const c = homes[(rnd() * homes.length) | 0], u = ((c & 255) + rnd()) / 256, v = ((c >> 8) + rnd()) / 256;
+          lo = lonOf(x + u, z); la = latOf(y + v, z);
+          if (!(ct = keep(lo, la))) continue;
+        } else {                                             // out on a pavement (or a home just off the road)
+          if (!roads.length) continue;
+          const rd = pick(); if (rd.cls === "motorway" || rd.cls === "trunk") continue;
+          let p; [lo, la, dx, dy] = p = at(rd, rnd() * rd.len);
+          if (!(ct = keep(lo, la))) continue;
+          const side = (rnd() < 0.5 ? -1 : 1) * (home ? 0.02 + rnd() * 0.05 : 0.009), nl = Math.hypot(dx, dy) || 1;
+          dx /= nl; dy /= nl; lo -= (dy * side) / (111.32 * Math.cos(la * D)); la += (dx * side) / 110.57;
+        }
+        // home lights: soft when you're close, brighter from further out so towns read as lit areas
+        const b = (home ? (close ? 0.28 + 0.12 * rnd() : 0.55 + 0.25 * rnd()) : 0.8 + 0.2 * rnd()) * (ct.war ? 0.45 : 1);
+        walkers.push({ lo, la, dx, dy, ph: rnd() * 6.28, sp: home ? 0 : 0.3 + rnd(), c: ct.mood.map((v) => v * b) });
         n++;
       }
     }
@@ -199,9 +224,10 @@ export function addOSM(world, tier, sim) {
         for (let i = 0; i < m; i++) drivers.push({ rd, s: rnd() * rd.len, i: 1, v: (rd.cars > 4 ? 0.09 : 0.05) * spd * (0.7 + rnd() * 0.6) * (i % 2 ? -1 : 1), tail: i % 2 });
       });
     }
-    const pg = new THREE.BufferGeometry(), pc = new Float32Array(walkers.length * 3);
-    walkers.forEach((w, i) => pc.set(w.c, i * 3));
-    pg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(walkers.length * 3), 3)); pg.setAttribute("color", new THREE.BufferAttribute(pc, 3));
+    const pg = new THREE.BufferGeometry(), pc = new Float32Array(walkers.length * 3), pp = new Float32Array(walkers.length * 3);
+    walkers.forEach((w, i) => { pc.set(w.c, i * 3); put(pp, i, w.lo, w.la); });
+    const movers = walkers.map((w, i) => (w.sp ? i : -1)).filter((i) => i >= 0);
+    pg.setAttribute("position", new THREE.BufferAttribute(pp, 3)); pg.setAttribute("color", new THREE.BufferAttribute(pc, 3));
     const ppts = new THREE.Points(pg, M.people); ppts.frustumCulled = false; ppts.renderOrder = 2;
     const cg = new THREE.BufferGeometry();
     cg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(drivers.length * 3), 3)); cg.setAttribute("color", new THREE.BufferAttribute(new Float32Array(drivers.length * 3), 3));
@@ -219,7 +245,7 @@ export function addOSM(world, tier, sim) {
       }
     }
     for (const o of [lines, ppts, cpts]) { o.visible = false; group.add(o); }
-    Object.assign(T, { state: "ready", objs: [lines, ppts, cpts], walkers, drivers, names: [...named.values()], ppd, cpd });
+    Object.assign(T, { state: "ready", objs: [lines, ppts, cpts], walkers, movers, drivers, names: [...named.values()], ppd, cpd });
   }
   function drop(T) { if (T.objs) for (const o of T.objs) { group.remove(o); o.geometry.dispose(); } }
 
@@ -267,9 +293,9 @@ export function addOSM(world, tier, sim) {
       if (vis) live.push(T);
     }
     for (const T of live) {
-      if (T.walkers.length) {
+      if (T.movers.length && !still) {
         const pa = T.objs[1].geometry.attributes.position.array;
-        T.walkers.forEach((w, i) => { const r = still || !w.sp ? 0 : 0.006 * Math.sin(t * 0.35 * w.sp + w.ph); put(pa, i, w.lo + (w.dx * r) / (111.32 * Math.cos(w.la * D)), w.la + (w.dy * r) / 110.57); });
+        T.movers.forEach((i) => { const w = T.walkers[i], r = 0.006 * Math.sin(t * 0.35 * w.sp + w.ph); put(pa, i, w.lo + (w.dx * r) / (111.32 * Math.cos(w.la * D)), w.la + (w.dy * r) / 110.57); });
         T.objs[1].geometry.attributes.position.needsUpdate = true;
       }
       const ca = T.objs[2].geometry.attributes.position.array, cc = T.objs[2].geometry.attributes.color.array;
