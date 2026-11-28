@@ -34,6 +34,22 @@ import world_engine                              # noqa: E402
 import scenarios as SC                           # noqa: E402  (kudos, link codes, horde-run scenarios)
 import ideas as IDEAS                            # noqa: E402  (the idea desk on the Model lab page)
 import sandbox as SANDBOX                        # noqa: E402  (the scenario sandbox: descriptions into events)
+import importlib                                 # noqa: E402
+
+_mod_times = {}
+
+
+def fresh(mod):
+    """The idea desk and the sandbox pick up changes to their own files without a restart."""
+    try:
+        m = os.path.getmtime(mod.__file__)
+        if _mod_times.setdefault(mod.__name__, m) != m:
+            _mod_times[mod.__name__] = m
+            mod = importlib.reload(mod)
+            globals()["IDEAS" if mod.__name__ == "ideas" else "SANDBOX"] = mod
+    except Exception as e:
+        print(f"Couldn't reload {mod.__name__}: {e}", flush=True)
+    return mod
 from ca_region_gpu import COUNTIES, W_DEFAULT, MEET    # noqa: E402
 MEET_MODE = MEET["mode"]                         # how people meet, as the engine copy's trained weights say
 
@@ -435,10 +451,10 @@ class H(BaseHTTPRequestHandler):
         except Exception as e:
             return self._send(400, dict(error=str(e)[:200]))
         if path == "/api/v1/ideas/chat":               # the idea desk: no worker key, its own limits (ideas.py)
-            body, code = IDEAS.chat(d, self.headers.get("CF-Connecting-IP") or self._ip())
+            body, code = fresh(IDEAS).chat(d, self.headers.get("CF-Connecting-IP") or self._ip())
             return self._send(code, body)
         if path == "/api/v1/scenario/translate":       # the scenario sandbox: no worker key, its own limits (sandbox.py)
-            body, code = SANDBOX.translate(d, self.headers.get("CF-Connecting-IP") or self._ip())
+            body, code = fresh(SANDBOX).translate(d, self.headers.get("CF-Connecting-IP") or self._ip())
             return self._send(code, body)
         with LOCK:
             c = db()
