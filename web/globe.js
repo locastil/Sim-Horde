@@ -350,6 +350,7 @@ export function mountGlobe(root, opts = {}) {
     }
     if (pieceGroup) { pulse += dt; pieceGroup.children.forEach((l) => (l.material.opacity = piece && piece.state === "done" ? Math.max(0, 1 - (pulse - piece.doneAt) * 0.8) : 0.55 + 0.4 * Math.sin(pulse * 3))); }
     lat = Math.max(-70, Math.min(75, lat));
+    lon = ((((lon + 180) % 360) + 360) % 360) - 180;              // keep it in -180..180 as the globe spins
     tilt.rotation.x = lat * Math.PI / 180;
     world.rotation.y = -(lon + 90) * Math.PI / 180;
     pitch = Math.min(pitch, pitchMax()); if (pitch < 1e-4) pitch = 0;
@@ -493,7 +494,7 @@ export function mountGlobe(root, opts = {}) {
     if (a1 === a0) return;
     const r = el.getBoundingClientRect(), at = x != null ? lonLatAt(x, y) : null;
     if (at && a1 < a0) {                                          // keep the spot under the pointer roughly where it is
-      const g = 1 - a1 / a0, dLon = ((at[0] - lon + 540) % 360) - 180;
+      const g = 1 - a1 / a0, dLon = ((((at[0] - lon) % 360) + 540) % 360) - 180;   // the short way round, whatever lon has spun to
       lon += dLon * g; lat += (at[1] - lat) * g; vLon = 0; focus = null;
     }
     zoom = 1 + a1;
