@@ -109,7 +109,7 @@ def oecd(names):
     out, miss = [], set()
     for r in R[hi + 2:]:
         r = r + [None] * (len(h) - len(r))
-        if not r[c_r] or not r[c_k]:
+        if not r[c_c] or not r[c_r] or not r[c_k]:                  # footnote rows have no country
             continue
         iso = ALIAS.get(r[c_c].strip().lower()) or names.get(r[c_c].strip().lower())
         if not iso:
