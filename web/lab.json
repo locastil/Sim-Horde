@@ -17,6 +17,10 @@
   {
    "date": "2026-11-28",
    "text": "Crackdowns follow real records: police break up some protests even in democracies, and deadly force is now rarer and separate (Mass Mobilization data)."
+  },
+  {
+   "date": "2026-11-28",
+   "text": "Healthy life expectancy added: a steady push on day-to-day stress where people live shorter healthy lives (WHO)."
   }
  ],
  "items": [
@@ -64,8 +68,8 @@
     "migration": 0.246,
     "countries": 162
    },
-   "status": "testing",
-   "why": "Passed the happiness test: on unseen countries it lifted the match from 0.82 to 0.84 and from 0.74 to 0.78, at the strongest setting tried. A second round tries stronger settings, and tries it combined with food insecurity, since the two partly measure the same hardship. No help for migration (−0.01 and +0.07).",
+   "status": "kept",
+   "why": "Passed. On unseen countries it lifted the happiness match from 0.82 to 0.84 and from 0.74 to 0.78 (strength 0.1). A second round tried stronger settings (up to 0.3) and a combined hardship score with food insecurity: neither did better on unseen countries (+0.025 combined, and the half that chose a stronger setting gained less), so it went in alone, at 0.1. It's a steady push on day-to-day stress: countries where people live shorter healthy lives feel more strain. No help for migration (−0.01 and +0.07).",
    "full": {
     "migration": [
      [
@@ -87,6 +91,12 @@
       0.779
      ]
     ]
+   },
+   "live": {
+    "since": "2026-11-28",
+    "before": null,
+    "after": null,
+    "note": "Added with the crackdown change; the live happiness match is measured once the world has run a simulated year with it."
    }
   },
   {
@@ -99,8 +109,8 @@
     "migration": 0.163,
     "countries": 136
    },
-   "status": "testing",
-   "why": "Passed the happiness test by about as much as life expectancy (0.82 to 0.84, 0.74 to 0.78 on unseen countries). Caution: it comes from the same Gallup poll as the happiness surveys, so part of the gain may be that overlap. The second round tests it combined with life expectancy, which has no such overlap.",
+   "status": "rejected",
+   "why": "Passed on its own about as well as healthy life expectancy (0.82 to 0.84, 0.74 to 0.78 on unseen countries), but adding it on top did nothing more (the combined hardship score: +0.025), and it comes from the same Gallup poll as the happiness surveys, so part of its gain may be that overlap. Healthy life expectancy, which has no such overlap, went in instead.",
    "full": {
     "happiness": [
      [

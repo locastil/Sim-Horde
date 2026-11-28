@@ -54,7 +54,12 @@ REFUGEE_MAX = 120.0         # the most of a war zone's people who flee in a year
 # Who actually leaves, beyond how many want to: tested on real 2015-2023 migration in migration_test.py and
 # chosen on half the countries, scored on the other half (see the Model lab page). Standard units per country
 # come from world/migration_vars.json; a country with no figure counts as typical.
-MIG_PUSH = dict(remittances=1.2, immigrants=1.5)      # in a broad range that scores about the same (0.43 vs 0.06 now)
+MIG_PUSH = dict(remittances=1.2, immigrants=1.5)
+# Day-to-day hardship beyond income: healthy life expectancy (WHO). Tested on real 2015-2023 happiness in
+# happiness_test.py and happiness_test2.py, chosen on half the countries and scored on the other half (see the
+# Model lab): a steady push on stress per standard unit of shorter healthy life; stronger settings and adding food
+# insecurity (which comes from the same Gallup poll as the happiness surveys) did no better.
+HAPPY_PUSH = dict(life_expectancy=0.1)      # in a broad range that scores about the same (0.43 vs 0.06 now)
 GUARD = dict(happy=1.5, civ=0.08, stress=0.5)    # a detail result far from the Low result for the same nation is ignored
 
 PER_YEAR = dict(coup=3.0, conflict=3.5, protest=24.0, standoff=1.2, war=0.25)    # world totals a year
@@ -164,6 +169,11 @@ class World:
             self.mig_vars = json.load(open(os.path.join(HERE, "world", "migration_vars.json")))
         except (OSError, ValueError):
             self.mig_vars = {}
+        try:
+            hv = json.load(open(os.path.join(HERE, "world", "happiness_vars.json")))
+            self.hard = {c: sum(b * hv.get(k, {}).get(c, 0.0) for k, b in HAPPY_PUSH.items()) for c in self.w["nations"]}
+        except (OSError, ValueError):
+            self.hard = {}
         self.open_epoch()
         self.opened = 0.0                     # after a restart, carry on right away
 
@@ -406,7 +416,7 @@ class World:
         self.w["mig_fit"] = dict(r=round(sxy / math.sqrt(sxx * syy), 3) if sxx > 0 and syy > 0 else None, rank=round(rho, 3), n=nn)
 
     def pressure(self, n):
-        p = dict(stress=0.0, irr=0.0, leave=0.0, kind=0.0)
+        p = dict(stress=getattr(self, "hard", {}).get(n["code"], 0.0), irr=0.0, leave=0.0, kind=0.0)
         if n["protests"] > 0:
             p["stress"] += 0.05; p["irr"] += 0.6; p["kind"] += 0.05
         if n["crackdown"] > 0:
