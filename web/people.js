@@ -81,6 +81,38 @@ function countyHappy(lon, lat) {
   return best;
 }
 
+// where people actually live: the GHS-POP population grid (European Commission JRC, CC BY 4.0), people per
+// ~4.6 km cell (2.5 arc-minutes; 10 on phones), so the lights show suburbs, sprawl and scattered homes as they are.
+// The close-up layer (local.js, osm.js) takes its density from the same grid, so zooming in splits the same glow.
+let GRID = null, gridP = null, gridStamp = 0;
+export function loadGrid(small) {
+  if (!gridP) gridP = (async () => {
+    try {
+      const test = /[?&]popgrid=test\b/.test(location.search) ? "_test" : "";        // a stand-in grid, for checking the drawing only
+      const meta = await fetch(`/geo/popgrid${test}.json`).then((r) => (r.ok ? r.json() : null));
+      const m = meta && (small ? meta.small : meta);
+      if (!m) return null;
+      const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = test ? "/geo/popgrid_test.png" : small ? "/geo/popgrid_small.png" : "/geo/popgrid.png"; });
+      const c = document.createElement("canvas"); c.width = m.w; c.height = m.h;
+      const x = c.getContext("2d", { willReadFrequently: true }); x.drawImage(img, 0, 0);
+      const rgba = x.getImageData(0, 0, m.w, m.h).data, v = new Uint8Array(m.w * m.h);
+      for (let i = 0; i < v.length; i++) v[i] = rgba[i * 4];
+      GRID = { w: m.w, h: m.h, cd: m.cell_deg, v, L: Math.log10(1 + m.max_people) / 255 }; gridStamp++;
+      return GRID;
+    } catch (e) { return null; }
+  })();
+  return gridP;
+}
+const cellPeople = (b) => (b ? Math.pow(10, b * GRID.L) - 1 : 0);
+// people per km² at a point, from the grid (null until it's loaded)
+export function gridDensity(lon, lat) {
+  if (!GRID) return null;
+  const r = Math.floor((90 - lat) / GRID.cd), c = Math.floor((((lon + 180) % 360) + 360) % 360 / GRID.cd);
+  if (r < 0 || r >= GRID.h) return 0;
+  const km2 = GRID.cd * 111.32 * Math.max(0.05, Math.cos(lat * D)) * GRID.cd * 110.57;
+  return cellPeople(GRID.v[r * GRID.w + c]) / km2;
+}
+
 export function loadTowns() {
   if (!townsP) townsP = fetch("/geo/towns.json").then((r) => r.json()).then((j) => (TOWNS = j.towns)).catch(() => null);
   return townsP;
@@ -173,12 +205,53 @@ export function addPeople(world, tier, data) {
     last = d;
     if (!TOWNS) loadTowns().then(() => { if (TOWNS && last === d) setData(d); });
     if (!COUNTY) loadCounties().then((c) => { if (c && last === d) { setData(d); window.dispatchEvent(new Event("simhorde:counties")); } });
+    if (!GRID) loadGrid(tier === "low" || tier === "medium").then((g) => { if (g && last === d) { setData(d); window.dispatchEvent(new Event("simhorde:grid")); } });
     clear();
     const { places, total } = townPlaces(d);
     if (!places.length) return;
     const budget = BUDGET[tier] || BUDGET.medium;
     const pos = [], col = [], base = [], tpos = [], tcol = [], tbase = [];
-    for (const p of places) {
+    if (GRID && places.some((p) => p.town)) {
+      // lights where the grid says people live, in proportion; each takes the colour of the country of the nearest
+      // town (a US town: its county), and the big cities keep a bright core
+      const bk = new Map(), key = (lo, la) => Math.floor(lo) + ":" + Math.floor(la);
+      for (const p of places) { const k = key(p.lon, p.lat); if (!bk.has(k)) bk.set(k, []); bk.get(k).push(p); }
+      const nearest = (lo, la) => {
+        for (const R of [1, 3]) {
+          let best = null, bd = 1e9;
+          for (let dx = -R; dx <= R; dx++) for (let dy = -R; dy <= R; dy++)
+            for (const p of bk.get((Math.floor(lo) + dx) + ":" + (Math.floor(la) + dy)) || []) {
+              const q = (p.lon - lo) * (p.lon - lo) * Math.cos(la * D) ** 2 + (p.lat - la) * (p.lat - la);
+              if (q < bd) { bd = q; best = p; }
+            }
+          if (best) return best;
+        }
+        return null;
+      };
+      const { w, h, cd, v } = GRID;
+      let everyone = 0;
+      for (let i = 0; i < v.length; i++) if (v[i]) everyone += cellPeople(v[i]);
+      const per = budget / everyone;
+      for (let r = 0; r < h; r++) {
+        const la0 = 90 - (r + 1) * cd;
+        for (let c = 0; c < w; c++) {
+          const b = v[r * w + c];
+          if (!b) continue;
+          const want = cellPeople(b) * per, n = Math.floor(want) + (Math.random() < want % 1 ? 1 : 0);
+          if (!n) continue;
+          const lo0 = -180 + c * cd, p = nearest(lo0 + cd / 2, la0 + cd / 2);
+          if (!p) continue;
+          const bright = 0.4 + 0.6 * (b / 255);
+          for (let k = 0; k < n; k++) {
+            const lo = lo0 + Math.random() * cd, la = la0 + Math.random() * cd;
+            const ch = p.num === "840" ? countyHappy(lo, la) : null, mood = ch != null ? moodColor(ch) : p.mood;
+            tpos.push([lo, la]); tcol.push(mood.map((x) => x * bright * (0.75 + 0.25 * Math.random()))); tbase.push(p.war);
+          }
+        }
+      }
+      for (const p of places) if (p.cp > 150000) { pos.push([p.lon, p.lat]); col.push(p.mood.map((x) => x * Math.min(1, 0.55 + Math.log10(p.cp + 10) / 12))); base.push(p.war); }
+    }
+    for (const p of (GRID && places.some((q) => q.town)) ? [] : places) {
       const want = (p.people / total) * budget * p.detail;
       const n = p.town ? Math.floor(want) + (Math.random() < want % 1 ? 1 : 0) : Math.max(1, Math.round(want));
       // the place itself: a bright core (towns: only the bigger ones, so small towns read as soft glow)

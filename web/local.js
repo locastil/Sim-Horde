@@ -5,7 +5,7 @@
 // It's an illustration of the simulation: where its people live, how happy they are, how busy the roads are.
 import * as THREE from "/vendor/three.min.js";
 import { addOSM } from "/osm.js";
-import { townPlaces, loadTowns as loadTownPlaces } from "/people.js";
+import { townPlaces, loadTowns as loadTownPlaces, gridDensity } from "/people.js";
 
 const D = Math.PI / 180, KX = 111.32, KY = 110.57, R = 1.00003;
 const BUDGET = { low: [6000, 900], medium: [14000, 2000], high: [30000, 4000], epic: [50000, 7000] };   // [people, cars] per level
@@ -74,7 +74,11 @@ export function addLocal(world, tier) {
     const G = (globe && globe.nations) || {};
     const { places } = townPlaces(d);
     if (!places.some((p) => p.town)) loadTownPlaces().then(() => { if (lastData === d) setData(d); });
-    if (!countyHook) { countyHook = true; window.addEventListener("simhorde:counties", () => { if (lastData) setData(lastData); }); }
+    if (!countyHook) {
+      countyHook = true;
+      window.addEventListener("simhorde:counties", () => { if (lastData) setData(lastData); });
+      window.addEventListener("simhorde:grid", () => { if (lastData) setData(lastData); });
+    }
     cities = []; buckets = new Map(); cells.clear();
     places.forEach((p, k) => {
       const g = G[p.num] || {}, reach = p.spread * 1.6 * KY;          // km: how far out the lights for this place go
@@ -98,8 +102,22 @@ export function addLocal(world, tier) {
       }
     return out;
   }
-  // people per km² at a point, and the city that contributes the most
+  // people per km² at a point, and the town whose country (and colour) they belong to. With the population grid in
+  // (people.js), the density is the grid's, and the town is simply the nearest; before it arrives, each town's people
+  // are spread around it.
+  const nearCache = new Map();
   function density(cs, lon, lat) {
+    const g = gridDensity(lon, lat);
+    if (g != null) {
+      const k = Math.floor(lon * 40) + ":" + Math.floor(lat * 40);        // the nearest town, worked out once per ~2.5 km
+      let hit = nearCache.get(k);
+      if (!hit || hit[0] !== cs) {
+        let best = null, bd = 1e18;
+        for (const c of cs) { const dx = (lon - c.lon) * Math.cos(lat * D), dy = lat - c.lat, q = dx * dx + dy * dy; if (q < bd) { bd = q; best = c; } }
+        hit = [cs, best]; if (nearCache.size > 50000) nearCache.clear(); nearCache.set(k, hit);
+      }
+      return [g, hit[1]];
+    }
     let d = 0, best = null, bw = 0;
     for (const c of cs) {
       const dx = (lon - c.lon) * KX * Math.cos(lat * D), dy = (lat - c.lat) * KY, r2 = dx * dx + dy * dy;
@@ -235,7 +253,8 @@ export function addLocal(world, tier) {
   // alt: camera height over the ground (earth radius = 1); width: half the view across, in km
   function update(dt, lon, lat, alt, aspect, tagEl, camera, streetBox) {
     t += dt;
-    if (!osm && ready) osm = addOSM(world, tier, { tex, vehicles: (ct) => (ct && VEH[ct.iso]) || null, near, densityIn: density, density: (lo, la) => density(near(lo, la, 150), lo, la) });
+    if (!osm && ready) osm = addOSM(world, tier, { tex, vehicles: (ct) => (ct && VEH[ct.iso]) || null, near, densityIn: density, density: (lo, la) => density(near(lo, la, 150), lo, la),
+                                                  grid: () => gridDensity(0, 0) != null });
     real = osm && camera ? osm.update(dt, lon, lat, alt, aspect, camera, streetBox) : 0;   // real roads from further out; real people close up
     const on = ready && alt < 0.14;
     group.visible = on;

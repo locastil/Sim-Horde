@@ -194,7 +194,9 @@ export function addOSM(world, tier, sim) {
       const inBuildings = (L.building || []).length > 20, maskShare = homes.length / 65536;
       // the towns whose people reach this tile, looked up once
       const cLon = (lon0 + lon1) / 2, cLat = (lat0 + lat1) / 2, half = Math.hypot((lon1 - lon0) * 111.32 * Math.cos(cLat * D), (lat1 - lat0) * 110.57) / 2;
-      const cs = sim.near(cLon, cLat, half + 160).filter((c) => Math.hypot((c.lon - cLon) * 111.32 * Math.cos(cLat * D), (c.lat - cLat) * 110.57) < half + 3 * c.s2);
+      const near = sim.near(cLon, cLat, half + (sim.grid && sim.grid() ? 60 : 160));
+      const cs = sim.grid && sim.grid() ? near                     // with the population grid, any nearby town lends its country
+        : near.filter((c) => Math.hypot((c.lon - cLon) * 111.32 * Math.cos(cLat * D), (c.lat - cLat) * 110.57) < half + 3 * c.s2);
       // far out, follow the towns' people exactly (as the lights from space do); close up, where the map marks
       // homes, a little of everyone everywhere on top, since the map already says where homes are
       const floor = z < 9 ? 0 : 50;
