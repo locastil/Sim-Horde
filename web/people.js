@@ -86,19 +86,25 @@ export function addPeople(world, tier, data) {
     // around it). A town belongs to the country of the nearest listed city whose land it's on.
     const townBased = new Set();
     if (TOWNS) {
-      const grid = new Map(), cell = (lo, la) => Math.floor(lo / 2) + ":" + Math.floor(la / 2);
-      const lands = {};
+      // which country a town is in: the countries whose outline box holds it, smallest first, tested against
+      // the outline itself; places with no outline (small territories) go to the nearest listed city's country
+      const boxes = [], near = [];
       for (const [num, list] of Object.entries(C)) {
-        lands[num] = landTest(shapes && shapes.get(num));
-        for (const c of list) { const k = cell(c[2], c[1]); if (!grid.has(k)) grid.set(k, []); grid.get(k).push([num, c[2], c[1]]); }
+        const rings = shapes && shapes.get(num), L = landTest(rings);
+        if (L) {
+          let a = 180, b = -180, c = 90, e = -90;
+          for (const r of rings) for (let i = 0; i < r.length; i += 2) { a = Math.min(a, r[i]); b = Math.max(b, r[i]); c = Math.min(c, r[i + 1]); e = Math.max(e, r[i + 1]); }
+          boxes.push([num, a, b, c, e, (b - a) * (e - c), L]);
+        } else for (const ct of list) near.push([num, ct[2], ct[1]]);
       }
+      boxes.sort((p, q) => p[5] - q[5]);
       const owner = (lo, la) => {
-        const near = [];
-        for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (const c of grid.get((Math.floor(lo / 2) + dx) + ":" + (Math.floor(la / 2) + dy)) || []) near.push(c);
-        near.sort((a, b) => Math.hypot(a[1] - lo, a[2] - la) - Math.hypot(b[1] - lo, b[2] - la));
-        for (const [num] of near.slice(0, 6)) { const L = lands[num]; if (L && L(lo, la)) return num; }
-        return near.length && !lands[near[0][0]] ? near[0][0] : null;       // small places with no outline: nearest
+        for (const [num, a, b, c, e, , L] of boxes) if (lo >= a && lo <= b && la >= c && la <= e && L(lo, la)) return num;
+        let best = null, bd = 0.6;                                  // within ~60 km of a small place's city
+        for (const [num, x, y] of near) { const d = Math.hypot(x - lo, y - la); if (d < bd) { bd = d; best = num; } }
+        return best;
       };
+      const lands = {}; for (const bx of boxes) lands[bx[0]] = bx[6];
       const byNum = {};
       for (const [, la, lo, tp] of TOWNS) { const num = owner(lo, la); if (num) (byNum[num] = byNum[num] || []).push([lo, la, tp]); }
       for (const [num, ts] of Object.entries(byNum)) {
