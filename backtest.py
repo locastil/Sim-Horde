@@ -34,7 +34,7 @@ OUT_DIR = os.path.join(HERE, "backtest")
 YEARS = list(range(2015, 2025))
 PEOPLE = int(os.environ.get("BACKTEST_PEOPLE", "2000000"))       # simulated people, shared by population
 UA = {"User-Agent": "SimHorde/1.0 (backtest)"}
-WB = "https://api.worldbank.org/v2/country/all/indicator/{code}?format=json&per_page=5000&date=2012:2024"
+WB = "https://api.worldbank.org/v2/country/all/indicator/{code}?format=json&per_page=400&date={year}"
 IND = dict(pop="SP.POP.TOTL", urban="SP.URB.TOTL.IN.ZS", gdp="NY.GDP.PCAP.PP.CD", unemp="SL.UEM.TOTL.ZS",
            young="SP.POP.1564.TO.ZS", gini="SI.POV.GINI", net="IT.NET.USER.ZS", infl="FP.CPI.TOTL.ZG",
            netmig="SM.POP.NETM")
@@ -58,11 +58,11 @@ PROTESTS = {"FRA": [2018, 2019, 2023], "CHL": [2019], "COL": [2021], "IRN": [201
 PANDEMIC = (2020, 3, 2021, 12)          # COVID-19 lockdowns and distancing, everywhere
 
 
-def get(url, tries=4):
+def get(url, tries=3):
     """Downloads, waiting longer and trying again when a server is slow (the World Bank's often is)."""
     for k in range(tries):
         try:
-            with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=120 + 60 * k) as r:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60 + 30 * k) as r:
                 return r.read()
         except Exception as e:
             if k == tries - 1:
@@ -83,15 +83,25 @@ def cached(name, fetch):
 
 
 def world_bank():
-    data = {}
+    """Each figure, one year at a time (the World Bank's server copes far better with small requests).
+    A year or figure that still won't download is left out, and the run says so."""
+    data, missing = {}, []
     for key, code in IND.items():
-        rows = cached("wb_" + key, lambda: json.loads(get(WB.format(code=code))))
-        rows = rows[1] if isinstance(rows, list) and len(rows) > 1 and rows[1] else []
-        for r in rows:
-            iso, v = r.get("countryiso3code"), r.get("value")
-            if iso and v is not None:
-                data.setdefault(iso, {}).setdefault(key, {})[int(r["date"])] = float(v)
-        print(f"  {key:7s} {code:18s} {sum(1 for c in data.values() if key in c)} countries")
+        got = 0
+        for year in range(2012, 2025):
+            try:
+                rows = cached(f"wb_{key}_{year}", lambda: json.loads(get(WB.format(code=code, year=year))))
+            except Exception as e:
+                missing.append(f"{key} {year}")
+                print(f"    couldn't get {key} for {year} ({e}); carrying on without it")
+                continue
+            rows = rows[1] if isinstance(rows, list) and len(rows) > 1 and rows[1] else []
+            for r in rows:
+                iso, v = r.get("countryiso3code"), r.get("value")
+                if iso and v is not None:
+                    data.setdefault(iso, {}).setdefault(key, {})[int(r["date"])] = float(v); got += 1
+        print(f"  {key:7s} {code:18s} {sum(1 for c in data.values() if key in c)} countries, {got} figures")
+    data["_missing"] = missing
     return data
 
 
@@ -175,6 +185,12 @@ def main():
     print(f"Backtest 2015-2024 on {torch.cuda.get_device_name(0) if dev.type == 'cuda' else 'the CPU'}")
     print("Downloading real figures...")
     wb, happy = world_bank(), happiness()
+    missing = wb.pop("_missing", [])
+    incomplete = len(missing) > len(IND) * 13 * 0.25
+    if incomplete:
+        print(f"\n  WARNING: {len(missing)} of {len(IND) * 13} World Bank downloads failed. The run will finish, but it")
+        print("  would mostly be testing made-up flat figures, so it's marked incomplete and won't be shown on the site.")
+        print("  Run run_backtest.bat again later: what did download is kept.\n")
     print(f"  happiness surveys: {len(happy)} countries")
     th, th_src = theta()
     nat = json.load(open(os.path.join(HERE, "engine", "sim_data", "world", "nations.json")))
@@ -267,7 +283,7 @@ def main():
     out = dict(made=time.strftime("%Y-%m-%d %H:%M"), years=[YEARS[0], YEARS[-1]], people=sum(agents.values()), countries=len(codes),
                weights_from="the California tuning (calibrated_weights.json)" if th_src else "default weights",
                scale_fit_2015=dict(a=round(a, 3), b=round(b, 3), countries=len(pts)),
-               change=change, per_year=per_year, emigration=emig, secs=round(time.time() - t0),
+               change=change, per_year=per_year, emigration=emig, secs=round(time.time() - t0), missing_figures=missing, incomplete=incomplete,
                events=dict(wars=WARS, coups=COUPS, sanctions=SANCTIONS, protests=PROTESTS, pandemic=PANDEMIC),
                sources=["World Bank Open Data (indicators in backtest.py)", "World Happiness Report via Our World in Data (CC BY)"])
     os.makedirs(OUT_DIR, exist_ok=True)

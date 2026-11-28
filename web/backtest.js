@@ -4,7 +4,7 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const word = (r) => (r == null ? "not enough data" : r >= 0.7 ? "strong" : r >= 0.5 ? "good" : r >= 0.3 ? "moderate" : r >= 0.1 ? "weak" : "none");
   fetch("/backtest.json", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((b) => {
-    if (!b || !b.change) return;
+    if (!b || !b.change || b.incomplete) return;
     const c = b.change, e = b.emigration || {}, last = (b.per_year || []).slice(-1)[0];
     const better = c.mae < c.mae_no_change;
     const card = (big, label, text) => `<div class="bt-card"><b>${big}</b><span>${label}</span><p>${text}</p></div>`;
