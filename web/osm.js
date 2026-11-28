@@ -283,6 +283,25 @@ export function addOSM(world, tier, sim) {
     return out;
   }
 
+  // the ground a tilted view sees: a strip from just behind the point below out toward the horizon, as wide as
+  // the view, nearest tiles first (so what's close is always there), up to 64 tiles
+  function ahead(z, lon, lat, halfKm, aspect, { far, near, H }) {
+    const kx = 111.32 * Math.max(0.1, Math.cos(lat * D)), ky = 110.57, fe = Math.sin(H), fn = Math.cos(H);
+    const wide = halfKm * Math.max(1, aspect) * 1.3, reach = Math.max(far, halfKm * 1.3), back = Math.min(-halfKm * 1.3, near);
+    const corners = [[back, -wide], [back, wide], [reach, -wide - reach * 0.6], [reach, wide + reach * 0.6]].map(([f, s]) => [lon + (f * fe + s * fn) / kx, lat + (f * fn - s * fe) / ky]);
+    const los = corners.map((c) => c[0]), las = corners.map((c) => Math.max(-85, Math.min(85, c[1])));
+    const x0 = Math.floor(tileX(Math.min(...los), z)), x1 = Math.floor(tileX(Math.max(...los), z));
+    const y0 = Math.max(0, Math.floor(tileY(Math.max(...las), z))), y1 = Math.min((1 << z) - 1, Math.floor(tileY(Math.min(...las), z)));
+    const n = 1 << z, out = [];
+    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) {
+      const clo = ((x + 0.5) / n) * 360 - 180, cla = Math.atan(Math.sinh(Math.PI * (1 - (2 * (y + 0.5)) / n))) * 180 / Math.PI;
+      const de = (clo - lon) * kx, dn = (cla - lat) * ky, f = de * fe + dn * fn, s = Math.abs(de * fn - dn * fe);
+      const tile = (40075 * Math.cos(lat * D)) / n;
+      if (f < back - tile || f > reach + tile || s > wide + Math.max(0, f) * 0.6 + tile) continue;
+      out.push([x, y, Math.hypot(f * 0.8, s)]);
+    }
+    return out.sort((a, b) => a[2] - b[2]).slice(0, 64).map(([x, y]) => [x, y]);
+  }
   const v = new THREE.Vector3(), v2 = new THREE.Vector3(), pool = [];
   // returns how far the real people have taken over from the simulated dots (0 to 1)
   function update(dt, lon, lat, alt, aspect, camera, box) {
@@ -290,25 +309,23 @@ export function addOSM(world, tier, sim) {
     const on = alt < START && template;
     group.visible = !!on;
     if (!on) { if (box) box.hidden = true; return 0; }
-    let halfKm = alt * 6371 * Math.tan(16 * D);
-    // tilted (globe.js puts pitch and heading on the camera): cover the ground out toward the horizon too,
-    // centred ahead of the point below, at the zoom that fits that longer stretch
+    const halfKm = alt * 6371 * Math.tan(16 * D);
+    // tilted (globe.js puts pitch and heading on the camera): one zoom finer than fits, nearest tiles first,
+    // reaching out ahead toward the horizon as far as the tile budget goes
     const P = camera && camera.userData.pitch || 0, H = camera && camera.userData.heading || 0;
-    if (P > 0.05) {
-      const near = alt * 6371 * Math.tan(Math.max(-0.28, P - 0.28)), far = alt * 6371 * Math.tan(Math.min(1.2, P + 0.28)), mid = (near + far) / 2;
-      halfKm = Math.max(halfKm, (far - near) / 2);
-      lat += (mid * Math.cos(H)) / 110.57; lon += (mid * Math.sin(H)) / (111.32 * Math.max(0.1, Math.cos(lat * D)));
-    }
-    const z = zoomFor(lat, halfKm, aspect);
+    const z = P > 0.05 ? Math.max(5, zoomFor(lat, halfKm * 1.6, aspect)) : zoomFor(lat, halfKm, aspect);
+    const view = P > 0.05 ? { far: alt * 6371 * Math.tan(Math.min(1.3, P + 0.3)), near: alt * 6371 * Math.tan(Math.max(-0.3, P - 0.3)), H } : null;
+    const coverV = (zz) => view ? ahead(zz, lon, lat, halfKm, aspect, view) : cover(zz, lon, lat, halfKm, aspect);
     // load this zoom's tiles; keep showing the last complete zoom until they're all in, then fade across
-    const need = cover(z, lon, lat, halfKm, aspect);
-    let ready = 0;
-    for (const [x, y] of need) { const k = z + ":" + x + ":" + y; let T = tiles.get(k); if (!T) { load(z, x, y); T = tiles.get(k); }
+    const need = coverV(z);
+    let ready = 0, nearReady = 0;
+    const nearN = view ? Math.ceil(need.length * 0.4) : need.length;   // tilted: the nearest tiles are enough to switch over
+    for (const [i, [x, y]] of need.entries()) { const k = z + ":" + x + ":" + y; let T = tiles.get(k); if (!T) { load(z, x, y); T = tiles.get(k); }
       T.used = t;
       if (T.state === "skipped" || (T.state === "failed" && t - T.failedAt > 4 && (T.tries = (T.tries || 0) + 1) < 4)) load(z, x, y, T);
-      if (T.state !== "loading") ready++; }
-    if (ready === need.length) shown = z;
-    const keep = shown != null && shown !== z ? cover(shown, lon, lat, halfKm, aspect) : [];
+      if (T.state !== "loading") { ready++; if (i < nearN) nearReady++; } }
+    if (ready === need.length || nearReady === nearN) shown = z;
+    const keep = shown != null && shown !== z ? coverV(shown) : [];
     for (const [x, y] of keep) { const T = tiles.get(shown + ":" + x + ":" + y); if (T) T.used = t; }
     const fadeIn = Math.min(1, (START - alt) / (START * 0.3));
     for (const [zz, M] of mats) {
