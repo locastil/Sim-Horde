@@ -104,6 +104,13 @@ export function loadGrid(small) {
   return gridP;
 }
 const cellPeople = (b) => (b ? Math.pow(10, b * GRID.L) - 1 : 0);
+// how bright a cell glows by how many live in it: a few scattered homes are a faint haze, a farm town a clear
+// glow, a city full strength (by headcount, so empty desert with one ranch stays dark-ish rather than lit up)
+let LUM = null;
+function lum() {
+  LUM = new Float32Array(256);
+  for (let b = 1; b < 256; b++) { const t = Math.max(0, Math.min(1, (Math.log10(cellPeople(b) + 1) - 0.5) / 4.2)); LUM[b] = 0.035 + 0.965 * Math.pow(t, 1.5); }
+}
 // people per km² at a point, from the grid (null until it's loaded)
 export function gridDensity(lon, lat) {
   if (!GRID) return null;
@@ -208,6 +215,7 @@ export function addPeople(world, tier, data) {
     const now = performance.now();
     if (glow && now - glowAt < 20000) return;
     glowAt = now;
+    if (!LUM) lum();
     const { w, h, v } = GRID, TW = Math.min(w, tier === "epic" ? 8192 : 4096), TH = TW / 2;
     const data = glow ? glow.material.map.image.data : new Uint8Array(TW * TH * 4);
     for (let y = 0; y < TH; y++) {
@@ -215,7 +223,7 @@ export function addPeople(world, tier, data) {
       for (let x = 0; x < TW; x++) {
         const c = Math.floor((x * w) / TW), b = v[r * w + c], o = (y * TW + x) * 4;
         if (!b) { data[o] = data[o + 1] = data[o + 2] = data[o + 3] = 0; continue; }
-        const fi = fr + ((c / f) | 0), k = 0.16 + 0.84 * Math.pow(b / 255, 1.6), m = fwar[fi] ? 0.5 : 1;
+        const fi = fr + ((c / f) | 0), k = LUM[b], m = fwar[fi] ? 0.5 : 1;
         data[o] = 255 * Math.min(1, fcol[fi * 3] * k * m); data[o + 1] = 255 * Math.min(1, fcol[fi * 3 + 1] * k * m);
         data[o + 2] = 255 * Math.min(1, fcol[fi * 3 + 2] * k * m); data[o + 3] = 255;
       }
@@ -290,7 +298,9 @@ export function addPeople(world, tier, data) {
         const ch = p && p.num === "840" ? countyHappy(lo, la) : null, mood = ch != null ? moodColor(ch) : p ? p.mood : [0.75, 0.7, 0.6];
         fcol.set(mood, fi * 3); fwar[fi] = p && p.war ? 1 : 0;
         if (lit[fi]) continue;
-        const bright = 0.28 + 0.5 * (fmax[fi] / 255);
+        if (!LUM) lum();
+        if (LUM[fmax[fi]] < 0.08) continue;                    // the glow already shows the emptiest places
+        const bright = 0.15 + 0.6 * LUM[fmax[fi]];
         tpos.push([lo + (Math.random() - 0.5) * fcd, la + (Math.random() - 0.5) * fcd]); tcol.push(mood.map((x) => x * bright)); tbase.push(p ? p.war : false);
       }
       paintGlow(fcol, fwar, f, fw);
