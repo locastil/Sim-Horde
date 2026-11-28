@@ -1,0 +1,43 @@
+name: Suggest a variable
+description: A real-world measure the simulation could use, for the Model lab to test.
+title: "Variable: "
+labels: ["variable suggestion"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a variable. Every candidate gets the same treatment as the ones on the [Model lab](https://sim-horde.org/lab.html): a quick check against the model's own inputs, then a full test inside the simulation, tuned on half the countries and scored on the other half. Most candidates fail, and the lab shows those too.
+  - type: input
+    id: variable
+    attributes:
+      label: Variable
+      description: What it measures, in a few words.
+      placeholder: e.g. Share of adults who say they have someone to count on
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Data source
+      description: A link to the data, and its license if you know it.
+      placeholder: https://...
+    validations:
+      required: true
+  - type: input
+    id: coverage
+    attributes:
+      label: Coverage
+      description: Roughly how many countries and which years.
+      placeholder: e.g. 150 countries, 2010-2023
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it should matter
+      description: What it should change in people's days or the world's events (happiness, who leaves, protests, conflict...), and any research behind it.
+    validations:
+      required: true
+  - type: textarea
+    id: caveats
+    attributes:
+      label: Known problems
+      description: Overlap with what the model already uses, measurement issues, gaps. Saying so up front helps.

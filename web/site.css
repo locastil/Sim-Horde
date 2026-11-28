@@ -636,3 +636,4 @@ html.st-open { overflow: hidden; }
 .lab-out li, .lab-fixes li { margin-bottom: 10px; }
 .lab-fixes time { font-weight: 600; color: var(--ink-3); margin-right: 6px; font-variant-numeric: tabular-nums; }
 @media (max-width: 760px) { .lab-items li { grid-template-columns: 1fr; gap: 10px; } }
+.lab-suggest { padding: 8px 0 24px; }
