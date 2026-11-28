@@ -312,7 +312,7 @@ export function addLocal(world, tier) {
 
   // city names, once you're close enough to see the streets: biggest places first, none overlapping
   const v = new THREE.Vector3(), pool = [];
-  // city names come in one scroll step before the close-up dots start, biggest places first
+  // every city and town in view is named at once, one scroll step before the close-up dots start
   const MAJOR = 1e6;
   let majors = [];
   function labels(camera, box, lon, lat, alt, aspect) {
@@ -325,7 +325,7 @@ export function addLocal(world, tier) {
     const list = near(lon, lat, halfKm * 1.6 + 5).sort((a, b) => b.cp - a.cp), taken = [];
     let n = 0;
     for (const c of list) {
-      if (n >= 20) break;
+      if (n >= 150) break;
       const major = c.cp >= MAJOR;
       const pa = new Float32Array(3); put(pa, 0, c.lon, c.lat); v.set(pa[0], pa[1], pa[2]);
       world.localToWorld(v); if (v.z * z < 1.0005) continue;       // over the horizon
@@ -333,7 +333,6 @@ export function addLocal(world, tier) {
       const x = (v.x + 1) / 2 * W, y = (1 - v.y) / 2 * H;
       if (x < -40 || x > W + 40 || y < -20 || y > H + 20) continue;
       const big = major ? 1 : c.cp > 2e5 ? 2 : 3, w = c.name.length * (big === 1 ? 9 : big === 2 ? 7.5 : 6.5) + 10, h = big === 1 ? 22 : 18;
-      if (taken.some((r) => Math.abs(r[0] - x) < (r[2] + w) / 2 && Math.abs(r[1] - y) < (r[3] + h) / 2)) continue;
       taken.push([x, y, w, h]);
       let el = pool[n]; if (!el) { el = document.createElement("span"); box.appendChild(el); pool.push(el); }
       if (el.textContent !== c.name) el.textContent = c.name;
