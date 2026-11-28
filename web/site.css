@@ -648,7 +648,8 @@ html.st-open { overflow: hidden; }
 .idea-log .thinking { color: var(--ink-3); font-style: italic; }
 .idea-log .err { background: #FBEDEA; }
 .idea-log .filed { background: #E6F5EE; color: #0B6B49; font-weight: 600; }
-.idea-form { display: flex; gap: 10px; align-items: flex-end; }
+.idea-form { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
+.idea-form textarea { width: 100%; }
 .idea-form textarea { flex: 1; resize: vertical; min-height: 48px; font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
 .idea-form textarea:focus-visible { outline: 2px solid var(--cobalt); outline-offset: 1px; }
 .idea-form .btn { padding: 12px 20px; }

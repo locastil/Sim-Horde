@@ -1,6 +1,6 @@
-// The idea desk on the Model lab page: pitch an idea for the simulation and Claude (an AI) thinks it through with
-// you; ideas that hold up go to the developer's private inbox. Runs on the coordinator (ideas.py). The conversation
-// lives only in this page: reload to start over. Two pitches per person a day.
+// The idea desk on the Model lab page: write up an idea for the simulation and Claude (an AI) evaluates it, with one
+// follow-up allowed; ideas that hold up go to the developer's private inbox. Runs on the coordinator (ideas.py). The
+// conversation lives only in this page: reload to start over. Two pitches per person a day.
 (() => {
   const $ = (id) => document.getElementById(id);
   const form = $("ideaForm"), log = $("ideaLog"), box = $("ideaText"), send = $("ideaSend"), note = $("ideaNote");
@@ -20,10 +20,10 @@
   }
   async function go(text) {
     if (busy || over) return;
-    text = text.trim().slice(0, 800); if (!text) return;
+    text = text.trim().slice(0, 4000); if (!text) return;
     busy = true; send.disabled = true; box.value = ""; note.textContent = "";
     msgs.push({ role: "user", text }); add("me", esc(text));
-    const wait = add("bot thinking", "<p>Thinking it through…</p>");
+    const wait = add("bot thinking", "<p>Reading your idea carefully…</p>");
     try {
       const r = await fetch("/api/v1/ideas/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: msgs }) });
       const d = await r.json().catch(() => ({}));
@@ -34,15 +34,16 @@
       } else {
         msgs.push({ role: "assistant", text: d.reply }); add("bot", fmt(d.reply));
         if (d.filed) add("bot filed", "<p>Passed to the developer, with Claude's notes and this conversation.</p>");
-        if (d.done || d.filed) over = true;
+        if (d.done || msgs.filter((m) => m.role === "user").length >= 2) over = true;
+        else { box.placeholder = "Add a detail or a link, if you like (one follow-up)"; }
       }
     } catch (e) {
       wait.remove(); msgs.pop(); add("bot err", "<p>Couldn't reach the idea desk. Check your connection and try again.</p>");
     }
     busy = false; send.disabled = over; box.disabled = over;
-    if (over) note.textContent = "This pitch is finished. Reload the page to start another (two a day).";
+    if (over) note.textContent = "That's this pitch done. Reload the page to send another (two a day).";
   }
   form.addEventListener("submit", (e) => { e.preventDefault(); go(box.value); });
-  box.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); go(box.value); } });
-  box.addEventListener("input", () => { const n = box.value.length; note.textContent = n > 650 ? `${800 - n} characters left` : ""; });
+  box.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); go(box.value); } });   // Enter makes a new line; Ctrl+Enter sends
+  box.addEventListener("input", () => { const n = box.value.length; note.textContent = n > 3500 ? `${4000 - n} characters left` : "Ctrl+Enter sends."; });
 })();
