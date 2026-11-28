@@ -564,7 +564,11 @@ html.st-open { overflow: hidden; }
 .city-names span.s2 { font-size: .84rem; }
 .city-names span.s3 { font-size: .7rem; }
 .city-names span.s4 { font-size: .6rem; font-weight: 500; color: #CBD6E8; }
-.city-names .credit { position: absolute; right: 10px; bottom: 6px; font: 400 .62rem/1 var(--body); color: rgba(220, 230, 245, .6); }
+.street-names { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.street-names span { position: absolute; left: 0; top: 0; white-space: nowrap; color: #DCE6F5; font: 500 .66rem/1 var(--body);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .95), 0 0 6px rgba(4, 8, 18, .9); }
+.street-names span.major { color: #FFE7B8; font-weight: 600; font-size: .72rem; }
+.street-names .credit, .city-names .credit { position: absolute; right: 10px; bottom: 6px; font: 400 .62rem/1 var(--body); color: rgba(220, 230, 245, .6); }
 .city-names span.far { font-size: .68rem; font-weight: 600; opacity: .85; }
 .fs-btn { pointer-events: auto; font: 600 .78rem/1 var(--body); color: #C9D6E6; background: rgba(8, 14, 26, .62); backdrop-filter: blur(6px);
   border: 1px solid rgba(157, 180, 255, .16); border-radius: 999px; padding: 7px 12px; cursor: pointer; }

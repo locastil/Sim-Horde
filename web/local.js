@@ -4,6 +4,7 @@
 // swapping them. Where a dot stands for many people (zoomed out), the label says how many.
 // It's an illustration of the simulation: where its people live, how happy they are, how busy the roads are.
 import * as THREE from "/vendor/three.min.js";
+import { addOSM } from "/osm.js";
 
 const D = Math.PI / 180, KX = 111.32, KY = 110.57, R = 1.00003;
 const BUDGET = { low: [6000, 900], medium: [14000, 2000], high: [30000, 4000], epic: [50000, 7000] };   // [people, cars] per level
@@ -52,6 +53,7 @@ export function addLocal(world, tier) {
   const group = new THREE.Group(); world.add(group);
   const [PB, CB] = BUDGET[tier] || BUDGET.medium;
   const tex = dotTexture();
+  let real = 0, osm = null;                                  // how far the real streets (osm.js) have taken over
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
   let cities = [], buckets = new Map(), roads = null, inter = null, ready = false, t = 0, lastScale = "";
   const cells = new Map();                                   // "L:i:j" -> generated dots, kept while nearby
@@ -166,7 +168,7 @@ export function addLocal(world, tier) {
     const op = Math.max(0, Math.min(1, (0.5 - alt) / 0.15));
     IGROUP.visible = !!inter && op > 0.01;
     if (!IGROUP.visible) return;
-    inter.lines.material.opacity = 0.8 * op; inter.cars.material.opacity = op;
+    inter.lines.material.opacity = 0.8 * op * (1 - real); inter.cars.material.opacity = op * (1 - real);
     const pa = inter.cars.geometry.attributes.position.array;
     inter.list.forEach((q, i) => {
       if (!still) q.f = ((q.f + q.v * dt) % 1 + 1) % 1;
@@ -315,7 +317,7 @@ export function addLocal(world, tier) {
   }
 
   // alt: camera height over the ground (earth radius = 1); width: half the view across, in km
-  function update(dt, lon, lat, alt, aspect, tagEl) {
+  function update(dt, lon, lat, alt, aspect, tagEl, camera, streetBox) {
     t += dt;
     const on = ready && alt < 0.14;
     moveInterstates(dt, alt);
@@ -325,13 +327,15 @@ export function addLocal(world, tier) {
     const f = Math.log2((360 * 3) / Math.max(1e-6, (2 * halfKm * aspect) / KX));   // continuous level: about 3 cells across
     const La = Math.floor(f), frac = f - La, show = new Set([La, La + 1]);
     for (const [L, lv] of levels) if (!show.has(L)) { drop(lv); levels.delete(L); }
+    if (!osm) osm = addOSM(world, tier, { tex, density: (lo, la) => density(near(lo, la, 60), lo, la) });
+    real = camera ? osm.update(dt, lon, lat, alt, aspect, camera, streetBox) : 0;
     const fade = Math.min(1, (0.14 - alt) / 0.05);
-    if (roads) roads.material.opacity = 0.7 * fade;
+    if (roads) roads.material.opacity = 0.7 * fade * (1 - real);
     let tagPpd = 1;
     for (const L of show) {
       const lv = level(L, lon, lat, halfW, halfH), op = (L === La ? 1 - frac : frac) * fade;
-      lv.pPts.material.opacity = 0.95 * op; lv.cPts.material.opacity = op; lv.rLines.material.opacity = 0.75 * op; lv.rLines.visible = op > 0.01;
-      lv.pPts.visible = lv.cPts.visible = op > 0.01;
+      const syn = 1 - real; lv.pPts.material.opacity = 0.95 * op * syn; lv.cPts.material.opacity = op * syn; lv.rLines.material.opacity = 0.75 * op * syn; lv.rLines.visible = op * syn > 0.01;
+      lv.pPts.visible = lv.cPts.visible = op * (1 - real) > 0.01;
       if (L === (frac < 0.5 ? La : La + 1)) tagPpd = lv.ppd;
       // walkers wander a little when you're close enough to see it
       if (!still && alt < 0.004 && lv.pPts.visible) {
@@ -359,6 +363,7 @@ export function addLocal(world, tier) {
         lv.cPts.geometry.attributes.position.needsUpdate = lv.cPts.geometry.attributes.color.needsUpdate = true;
       }
     }
+    if (real > 0.5 && osm.scale()) tagPpd = osm.scale();
     if (tagEl) {
       const txt = tagPpd <= 1 ? "Close up: each dot is one person, white and red dots are cars (illustrative)" : `Close up: each dot is about ${tagPpd.toLocaleString()} people, white and red dots are cars (illustrative)`;
       if (txt !== lastScale) { tagEl.textContent = txt; lastScale = txt; }
