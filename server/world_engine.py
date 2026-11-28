@@ -1199,7 +1199,7 @@ class World:
         """Each month, every country's conditions move with its own simulated economy, so years of growth reach
         people's lives: income per person grows with the country's growth less its population growth (estimated from
         its share of over-65s), and poverty falls as income rises, by the same rule the starting figures use;
-        internet access keeps spreading, a little more people move to cities, populations age, and unemployment
+        internet access keeps spreading (poverty follows the income most people feel: see below), a little more people move to cities, populations age, and unemployment
         rises when growth falls below the country's usual pace (and falls when it's above). Inequality is held where
         it is. usual=True: grow at each country's usual pace (catching up a world from before this rule)."""
         raw = self.raw_nations()
@@ -1214,13 +1214,20 @@ class World:
                                      natinc=round(max(-0.5, min(3.0, 3.2 - 0.17 * float(r.get("old") or 8))), 2))
             ec = n.get("econ") or {}
             g = ec.get("usual", 2.0) if usual else ec.get("growth", 2.0)
+            # who feels it: in an unequal country more of the gains go to those already well off, so most people's
+            # income (and with it poverty) moves less than the average; growth's reach shrinks about in proportion to
+            # (1 - Gini). Losses in a downturn reach everyone in full.
+            share = max(0.4, min(1.3, (1 - L["gini"] / 100) / (1 - 0.36)))
+            L.setdefault("felt", L["gdp"])
             for _ in range(months):
-                L["gdp"] *= (1 + (g - L["natinc"]) / 100) ** (1 / 12)
+                rate = (g - L["natinc"]) / 100
+                L["gdp"] *= (1 + rate) ** (1 / 12)
+                L["felt"] *= (1 + (rate * share if rate > 0 else rate)) ** (1 / 12)
                 L["net"] += (98.0 - L["net"]) * 0.08 / 12
                 L["urban"] += (90.0 - L["urban"]) * 0.008 / 12
                 L["young"] += (63.0 - L["young"]) * 0.02 / 12
             unemp = max(1.0, min(40.0, L["unemp"] + (0 if usual else 0.3 * (ec.get("usual", 2.0) - ec.get("growth", 2.0)))))
-            n["feat"] = WK.features(dict(gdp=L["gdp"], urban=L["urban"], unemp=unemp, gini=L["gini"], young=L["young"], net=L["net"]))
+            n["feat"] = WK.features(dict(gdp=L["felt"], urban=L["urban"], unemp=unemp, gini=L["gini"], young=L["young"], net=L["net"]))
             n["gdp_now"] = round(L["gdp"])
 
     # ------------------------------------------------------------------ markets and trade
