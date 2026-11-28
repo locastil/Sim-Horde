@@ -217,7 +217,7 @@ export function addPeople(world, tier, data) {
       const bk = new Map(), key = (lo, la) => Math.floor(lo) + ":" + Math.floor(la);
       for (const p of places) { const k = key(p.lon, p.lat); if (!bk.has(k)) bk.set(k, []); bk.get(k).push(p); }
       const nearest = (lo, la) => {
-        for (const R of [1, 3]) {
+        for (const R of [1, 3, 8]) {                           // remote places: look further for a town to take the colour from
           let best = null, bd = 1e9;
           for (let dx = -R; dx <= R; dx++) for (let dy = -R; dy <= R; dy++)
             for (const p of bk.get((Math.floor(lo) + dx) + ":" + (Math.floor(la) + dy)) || []) {
@@ -232,22 +232,36 @@ export function addPeople(world, tier, data) {
       let everyone = 0;
       for (let i = 0; i < v.length; i++) if (v[i]) everyone += cellPeople(v[i]);
       const per = budget / everyone;
+      // a floor: every populated patch (about 18 km; 37 km on low) shows at least one light, dimmer where few live
+      const f = Math.max(1, Math.round((tier === "low" ? 1 / 3 : 1 / 6) / cd)), fw = Math.ceil(w / f), fh = Math.ceil(h / f);
+      const fmax = new Uint8Array(fw * fh), lit = new Uint8Array(fw * fh);
       for (let r = 0; r < h; r++) {
         const la0 = 90 - (r + 1) * cd;
         for (let c = 0; c < w; c++) {
           const b = v[r * w + c];
           if (!b) continue;
+          const fi = ((r / f) | 0) * fw + ((c / f) | 0); if (b > fmax[fi]) fmax[fi] = b;
           const want = cellPeople(b) * per, n = Math.floor(want) + (Math.random() < want % 1 ? 1 : 0);
           if (!n) continue;
           const lo0 = -180 + c * cd, p = nearest(lo0 + cd / 2, la0 + cd / 2);
           if (!p) continue;
           const bright = 0.4 + 0.6 * (b / 255);
+          lit[fi] = 1;
           for (let k = 0; k < n; k++) {
             const lo = lo0 + Math.random() * cd, la = la0 + Math.random() * cd;
             const ch = p.num === "840" ? countyHappy(lo, la) : null, mood = ch != null ? moodColor(ch) : p.mood;
             tpos.push([lo, la]); tcol.push(mood.map((x) => x * bright * (0.75 + 0.25 * Math.random()))); tbase.push(p.war);
           }
         }
+      }
+      const fcd = cd * f;
+      for (let fi = 0; fi < fmax.length; fi++) {
+        if (!fmax[fi] || lit[fi]) continue;
+        const lo = -180 + ((fi % fw) + Math.random()) * fcd, la = 90 - (((fi / fw) | 0) + Math.random()) * fcd;
+        const p = nearest(lo, la);
+        const ch = p && p.num === "840" ? countyHappy(lo, la) : null, mood = ch != null ? moodColor(ch) : p ? p.mood : [0.75, 0.7, 0.6];
+        const bright = 0.28 + 0.5 * (fmax[fi] / 255);
+        tpos.push([lo, la]); tcol.push(mood.map((x) => x * bright)); tbase.push(p ? p.war : false);
       }
       for (const p of places) if (p.cp > 150000) { pos.push([p.lon, p.lat]); col.push(p.mood.map((x) => x * Math.min(1, 0.55 + Math.log10(p.cp + 10) / 12))); base.push(p.war); }
     }
