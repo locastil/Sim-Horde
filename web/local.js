@@ -142,9 +142,13 @@ export function addLocal(world, tier) {
             const [m0, m1] = axis ? toLL(a + step / 2, b) : toLL(b, a + step / 2);
             if (m0 < lon0 || m0 >= lon0 + s || m1 < lat0 || m1 >= lat0 + s) continue;
             const [d, best] = density(cs, m0, m1);
-            if (best !== c || d < (major ? 250 : 400) || !c.land(m0, m1)) continue;
+            if (best !== c) continue;
+            // streets thin out with the people: fewer and fainter toward the edge of town, never a hard cut-off
+            const w = Math.min(1, Math.max(0, (d - (major ? 15 : 40)) / 1200));
+            const keep = (hash(Math.round(m0 * 1e4), Math.round(m1 * 1e4), 11) >>> 0) / 4294967296;
+            if (keep > Math.min(1, w * (major ? 3 : 1.6) + 0.02) || !c.land(m0, m1)) continue;
             const p = axis ? toLL(a, b) : toLL(b, a), q = axis ? toLL(a + step, b) : toLL(b, a + step);
-            out.push(p[0], p[1], q[0], q[1], (major ? 1 : 0.55) * Math.max(0.3, Math.min(1, d / 2500)));   // brighter where it's busier
+            out.push(p[0], p[1], q[0], q[1], (major ? 1 : 0.55) * (0.35 + 0.65 * w));   // brighter where it's busier
           }
         }
       }
