@@ -86,6 +86,7 @@ export function addLocal(world, tier) {
     });
     for (const lv of levels.values()) drop(lv);
     levels.clear(); ready = cities.length > 0;
+    if (osm) osm.reset();                                   // tiles placed with the old list start again
   }
   function near(lon, lat, km) {
     const out = [], dLat = km / KY, dLon = km / (KX * Math.max(0.15, Math.cos(lat * D)));

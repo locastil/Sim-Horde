@@ -397,5 +397,7 @@ export function addOSM(world, tier, sim) {
     let take = 0; for (const [zz, M] of mats) if (zz >= PEOPLE_Z) take += M.op;
     return Math.min(1, take) * fadeIn;
   }
-  return { update, carScale: () => { const T = [...tiles.values()].find((T) => T.used === t && T.cpd); return T ? T.cpd : null; }, scale: () => { const T = [...tiles.values()].find((T) => T.used === t && T.ppd); return T ? T.ppd : null; } };
+  // the simulation's people changed (the towns arrived, a new month): place everyone again
+  function reset() { for (const T of tiles.values()) drop(T); tiles.clear(); shown = null; }
+  return { update, reset, carScale: () => { const T = [...tiles.values()].find((T) => T.used === t && T.cpd); return T ? T.cpd : null; }, scale: () => { const T = [...tiles.values()].find((T) => T.used === t && T.ppd); return T ? T.ppd : null; } };
 }
