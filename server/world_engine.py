@@ -50,6 +50,7 @@ LAYERS = [dict(name="Low", mult=1, piece=SHARD_AGENTS),
           dict(name="Ultra", mult=64, piece=500_000)]      # big GPUs
 WARM_MONTHS = 3             # a detail piece counts once it has run this many months in a row from its own state
 HOLD_SECS = 45              # at the start of a month, a detail piece waits this long for the device that holds its state
+REFUGEE_MAX = 120.0         # the most of a war zone's people who flee in a year, per 1,000 (12%: about the worst ever seen)
 GUARD = dict(happy=1.5, civ=0.08, stress=0.5)    # a detail result far from the Low result for the same nation is ignored
 
 PER_YEAR = dict(coup=3.0, conflict=3.5, protest=24.0, standoff=1.2, war=0.25)    # world totals a year
@@ -144,6 +145,9 @@ class World:
             if "layers" not in self.w:
                 self.build_layers(self.w)
                 self.save()
+            if not self.w.get("pop_fix_1"):
+                self.repair_population()
+                self.save()
         else:
             self.w = self.create(target_agents, seed)
             self.save()
@@ -153,6 +157,29 @@ class World:
         self.opened = 0.0                     # after a restart, carry on right away
 
     # ------------------------------------------------------------------ setup
+    def repair_population(self):
+        """Once, for worlds made before refugee flows were capped: an uncapped flight from war zones had emptied
+        some countries (and overfilled their neighbours) far beyond anything real. Put every country back to its
+        real share of today's simulated world population, keeping the world total."""
+        src = os.path.join(self.engine_dir, "sim_data", "world", "nations.json")
+        try:
+            d = json.load(open(src, encoding="utf-8"))
+        except (OSError, ValueError):
+            return
+        real = {n["iso3"]: float(n["pop"]) for n in d["nations"] if n.get("pop")}
+        N = self.w["nations"]
+        now = sum(n["pop"] for n in N.values()); base = sum(real.get(c, 0.0) for c in N)
+        if now <= 0 or base <= 0:
+            return
+        moved = 0.0
+        for c, n in N.items():
+            if c in real:
+                new = real[c] * now / base
+                moved += abs(new - n["pop"]); n["pop"] = new
+            n["mig_year"] = 0.0
+        self.w["pop_fix_1"] = time.strftime("%Y-%m-%d")
+        print(f"Population repaired after the refugee-flow fix: {moved / 2 / 1e6:,.0f} million people put back where they belong")
+
     def create(self, target_agents, seed):
         src = os.path.join(self.engine_dir, "sim_data", "world", "nations.json")
         if not os.path.exists(src):
@@ -707,7 +734,7 @@ class World:
             n.setdefault("mig_year", 0.0)
         for n in live:
             if n["conflict"]:
-                out = n["pop"] * n["last"]["leave"] / 1000 / 12
+                out = n["pop"] * min(n["last"]["leave"], REFUGEE_MAX) / 1000 / 12
                 nb = [N[b] for b in n["borders"] if b in N]
                 if nb and out > 0:
                     n["pop"] -= out; n["mig_year"] = n.get("mig_year", 0.0) - out
@@ -1086,7 +1113,7 @@ class World:
                                          office=n["title"], ruling=n["ruling"], conflict=n["conflict"], protests=n["protests"] > 0,
                                          pop=round(n["pop"]), detail=LAYERS[n.get("detail", 0)]["name"],
                                          netmig=n.get("mig_last"),
-                                         netmig_real=round(n["netmig_real"] / max(1.0, n["pop"]) * 1000, 2) if n.get("netmig_real") is not None else None)
+                                         netmig_real=round(n["netmig_real"] / n["pop"] * 1000, 2) if n.get("netmig_real") is not None and n["pop"] > 1000 else None)
             self.maybe_close()
             done = sum(1 for j in self.jobs.values() if j["status"] == "done")
             dnow = [[L["name"], sum(1 for (k, _), j in self.djobs.items() if k == kk and j["result"] is not None),
