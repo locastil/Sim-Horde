@@ -410,10 +410,60 @@ export function mountGlobe(root, opts = {}) {
   });
   el.addEventListener("dblclick", (e) => { e.preventDefault(); street(e); });
   el.addEventListener("pointerleave", () => { tip.hidden = true; });
-  el.addEventListener("wheel", (e) => { e.preventDefault(); zoom = Math.max(1.9, Math.min(6, zoom * (1 + Math.sign(e.deltaY) * 0.08))); }, { passive: false });
+  // where on Earth a point on screen is (or null off the globe)
+  function lonLatAt(x, y) {
+    if (!earth) return null;
+    const r = el.getBoundingClientRect();
+    v2.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(v2, camera);
+    const h = ray.intersectObject(earth)[0];
+    if (!h) return null;
+    const p = earth.worldToLocal(h.point.clone()).normalize();
+    return [((Math.atan2(p.z, -p.x) * 180 / Math.PI - 180 + 540) % 360) - 180, Math.asin(p.y) * 180 / Math.PI];
+  }
+  // keep zooming in past the closest view and you carry on down into the real map, where you were pointing
+  let pushIn = 0, pushT = 0;
+  const ZMIN = 1.9;
+  function zoomBy(f, x, y) {
+    if (f < 1 && zoom <= ZMIN + 1e-6) {
+      const now = performance.now();
+      if (now - pushT > 1200) pushIn = 0;
+      pushT = now;
+      if (++pushIn >= 2) {
+        pushIn = 0;
+        const r = el.getBoundingClientRect(), at = lonLatAt(x ?? r.left + r.width / 2, y ?? r.top + r.height / 2) || [lon, lat];
+        hover({ clientX: x ?? r.left + r.width / 2, clientY: y ?? r.top + r.height / 2 });
+        window.dispatchEvent(new CustomEvent("simhorde:street", { detail: { num: hitId, lon: at[0], lat: at[1] } }));
+      }
+      return;
+    }
+    pushIn = 0;
+    zoom = Math.max(ZMIN, Math.min(6, zoom * f));
+  }
+  el.addEventListener("wheel", (e) => { e.preventDefault(); zoomBy(1 + Math.sign(e.deltaY) * 0.08, e.clientX, e.clientY); }, { passive: false });
+  // two-finger pinch on phones and tablets, with the same carry-on into the map
+  const touches = new Map(); let pinch0 = 0;
+  el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") touches.set(e.pointerId, [e.clientX, e.clientY]); });
+  el.addEventListener("pointermove", (e) => {
+    if (!touches.has(e.pointerId)) return;
+    touches.set(e.pointerId, [e.clientX, e.clientY]);
+    if (touches.size === 2) {
+      const [a, b] = [...touches.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+      if (pinch0) { const f = pinch0 / d; if (Math.abs(f - 1) > 0.04) { zoomBy(f, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2); pinch0 = d; } } else pinch0 = d;
+      dragging = false;
+    }
+  });
+  const lift = (e) => { touches.delete(e.pointerId); if (touches.size < 2) pinch0 = 0; };
+  el.addEventListener("pointerup", lift); el.addEventListener("pointercancel", lift);
+  // coming back up out of the map: look at the same place
+  window.addEventListener("simhorde:focus", (e) => {
+    const d = e.detail || {}; if (d.lon == null) return;
+    zoom = ZMIN; vLon = 0; lon = d.lon; lat = Math.max(-60, Math.min(70, d.lat));
+    focus = { lon, lat, until: performance.now() + 4000 };
+  });
   el.addEventListener("keydown", (e) => {
     const s = 6; if (e.key === "ArrowLeft") lon -= s; else if (e.key === "ArrowRight") lon += s; else if (e.key === "ArrowUp") lat += s; else if (e.key === "ArrowDown") lat -= s;
-    else if (e.key === "+" || e.key === "=") zoom = Math.max(1.9, zoom * 0.9); else if (e.key === "-") zoom = Math.min(6, zoom * 1.1); else return;
+    else if (e.key === "+" || e.key === "=") zoomBy(0.9); else if (e.key === "-") zoom = Math.min(6, zoom * 1.1); else return;
     e.preventDefault(); vLon = 0;
   });
 
@@ -437,7 +487,7 @@ export function mountGlobe(root, opts = {}) {
       }
       if (hit) {
         const flags = [hit.conflict ? "armed conflict" : "", hit.protests ? "protests" : ""].filter(Boolean);
-        tip.innerHTML = `<b>${esc(hit.name)}</b> <i style="opacity:.6">simulated</i><br>${esc(hit.gov)}: ${esc(hit.ruling)} hold${/^the ruling|^the armed|^the opposition/.test(hit.ruling) ? "s" : ""} power<br>Happiness ${hit.happiness.toFixed(1)} / 10` + (hit.survey != null ? ` <span style="opacity:.6">(surveys: ${hit.survey.toFixed(1)})</span>` : "") + (flags.length ? `<br>${flags.join(", ")}` : "") + (hit.netmig != null ? `<br>Migration ${hit.netmig > 0 ? "+" : ""}${hit.netmig.toFixed(1)} per 1,000 a year` + (hit.netmig_real != null ? ` <span style="opacity:.6">(real: ${hit.netmig_real > 0 ? "+" : ""}${hit.netmig_real.toFixed(1)})</span>` : "") : "") + (hit.detail && hit.detail !== "Low" ? `<br><span style="opacity:.6">Simulated at ${esc(hit.detail)} detail</span>` : "") + `<br><span style="opacity:.6">Double-click to see its streets</span>`;
+        tip.innerHTML = `<b>${esc(hit.name)}</b> <i style="opacity:.6">simulated</i><br>${esc(hit.gov)}: ${esc(hit.ruling)} hold${/^the ruling|^the armed|^the opposition/.test(hit.ruling) ? "s" : ""} power<br>Happiness ${hit.happiness.toFixed(1)} / 10` + (hit.survey != null ? ` <span style="opacity:.6">(surveys: ${hit.survey.toFixed(1)})</span>` : "") + (flags.length ? `<br>${flags.join(", ")}` : "") + (hit.netmig != null ? `<br>Migration ${hit.netmig > 0 ? "+" : ""}${hit.netmig.toFixed(1)} per 1,000 a year` + (hit.netmig_real != null ? ` <span style="opacity:.6">(real: ${hit.netmig_real > 0 ? "+" : ""}${hit.netmig_real.toFixed(1)})</span>` : "") : "") + (hit.detail && hit.detail !== "Low" ? `<br><span style="opacity:.6">Simulated at ${esc(hit.detail)} detail</span>` : "") + `<br><span style="opacity:.6">Zoom in, or double-click, to see its streets</span>`;
       } else if (Math.abs(la) < 80) { tip.hidden = true; return; }
       tip.style.left = e.clientX - r.left + "px"; tip.style.top = e.clientY - r.top + "px"; tip.hidden = false;
       return;

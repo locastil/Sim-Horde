@@ -167,7 +167,7 @@
     el.querySelectorAll("[data-l]").forEach((b) => b.addEventListener("click", () => {
       const on = b.getAttribute("aria-pressed") !== "true"; b.setAttribute("aria-pressed", String(on)); if (run) run.show[b.dataset.l] = on;
     }));
-    el.querySelector("#stCity").addEventListener("change", (e) => { if (run) flyTo(run.cities[Number(e.target.value)], false); });
+    el.querySelector("#stCity").addEventListener("change", (e) => { if (run && e.target.value !== "") flyTo(run.cities[Number(e.target.value)], false); });
     return el;
   }
 
@@ -195,43 +195,76 @@
 
   function close() {
     if (!ui) return;
-    ui.hidden = true;
+    ui.hidden = true; ui.classList.remove("st-in");
     document.documentElement.classList.remove("st-open");
     if (run) { cancelAnimationFrame(run.raf); run = null; }
     if (map) { map.remove(); map = null; }
     if (ui.returnTo) ui.returnTo.focus();
   }
 
-  async function open(num) {
+  // the nearest listed city to a point, anywhere: [country number, index in its list]
+  function nearestCity(lon, lat) {
+    let best = null, bd = 1e9;
+    for (const [num, list] of Object.entries(cities.cities)) list.forEach((c, i) => {
+      const dx = (c[2] - lon) * Math.cos(rad(lat)), dy = c[1] - lat, d = dx * dx + dy * dy;
+      if (d < bd) { bd = d; best = [num, i]; }
+    });
+    return best;
+  }
+
+  async function open(num, at) {
     ui = ui || build();
     ui.returnTo = document.activeElement;
     [lib, cities] = await Promise.all([lib || loadLib(), cities || getJSON("/geo/cities.json")]);
     const [g, m] = await Promise.all([getJSON("/api/v1/globe"), getJSON("/api/v1/markets")]);
-    const nv = g && g.nations && g.nations[num], mk = m && m.nations && m.nations[num];
-    const list = (cities && cities.cities[num]) || [];
-    if (!list.length || !lib) return;
-    const name = (nv && nv.name) || (mk && mk.name) || "";
-    const md = mood(nv, mk);
+    if (!lib || !cities) return;
+    if ((!num || !cities.cities[num]) && at) num = (nearestCity(at.lon, at.lat) || [])[0];
+    if (!num || !(cities.cities[num] || []).length) return;
     // in full screen only the full-screen element shows, so the street view has to open inside it
     const host = document.fullscreenElement || document.body;
     if (ui.parentNode !== host) host.appendChild(ui);
     ui.hidden = false;
+    requestAnimationFrame(() => ui.classList.add("st-in"));         // fade in over the globe, as if zooming through it
     document.documentElement.classList.add("st-open");
-    ui.querySelector("#stTitle").textContent = name;
-    ui.querySelector("#stSub").textContent = [nv ? `Happiness ${md.h.toFixed(1)}` : "", md.conflict ? "armed conflict" : "", md.protests ? "protests" : "",
-                                              md.stag ? "stagflation" : "", nv && nv.detail ? `simulated at ${nv.detail} detail` : ""].filter(Boolean).join(" · ");
-    ui.querySelector("#stCity").innerHTML = list.map((c, i) => `<option value="${i}">${esc(c[0])}</option>`).join("");
-    ui.querySelector("#stNote").textContent = `Streets and buildings: OpenStreetMap. The traffic, people and flights are an illustration of ${name}'s simulated month: `
-      + `how busy (${Math.round(md.busy * 100)}% of normal), how happy (each person's color), ${md.protests ? "a protest in the center, " : ""}${md.conflict ? "streets emptied by fighting, " : ""}`
-      + `and flights to its main trading partners. They aren't tracked one by one.`;
-    ui.querySelector("#stClose").focus();
 
-    map = new lib.Map({ container: "stMap", style: STYLE, center: [list[0][2], list[0][1]], zoom: 4.2, pitch: 0, maxPitch: 75, attributionControl: { compact: true } });
-    const partners = ((mk && mk.partners) || []).map((pn) => {
-      const e = Object.entries(m.nations).find(([, r]) => r.name === pn);
-      const cc = e && cities.cities[e[0]]; return cc ? [cc[0][2], cc[0][1]] : null;
-    }).filter(Boolean);
-    run = { cities: list, city: list[0], md, show: { cars: true, people: true, planes: true }, cars: [], people: [], flights: [], raf: 0, last: performance.now() };
+    const list0 = cities.cities[num];
+    const start = at ? { center: [at.lon, at.lat], zoom: 3.7 } : { center: [list0[0][2], list0[0][1]], zoom: 4.2 };
+    map = new lib.Map({ container: "stMap", style: STYLE, ...start, pitch: 0, maxPitch: 75, attributionControl: { compact: true } });
+    run = { num: null, cities: list0, city: list0[0], md: mood(null, null), show: { cars: true, people: true, planes: true }, cars: [], people: [], flights: [], partners: [], raf: 0, last: performance.now() };
+
+    // which country you're looking at, and what the simulation says about it (changes as you pan across borders)
+    function setCountry(n) {
+      if (!run || n === run.num || !cities.cities[n]) return;
+      const nv = g && g.nations && g.nations[n], mk = m && m.nations && m.nations[n];
+      const list = cities.cities[n], name = (nv && nv.name) || (mk && mk.name) || "";
+      const md = mood(nv, mk);
+      Object.assign(run, { num: n, cities: list, md, flights: [] });
+      run.partners = ((mk && mk.partners) || []).map((pn) => {
+        const e = m && Object.entries(m.nations).find(([, r]) => r.name === pn);
+        const cc = e && cities.cities[e[0]]; return cc ? [cc[0][2], cc[0][1]] : null;
+      }).filter(Boolean);
+      ui.querySelector("#stTitle").textContent = name;
+      ui.querySelector("#stSub").textContent = [nv ? `Happiness ${md.h.toFixed(1)}` : "", md.conflict ? "armed conflict" : "", md.protests ? "protests" : "",
+                                                md.stag ? "stagflation" : "", nv && nv.detail ? `simulated at ${nv.detail} detail` : ""].filter(Boolean).join(" · ");
+      ui.querySelector("#stCity").innerHTML = `<option value="">Go to a city</option>` + list.map((c, i) => `<option value="${i}">${esc(c[0])}</option>`).join("");
+      ui.querySelector("#stNote").textContent = `Streets and buildings: OpenStreetMap; ground: satellite imagery. The traffic, people and flights are an illustration of ${name}'s simulated month: `
+        + `how busy (${Math.round(md.busy * 100)}% of normal), how happy (each person's color), ${md.protests ? "a protest in the center, " : ""}${md.conflict ? "streets emptied by fighting, " : ""}`
+        + `and flights to its main trading partners. They aren't tracked one by one. Zoom out all the way to go back to the globe.`;
+    }
+    setCountry(num);
+    ui.querySelector("#stClose").focus({ preventScroll: true });
+    let armed = false;
+    map.on("moveend", () => {
+      if (!run || !map) return;
+      const c = map.getCenter(), near = nearestCity(c.lng, c.lat);
+      if (near && map.getZoom() >= 4.5) { setCountry(near[0]); run.city = cities.cities[near[0]][near[1]]; }
+    });
+    map.on("zoomend", () => {                                           // zoomed all the way out: back to the globe, looking at the same place
+      if (!armed || !map || map.getZoom() >= 3.2) return;
+      const c = map.getCenter();
+      close();
+      window.dispatchEvent(new CustomEvent("simhorde:focus", { detail: { lon: c.lng, lat: c.lat } }));
+    });
     const fx = ui.querySelector("#stFx"), ctx = fx.getContext("2d");
     const resize = () => { const r = ui.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1); fx.width = r.width * d; fx.height = r.height * d; ctx.setTransform(d, 0, 0, d, 0, 0); };
     resize(); addEventListener("resize", resize);
@@ -240,17 +273,25 @@
       if (!run || !map) return;
       const { roads, walks, airport } = harvest(map);
       const k = small() ? 0.55 : 1;
+      const md = run.md;
       run.cars = makeCars(roads, Math.round(420 * md.busy * k));
       run.people = makePeople(walks, Math.round(520 * md.busy * k), md, [run.city[2], run.city[1]]);
       const home = airport || [run.city[2], run.city[1]];
       if (!run.flights.length || run.home !== home.join()) {
         run.home = home.join();
-        run.flights = makeFlights(home, partners.length ? partners : [[home[0] + 8, home[1] + 3]], Math.round((small() ? 6 : 10) * Math.max(0.5, md.busy)));
+        run.flights = makeFlights(home, run.partners.length ? run.partners : [[home[0] + 8, home[1] + 3]], Math.round((small() ? 6 : 10) * Math.max(0.5, md.busy)));
       }
     };
     let t = 0;
     map.on("idle", () => { clearTimeout(t); t = setTimeout(reseed, 150); });
-    map.once("load", () => { naturalGround(map); setTimeout(() => flyTo(list[0], true), 600); });
+    map.once("load", () => {
+      naturalGround(map);
+      if (at) {
+        try { map.setProjection({ type: "globe" }); } catch (e) {}              // the same round Earth you were just looking at
+        map.easeTo({ zoom: 5.2, duration: 1200 });
+        setTimeout(() => (armed = true), 1500);
+      } else { setTimeout(() => flyTo(list0[0], true), 600); setTimeout(() => (armed = true), 8000); }
+    });
 
     const frame = (now) => {
       if (!run || !map) return;
@@ -315,5 +356,9 @@
   }
 
   window.simhordeStreet = () => run && { cars: run.cars.length, people: run.people.length, flights: run.flights.length, zoom: map && map.getZoom() };
-  addEventListener("simhorde:street", (e) => { const num = e.detail && e.detail.num; if (num != null) open(String(num)).catch((err) => console.warn("street view", err)); });
+  addEventListener("simhorde:street", (e) => {
+    const d = e.detail || {};
+    if (map) return;                                                      // already open
+    open(d.num != null ? String(d.num) : null, d.lon != null ? { lon: d.lon, lat: d.lat } : null).catch((err) => console.warn("street view", err));
+  });
 })();
