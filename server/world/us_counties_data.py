@@ -43,18 +43,22 @@ def main():
     C = {}
     rows = socrata("i6u4-y3g4", **{"$select": "locationid,locationname,stateabbr,totalpopulation,geolocation,measureid,data_value"})
     for r in rows:
-        c = C.setdefault(r["locationid"], dict(name=r["locationname"], st=r["stateabbr"], pop=float(r["totalpopulation"])))
+        f = r.get("locationid") or ""
+        if len(f) != 5 or not f.isdigit() or not r.get("totalpopulation"):
+            continue                                   # skip anything that isn't a county with a population
+        c = C.setdefault(f, dict(name=r.get("locationname") or f, st=r.get("stateabbr") or "", pop=float(r["totalpopulation"])))
         g = r.get("geolocation") or {}
         if g.get("coordinates"):
             c["lon"], c["lat"] = round(float(g["coordinates"][0]), 3), round(float(g["coordinates"][1]), 3)
-        if r["measureid"] not in ("REMNRTY", "SNGPNT") and r.get("data_value") not in (None, ""):
-            c[r["measureid"].lower()] = float(r["data_value"])
+        m = r.get("measureid") or ""
+        if m and m not in ("REMNRTY", "SNGPNT") and r.get("data_value") not in (None, ""):
+            c[m.lower()] = float(r["data_value"])
     print(f"  conditions: {len(C)} counties")
     rows = socrata("swc5-untb", **{"$select": "locationid,measureid,data_value",
                                    "$where": "datavaluetypeid='AgeAdjPrv' AND measureid in('MHLTH','LONELINESS','EMOTIONSPT','DEPRESSION')"})
     n = 0
     for r in rows:
-        if r["locationid"] in C and r.get("data_value") not in (None, ""):
+        if r.get("locationid") in C and r.get("measureid") and r.get("data_value") not in (None, ""):
             C[r["locationid"]]["t_" + r["measureid"].lower()] = float(r["data_value"]); n += 1
     print(f"  checks: {n} county figures")
     area = 0

@@ -209,8 +209,8 @@
    "live": {
     "since": "2026-11-28",
     "before": 0.123,
-    "after": 0.04,
-    "note": "Live migration score before: 0.12 (rank match, 121 countries, the original world). First full year in the fresh real-world copy: 0.04, worse, because every real conflict there counted as a full-scale war: India, Indonesia, Cameroon and others lost 12% of their people a year as refugees. Conflicts now have a size (see Fixes); the next simulated year is the real test."
+    "after": 0.14,
+    "note": "Live migration score (rank match, 121 countries): 0.12 in the original world; 0.04 in the first year of the real-world copy, when every conflict counted as full-scale war; 0.14 after conflicts got a size (latest full simulated year). Better than before, but well short of the 0.43 the 2015-2023 test promised: the live world has things the test didn't (refugee flows, events), so there's more to find here."
    }
   },
   {
@@ -240,8 +240,8 @@
    "live": {
     "since": "2026-11-28",
     "before": 0.123,
-    "after": 0.04,
-    "note": "Live migration score before: 0.12 (rank match, 121 countries, the original world). First full year in the fresh real-world copy: 0.04, worse, because every real conflict there counted as a full-scale war: India, Indonesia, Cameroon and others lost 12% of their people a year as refugees. Conflicts now have a size (see Fixes); the next simulated year is the real test."
+    "after": 0.14,
+    "note": "Live migration score (rank match, 121 countries): 0.12 in the original world; 0.04 in the first year of the real-world copy, when every conflict counted as full-scale war; 0.14 after conflicts got a size (latest full simulated year). Better than before, but well short of the 0.43 the 2015-2023 test promised: the live world has things the test didn't (refugee flows, events), so there's more to find here."
    }
   },
   {
