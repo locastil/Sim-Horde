@@ -102,7 +102,7 @@ export function addOSM(world, tier, sim) {
   const matsFor = (z) => {
     if (!mats.has(z)) mats.set(z, { op: 0,
       line: new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, depthWrite: false }),
-      people: new THREE.PointsMaterial({ size: 3.0, sizeAttenuation: false, map: sim.tex, vertexColors: true, transparent: true, opacity: 0, depthWrite: false }),
+      people: new THREE.PointsMaterial({ size: z < 13 ? 2.8 : 3.0, sizeAttenuation: false, map: sim.tex, vertexColors: true, transparent: true, opacity: 0, depthWrite: false }),
       car: new THREE.PointsMaterial({ size: z >= 12 ? 3.8 : 3.0, sizeAttenuation: false, map: sim.tex, vertexColors: true, transparent: true, opacity: 0, depthWrite: false }) });
     return mats.get(z);
   };
@@ -227,7 +227,7 @@ export function addOSM(world, tier, sim) {
       }
       // colours for this distance: home lights soft close up, brighter from far out so towns glow
       for (const w of walkers) {
-        const b = (w.home ? (close ? 0.28 + 0.12 * w.r : 0.55 + 0.3 * w.r) : 0.8 + 0.2 * w.r) * (w.war ? 0.45 : 1);
+        const b = (w.home ? (close ? 0.28 + 0.12 * w.r : 0.75 + 0.25 * w.r) : 0.8 + 0.2 * w.r) * (w.war ? 0.45 : 1);
         w.c = w.m.map((v) => v * b);
       }
     }
