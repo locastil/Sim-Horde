@@ -23,6 +23,7 @@ stress, rudeness, hardship, inequality and instability make a nation likelier to
 import json
 import math
 import os
+import re
 import sys
 import random
 import threading
@@ -74,6 +75,13 @@ HAPPY_PUSH = dict(life_expectancy=0.1)
 # national figure (no county figure in the source). Each county's conditions are the national ones moved by how far
 # the county is from the national average, so the country as a whole stays where the Low level puts it.
 COUNTY_NATION = "USA"
+# Every other country, region by region. At the same finer levels, each country with regional figures splits into its
+# regions from the Global Data Lab's Subnational Human Development Database (world/regions_data.py): a region's
+# hardship moves from the national figure by how its income per person differs from the country's (on the same log
+# scale the model uses for countries), and its day-to-day stress by how its life expectancy differs (as healthy life
+# expectancy does between countries). Checked against the OECD's regional life satisfaction (Gallup World Poll),
+# which the simulation never uses as an input. Regions run only where a volunteer's device runs the finer levels.
+LE_SD = 7.0          # years of life expectancy per standard unit between countries, for the regional stress push
 GUARD = dict(happy=1.5, civ=0.08, stress=0.5)    # a detail result far from the Low result for the same nation is ignored
 
 PER_YEAR = dict(coup=3.0, conflict=3.5, protest=24.0, standoff=1.2, war=0.25)    # world totals a year
@@ -167,6 +175,7 @@ class World:
         self.path = os.path.join(STATE_DIR, "world.json")
         self.jobs = {}                     # shard index -> dict(status, worker, at, result)
         self.counties = self.load_counties()
+        self.regions, self.oecd_regions = self.load_regions()
         if os.path.exists(self.path):
             self.w = json.load(open(self.path, encoding="utf-8"))
             if "layers" not in self.w:
@@ -178,7 +187,7 @@ class World:
             if not self.w.get("conflict_levels"):
                 self.set_conflict_levels()
                 self.save()
-            if self.counties and not self.w.get("county_regions"):
+            if (self.counties and not self.w.get("county_regions")) or (self.regions and not self.w.get("gdl_regions")):
                 self.build_layers(self.w)          # the US splits into counties at the finer levels; those pieces start fresh
                 self.w["detail"] = {}
                 self.save()
@@ -219,6 +228,72 @@ class World:
         print(f"US counties: {len(C)} with figures, for the finer levels of detail", flush=True)
         return C
 
+    def load_regions(self):
+        """Regions of every country (world/regions.json); fetched once if missing (needs internet)."""
+        path = os.path.join(HERE, "world", "regions.json")
+        if not os.path.exists(path):
+            try:
+                sys.path.insert(0, os.path.join(HERE, "world"))
+                import regions_data
+                regions_data.main()
+            except BaseException as e:
+                print(f"No regional data ({e}): countries run whole at every level.", flush=True)
+                return {}, []
+        try:
+            d = json.load(open(path, encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}, []
+        R = {}
+        for r in d.get("gdl", []):
+            if r.get("gni") and r.get("pop") and r["iso3"] != COUNTY_NATION:
+                R.setdefault(r["iso3"], []).append(r)
+        R = {c: sorted(v, key=lambda r: r["code"]) for c, v in R.items() if len(v) >= 2}
+        print(f"Regions: {sum(len(v) for v in R.values())} in {len(R)} countries, for the finer levels of detail; "
+              f"{sum(1 for r in d.get('oecd', []) if r.get('life_sat') is not None)} OECD regions to check against", flush=True)
+        return R, d.get("oecd", [])
+
+    def region_groups(self, c, total, min_agents):
+        """A country's simulated people at one level, shared over its regions by population; a region too small for
+        min_agents joins the next one. Returns [(code, agents, [GDL codes])]."""
+        rs = self.regions[c]
+        pop = sum(r["pop"] for r in rs) or 1
+        out, cur, acc = [], [], 0.0
+        for r in rs:
+            cur.append(r["code"]); acc += total * r["pop"] / pop
+            if acc >= min_agents:
+                out.append((cur, acc)); cur, acc = [], 0.0
+        if cur:
+            if out:
+                out[-1] = (out[-1][0] + cur, out[-1][1] + acc)
+            else:
+                out.append((cur, acc))
+        return [(f"{c}#{i}", max(50, int(round(a))), codes) for i, (codes, a) in enumerate(out)]
+
+    def gdl_feat(self, c, codes):
+        """A group of regions' conditions: the country's own, moved by how far its income is from the country's."""
+        n = self.w["nations"][c]
+        base = dict(n["feat"])
+        rs = {r["code"]: r for r in self.regions.get(c, [])}
+        pop = sum(r["pop"] for r in rs.values())
+        nat_gni = math.exp(sum(math.log(r["gni"]) * r["pop"] for r in rs.values()) / pop)
+        g = [rs[k] for k in codes if k in rs]
+        w = sum(r["pop"] for r in g) or 1
+        gni = math.exp(sum(math.log(r["gni"]) * r["pop"] for r in g) / w)
+        return dict(base, pov=round(max(-1.0, min(1.0, base["pov"] + (math.log(nat_gni) - math.log(gni)) / 2.0)), 4))
+
+    def gdl_stress(self, c, codes):
+        """Extra day-to-day stress for a group of regions where people live shorter lives than the country average."""
+        rs = {r["code"]: r for r in self.regions.get(c, []) if r.get("lifexp")}
+        if not rs:
+            return 0.0
+        pop = sum(r["pop"] for r in rs.values())
+        nat = sum(r["lifexp"] * r["pop"] for r in rs.values()) / pop
+        g = [rs[k] for k in codes if k in rs]
+        if not g:
+            return 0.0
+        le = sum(r["lifexp"] * r["pop"] for r in g) / sum(r["pop"] for r in g)
+        return round(HAPPY_PUSH.get("life_expectancy", 0.0) * max(-2.5, min(2.5, (nat - le) / LE_SD)), 4)
+
     def county_feat(self, fips_list):
         """A group of counties' conditions: the US's own, moved by how far the group is from the US average."""
         n = self.w["nations"][COUNTY_NATION]
@@ -249,11 +324,28 @@ class World:
     def region_feat(self, k, code):
         fs = (self.w.get("county_regions") or {}).get(str(k), {}).get(code)
         if fs is None:
-            return self.w["nations"][code.split("#")[0]]["feat"]
+            gc = (self.w.get("gdl_regions") or {}).get(str(k), {}).get(code)
+            if gc is None:
+                return self.w["nations"][code.split("#")[0]]["feat"]
+            cache = self.__dict__.setdefault("_rfeat", {})
+            if (k, code) not in cache:
+                cache[(k, code)] = self.gdl_feat(code.split("#")[0], gc)
+            return cache[(k, code)]
         cache = self.__dict__.setdefault("_rfeat", {})
         if (k, code) not in cache:
             cache[(k, code)] = self.county_feat(fs)
         return cache[(k, code)]
+
+    def region_pressure(self, k, code):
+        c = code.split("#")[0]
+        p = self.pressure(self.w["nations"][c])
+        gc = (self.w.get("gdl_regions") or {}).get(str(k), {}).get(code)
+        if gc:
+            cache = self.__dict__.setdefault("_rstress", {})
+            if (k, code) not in cache:
+                cache[(k, code)] = self.gdl_stress(c, gc)
+            p = dict(p, stress=round(max(-9.5, min(9.5, p["stress"] + cache[(k, code)])), 4))
+        return p
 
     def set_conflict_levels(self):
         """Once, for worlds made before conflicts had a size: today's real conflicts take their UCDP size
@@ -375,6 +467,7 @@ class World:
         codes = sorted(N, key=lambda c: (N[c]["region"], -N[c]["pop"]))
         layers = []
         w["county_regions"] = {}
+        w["gdl_regions"] = {}
         for k, L in enumerate(LAYERS):
             if k == 0:
                 continue
@@ -384,6 +477,10 @@ class World:
                 if c == COUNTY_NATION and getattr(self, "counties", None):
                     groups = self.county_groups(total, max(400, L["piece"] // 250))     # at most ~250 regions in a piece
                     w["county_regions"][str(k)] = {code: fs for code, _, fs in groups}
+                    regions = [(code, a) for code, a, _ in groups]
+                elif c in (getattr(self, "regions", None) or {}) and total >= 200:
+                    groups = self.region_groups(c, total, max(100, L["piece"] // 250))
+                    w["gdl_regions"].setdefault(str(k), {}).update({code: codes for code, _, codes in groups})
                     regions = [(code, a) for code, a, _ in groups]
                 else:
                     r = max(1, math.ceil(total / L["piece"]))
@@ -648,7 +745,7 @@ class World:
         _, k, p, mine = best
         self.djobs[(k, p)]["assigned"][worker_id] = now
         N = self.w["nations"]
-        nations = [dict(code=code, agents=a, feat=self.region_feat(k, code), pressure=self.pressure(N[code.split("#")[0]]))
+        nations = [dict(code=code, agents=a, feat=self.region_feat(k, code), pressure=self.region_pressure(k, code))
                    for code, a in self.piece_nations(k, p)]
         payload = dict(nations=nations, theta=self.theta, days=EPOCH_DAYS,
                        seed=self.w["seed"] * 1_000_003 + e * 1009 + 100_000 * k + p, state=None,
@@ -1239,6 +1336,11 @@ class World:
                 n["last"] = {f: round(x, 5) for f, x in v.items()}
                 n["detail"] = k
                 n["detail_agents"] = tot
+                gregs = (self.w.get("gdl_regions") or {}).get(str(k), {})
+                if c != COUNTY_NATION and any(code in gregs for _, _, code in got):
+                    self.w.setdefault("region_results", {})[c] = dict(level=k, epoch=self.w["epoch"], regions={
+                        code: dict(gdl=gregs.get(code, []), happy=round(r["happy"], 4), stress=round(r["stress"], 4), conn=round(r["conn"], 4))
+                        for r, a, code in got})
                 if c == COUNTY_NATION and (self.w.get("county_regions") or {}).get(str(k)):
                     regs = self.w["county_regions"][str(k)]
                     self.w["county_results"] = dict(level=k, epoch=self.w["epoch"], regions={
@@ -1248,6 +1350,8 @@ class World:
                 break
             counts[n.get("detail", 0)] += 1
         self.w["detail_counts"] = counts
+        if self.oecd_regions and (self.w.get("region_results") or self.w.get("county_results")):
+            self.fit_regions()
         self.w["detail_pieces"] = [[sum(1 for (k, _), j in self.djobs.items() if k == kk and j["result"] is not None),
                                     len(self.w["layers"][kk - 1]["pieces"])] for kk in range(1, len(LAYERS))]
 
@@ -1289,6 +1393,74 @@ class World:
             pts = [p for p in pts if p[1] is not None]
             out[key] = dict(rank=rho([p[0] for p in pts], [p[1] for p in pts]), n=len(pts))
         self.w["county_fit"] = out
+
+    @staticmethod
+    def _norm(s):
+        import unicodedata
+        s = unicodedata.normalize("NFKD", s or "").encode("ascii", "ignore").decode().lower()
+        s = re.sub(r"\(.*?\)", " ", s)
+        s = re.sub(r"\b(region|province|state|prefecture|county|district|voivodeship|autonomous|community|of|the|and|de|del|la)\b", " ", s)
+        return set(w for w in re.split(r"[^a-z]+", s) if len(w) > 2)
+
+    def fit_regions(self):
+        """The simulation's regions against the OECD's regional life satisfaction (Gallup World Poll), which the model
+        never uses: within each country, does it rank its regions the way people there rate their lives? US states
+        come from the county results. Scored as the average rank match within countries with 4+ matched regions."""
+        G = {r["code"]: r for rs in self.regions.values() for r in rs}
+        by = {}                                   # country -> [(simulated happiness, real life satisfaction, name)]
+        for c, res in (self.w.get("region_results") or {}).items():
+            oecd = [o for o in self.oecd_regions if o["iso3"] == c and o.get("life_sat") is not None]
+            if not oecd:
+                continue
+            for code, r in res["regions"].items():
+                names = [G[g]["region"] for g in r["gdl"] if g in G]
+                if len(names) != 1:
+                    continue                      # a grouped region can't be matched to one OECD region
+                a = self._norm(names[0])
+                best = max(oecd, key=lambda o: len(a & self._norm(o["region"])) / max(1, len(a | self._norm(o["region"]))))
+                if a and len(a & self._norm(best["region"])) / max(1, len(a | self._norm(best["region"]))) >= 0.5:
+                    by.setdefault(c, []).append((r["happy"], best["life_sat"], names[0]))
+        US = {"AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California", "CO": "Colorado", "CT": "Connecticut",
+              "DE": "Delaware", "DC": "District of Columbia", "FL": "Florida", "GA": "Georgia", "HI": "Hawaii", "ID": "Idaho", "IL": "Illinois",
+              "IN": "Indiana", "IA": "Iowa", "KS": "Kansas", "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland",
+              "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi", "MO": "Missouri", "MT": "Montana",
+              "NE": "Nebraska", "NV": "Nevada", "NH": "New Hampshire", "NJ": "New Jersey", "NM": "New Mexico", "NY": "New York",
+              "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio", "OK": "Oklahoma", "OR": "Oregon", "PA": "Pennsylvania",
+              "RI": "Rhode Island", "SC": "South Carolina", "SD": "South Dakota", "TN": "Tennessee", "TX": "Texas", "UT": "Utah",
+              "VT": "Vermont", "VA": "Virginia", "WA": "Washington", "WV": "West Virginia", "WI": "Wisconsin", "WY": "Wyoming"}
+        CR = (self.w.get("county_results") or {}).get("regions") or {}
+        if CR and self.counties:
+            st = {}
+            for r in CR.values():
+                for f in r["fips"]:
+                    if f in self.counties:
+                        s = st.setdefault(self.counties[f]["st"], [0.0, 0.0]); p = self.counties[f]["pop"]
+                        s[0] += r["happy"] * p; s[1] += p
+            o = {x["region"]: x["life_sat"] for x in self.oecd_regions if x["iso3"] == COUNTY_NATION and x.get("life_sat") is not None}
+            for ab, (hs, ps) in st.items():
+                if US.get(ab) in o and ps:
+                    by.setdefault(COUNTY_NATION, []).append((hs / ps, o[US[ab]], US[ab]))
+        def rho(pts):
+            n = len(pts)
+            ra = {i: r for r, i in enumerate(sorted(range(n), key=lambda j: pts[j][0]))}
+            rb = {i: r for r, i in enumerate(sorted(range(n), key=lambda j: pts[j][1]))}
+            return 1 - 6 * sum((ra[i] - rb[i]) ** 2 for i in range(n)) / (n * (n * n - 1))
+        per = {c: dict(rank=round(rho(p), 3), n=len(p)) for c, p in by.items() if len(p) >= 4}
+        tot = sum(v["n"] for v in per.values())
+        self.w["region_fit"] = dict(countries=per, regions=tot,
+                                    within=round(sum(v["rank"] * v["n"] for v in per.values()) / tot, 3) if tot else None)
+
+    def region_public(self):
+        """Every country's simulated regions (happiness on the survey scale) and how they compare with the OECD's."""
+        with self.lock:
+            f = self.w.get("happy_fit") or dict(a=0.0, b=1.0)
+            G = {r["code"]: r for rs in (self.regions or {}).values() for r in rs}
+            out = {}
+            for c, res in (self.w.get("region_results") or {}).items():
+                out[c] = [dict(regions=[G[g]["region"] for g in r["gdl"] if g in G], happiness=round(max(0.0, min(10.0, f["a"] + f["b"] * r["happy"])), 2))
+                          for r in res["regions"].values()]
+            return dict(date=self.date(), countries=out, fit=self.w.get("region_fit"),
+                        source="Simulated; regional conditions from the Global Data Lab (https://globaldatalab.org/shdi/), checked against the OECD Regional Well-Being database")
 
     def county_public(self):
         """Each US county's simulated happiness on the survey scale (0-10), from the finest level that ran this month."""
@@ -1339,4 +1511,4 @@ class World:
                         people=round(sum(n["pop"] for n in N.values())), simulated=sum(n["agents"] for n in N.values()),
                         happiness=last[1] if last else None, fit=W.get("happy_fit"), mig_fit=W.get("mig_fit"), conflicts=last[3] if last else 0, levels=levels,
                         simulated_detail=sum(n.get("detail_agents", n["agents"]) if n.get("detail") else n["agents"] for n in N.values()),
-                        nations=nations, events=ev, county_fit=W.get("county_fit"), series=[[x[0], x[1], x[3], x[4]] for x in W["world_series"][-240:]], source=W.get("data", {}).get("source"))
+                        nations=nations, events=ev, county_fit=W.get("county_fit"), region_fit=W.get("region_fit"), series=[[x[0], x[1], x[3], x[4]] for x in W["world_series"][-240:]], source=W.get("data", {}).get("source"))
