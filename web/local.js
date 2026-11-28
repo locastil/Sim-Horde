@@ -55,7 +55,7 @@ export function addLocal(world, tier) {
   const tex = dotTexture();
   let real = 0, osm = null;                                  // how far the real streets (osm.js) have taken over
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  let cities = [], buckets = new Map(), roads = null, inter = null, ready = false, t = 0, lastScale = "";
+  let cities = [], buckets = new Map(), ready = false, t = 0, lastScale = "";
   const cells = new Map();                                   // "L:i:j" -> generated dots, kept while nearby
   const levels = new Map();                                  // L -> { key, pPts, cPts, meta }
 
@@ -79,30 +79,6 @@ export function addLocal(world, tier) {
     }
     for (const lv of levels.values()) drop(lv);
     levels.clear(); ready = cities.length > 0;
-    // highways: each city to its nearest neighbours, so the roads join up between towns
-    if (roads) { group.remove(roads); roads.geometry.dispose(); roads.material.dispose(); roads = null; }
-    const seen = new Set(), hp = [], hc = [];
-    for (const c of cities) {
-      const ns = near(c.lon, c.lat, 300).filter((o) => o !== c).map((o) => [o, Math.hypot((o.lon - c.lon) * KX * Math.cos(c.lat * D), (o.lat - c.lat) * KY)])
-        .filter(([, d]) => d < 300).sort((a, b) => a[1] - b[1]).slice(0, 3);
-      for (const [o, d] of ns) {
-        const key = c.id < o.id ? c.id + ":" + o.id : o.id + ":" + c.id; if (seen.has(key)) continue; seen.add(key);
-        const mlo = (c.lon + o.lon) / 2, mla = (c.lat + o.lat) / 2; if (!c.land(mlo, mla) && !o.land(mlo, mla)) continue;   // no roads across the sea
-        const n = Math.max(2, Math.ceil(d / 15)), w = Math.min(1, 0.45 + Math.log10((c.people + o.people) / 1e5 + 1) * 0.25);
-        let plo = c.lon, pla = c.lat;
-        for (let k = 1; k <= n; k++) {
-          const f = k / n, bend = Math.sin(f * Math.PI) * 0.06 * ((c.id ^ o.id) % 2 ? 1 : -1);    // roads aren't ruler-straight
-          const lo = c.lon + (o.lon - c.lon) * f - (o.lat - c.lat) * bend, la = c.lat + (o.lat - c.lat) * f + (o.lon - c.lon) * bend;
-          hp.push(plo, pla, lo, la); hc.push(w, w); plo = lo; pla = la;
-        }
-      }
-    }
-    const P3 = new Float32Array(hp.length / 2 * 3), C3 = new Float32Array(hp.length / 2 * 3);
-    for (let i = 0; i < hp.length / 2; i++) { put(P3, i, hp[i * 2], hp[i * 2 + 1]); const w = hc[i]; C3[i * 3] = 0.85 * w; C3[i * 3 + 1] = 0.75 * w; C3[i * 3 + 2] = 0.5 * w; }
-    const hg = new THREE.BufferGeometry(); hg.setAttribute("position", new THREE.BufferAttribute(P3, 3)); hg.setAttribute("color", new THREE.BufferAttribute(C3, 3));
-    roads = new THREE.LineSegments(hg, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, depthWrite: false }));
-    roads.frustumCulled = false; roads.renderOrder = 1; group.add(roads);
-    buildInterstates();
   }
   function near(lon, lat, km) {
     const out = [], dLat = km / KY, dLon = km / (KX * Math.max(0.15, Math.cos(lat * D)));
@@ -121,61 +97,6 @@ export function addLocal(world, tier) {
       d += w; if (w > bw) { bw = w; best = c; }
     }
     return [d, best];
-  }
-
-  // interstates: big cities joined to their nearest big neighbours, with traffic on them. They show from
-  // further out than the streets, so you can follow them in.
-  const IGROUP = new THREE.Group(); world.add(IGROUP);
-  const ICARS = { low: 3000, medium: 6000, high: 12000, epic: 20000 }[tier] || 6000;
-  function buildInterstates() {
-    if (inter) { for (const o of [inter.lines, inter.cars]) { IGROUP.remove(o); o.geometry.dispose(); o.material.dispose(); } inter = null; }
-    const big = cities.filter((c) => c.cp >= 150000), seen = new Set(), edges = [];
-    for (const c of big) {
-      const ns = big.filter((o) => o !== c && Math.abs(o.lat - c.lat) < 8 && Math.abs(o.lon - c.lon) < 12)
-        .map((o) => [o, Math.hypot((o.lon - c.lon) * KX * Math.cos(c.lat * D), (o.lat - c.lat) * KY)]).filter(([, d]) => d < 800).sort((a, b) => a[1] - b[1]).slice(0, 3);
-      for (const [o, d] of ns) {
-        const key = c.id < o.id ? c.id + ":" + o.id : o.id + ":" + c.id; if (seen.has(key)) continue; seen.add(key);
-        if (![0.25, 0.5, 0.75].every((f) => { const lo = c.lon + (o.lon - c.lon) * f, la = c.lat + (o.lat - c.lat) * f; return c.land(lo, la) || o.land(lo, la); })) continue;   // overland only
-        const n = Math.max(3, Math.ceil(d / 20)), pts = [], bend = 0.04 * ((c.id ^ o.id) & 1 ? 1 : -1);
-        for (let k = 0; k <= n; k++) { const f = k / n, b = Math.sin(f * Math.PI) * bend; pts.push(c.lon + (o.lon - c.lon) * f - (o.lat - c.lat) * b, c.lat + (o.lat - c.lat) * f + (o.lon - c.lon) * b); }
-        edges.push({ pts, n, d, w: Math.min(1, 0.5 + Math.log10((c.cp + o.cp) / 3e5 + 1) * 0.3) });
-      }
-    }
-    if (!edges.length) return;
-    const nseg = edges.reduce((a, e) => a + e.n, 0), P = new Float32Array(nseg * 6), C = new Float32Array(nseg * 6);
-    let k = 0;
-    for (const e of edges) for (let i = 0; i < e.n; i++, k++) {
-      put(P, k * 2, e.pts[i * 2], e.pts[i * 2 + 1]); put(P, k * 2 + 1, e.pts[i * 2 + 2], e.pts[i * 2 + 3]);
-      for (let q = 0; q < 2; q++) { C[k * 6 + q * 3] = 1 * e.w; C[k * 6 + q * 3 + 1] = 0.82 * e.w; C[k * 6 + q * 3 + 2] = 0.5 * e.w; }
-    }
-    const lg = new THREE.BufferGeometry(); lg.setAttribute("position", new THREE.BufferAttribute(P, 3)); lg.setAttribute("color", new THREE.BufferAttribute(C, 3));
-    const lines = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, depthWrite: false }));
-    lines.frustumCulled = false; lines.renderOrder = 1; IGROUP.add(lines);
-    // traffic: busier roads between bigger places get more cars, both ways
-    const total = edges.reduce((a, e) => a + e.d * e.w, 0), list = [];
-    for (const e of edges) {
-      const m = Math.max(2, Math.round((ICARS * e.d * e.w) / total)), r = rng(hash(e.n, Math.round(e.pts[0] * 100), Math.round(e.pts[1] * 100)));
-      for (let i = 0; i < m; i++) list.push({ e, f: r(), v: (0.25 + r() * 0.15) / e.d * (i % 2 ? 1 : -1), back: i % 2 });
-    }
-    const cg = new THREE.BufferGeometry(), cc = new Float32Array(list.length * 3);
-    list.forEach((q, i) => { if (q.back) { cc[i * 3] = 1; cc[i * 3 + 1] = 0.25; cc[i * 3 + 2] = 0.2; } else { cc[i * 3] = 1; cc[i * 3 + 1] = 0.97; cc[i * 3 + 2] = 0.88; } });
-    cg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(list.length * 3), 3)); cg.setAttribute("color", new THREE.BufferAttribute(cc, 3));
-    const cars = new THREE.Points(cg, new THREE.PointsMaterial({ size: 2.6, sizeAttenuation: false, map: tex, vertexColors: true, transparent: true, opacity: 0, depthWrite: false }));
-    cars.frustumCulled = false; cars.renderOrder = 3; IGROUP.add(cars);
-    inter = { lines, cars, list };
-  }
-  function moveInterstates(dt, alt) {
-    const op = Math.max(0, Math.min(1, (0.5 - alt) / 0.15));
-    IGROUP.visible = !!inter && op > 0.01;
-    if (!IGROUP.visible) return;
-    inter.lines.material.opacity = 0.8 * op * (1 - real); inter.cars.material.opacity = op * (1 - real);
-    const pa = inter.cars.geometry.attributes.position.array;
-    inter.list.forEach((q, i) => {
-      if (!still) q.f = ((q.f + q.v * dt) % 1 + 1) % 1;
-      const e = q.e, x = q.f * e.n, j = Math.min(e.n - 1, Math.floor(x)), u = x - j;
-      put(pa, i, e.pts[j * 2] + (e.pts[j * 2 + 2] - e.pts[j * 2]) * u, e.pts[j * 2 + 1] + (e.pts[j * 2 + 3] - e.pts[j * 2 + 1]) * u);
-    });
-    inter.cars.geometry.attributes.position.needsUpdate = true;
   }
 
   // the street grid each city's people and cars use, drawn where people actually live:
@@ -304,18 +225,16 @@ export function addLocal(world, tier) {
   // alt: camera height over the ground (earth radius = 1); width: half the view across, in km
   function update(dt, lon, lat, alt, aspect, tagEl, camera, streetBox) {
     t += dt;
+    if (!osm && ready) osm = addOSM(world, tier, { tex, density: (lo, la) => density(near(lo, la, 60), lo, la) });
+    real = osm && camera ? osm.update(dt, lon, lat, alt, aspect, camera, streetBox) : 0;   // real roads from further out; real people close up
     const on = ready && alt < 0.14;
-    moveInterstates(dt, alt);
     group.visible = on;
     if (!on) { if (tagEl && lastScale) { tagEl.hidden = true; lastScale = ""; } return 1; }
     const halfKm = alt * 6371 * Math.tan(16 * D), halfH = (halfKm * 1.35) / KY, halfW = (halfKm * aspect * 1.35) / KX;
     const f = Math.log2((360 * 3) / Math.max(1e-6, (2 * halfKm * aspect) / KX));   // continuous level: about 3 cells across
     const La = Math.floor(f), frac = f - La, show = new Set([La, La + 1]);
     for (const [L, lv] of levels) if (!show.has(L)) { drop(lv); levels.delete(L); }
-    if (!osm) osm = addOSM(world, tier, { tex, density: (lo, la) => density(near(lo, la, 60), lo, la) });
-    real = camera ? osm.update(dt, lon, lat, alt, aspect, camera, streetBox) : 0;
     const fade = Math.min(1, (0.14 - alt) / 0.05);
-    if (roads) roads.material.opacity = 0.7 * fade * (1 - real);
     let tagPpd = 1;
     for (const L of show) {
       const lv = level(L, lon, lat, halfW, halfH), op = (L === La ? 1 - frac : frac) * fade;
@@ -409,5 +328,5 @@ export function addLocal(world, tier) {
     for (let i = n; i < pool.length; i++) pool[i].hidden = true;
   }
 
-  return { setData, update, labels, dispose: () => { for (const lv of levels.values()) drop(lv); world.remove(group); world.remove(IGROUP); tex.dispose(); } };
+  return { setData, update, labels, dispose: () => { for (const lv of levels.values()) drop(lv); world.remove(group); tex.dispose(); } };
 }

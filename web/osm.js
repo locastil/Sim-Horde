@@ -1,10 +1,11 @@
-// The real streets, at the closest zoom: roads and their names from OpenStreetMap (served by OpenFreeMap),
-// drawn on the globe itself. The simulated people and cars move onto these roads; how many there are still
-// comes from the simulation (where its people live, how busy and how happy each country is).
+// The real roads, from OpenStreetMap (served by OpenFreeMap), drawn on the globe itself: motorways from far out,
+// then smaller roads as you zoom in, down to every street and its name. The simulated cars drive them, and at the
+// closest zoom the simulated people walk their pavements. How many there are comes from the simulation (where its
+// people live, how busy and how happy each country is).
 import * as THREE from "/vendor/three.min.js";
 
-const D = Math.PI / 180, Z = 14, R = 1.000035;
-const START = 0.0018, FULL = 0.0011, NAMES = 0.0009;       // camera heights (earth radius = 1)
+const D = Math.PI / 180, R = 1.000035;
+const START = 0.5, NAMES = 0.0009, PEOPLE_Z = 13;           // camera heights (earth radius = 1)
 const BUDGET = { low: [800, 120], medium: [2000, 300], high: [3500, 600], epic: [6000, 1000] };   // [people, cars] per tile
 const CLASS = {                                              // colour, cars per km, drawn width weight
   motorway: [[1, 0.78, 0.45], 9], trunk: [[1, 0.78, 0.45], 7], primary: [[0.96, 0.88, 0.68], 5], secondary: [[0.9, 0.86, 0.74], 3.5],
@@ -73,179 +74,203 @@ function decode(buf, want) {
   return layers;
 }
 
-const tileX = (lon) => ((lon + 180) / 360) * (1 << Z);
-const tileY = (lat) => ((1 - Math.log(Math.tan(lat * D) + 1 / Math.cos(lat * D)) / Math.PI) / 2) * (1 << Z);
-const lonOf = (x) => (x / (1 << Z)) * 360 - 180;
-const latOf = (y) => Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / (1 << Z)))) / D;
+
+const tileX = (lon, z) => ((lon + 180) / 360) * (1 << z);
+const tileY = (lat, z) => ((1 - Math.log(Math.tan(lat * D) + 1 / Math.cos(lat * D)) / Math.PI) / 2) * (1 << z);
+const lonOf = (x, z) => (x / (1 << z)) * 360 - 180;
+const latOf = (y, z) => Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / (1 << z)))) / D;
 function put(arr, i, lon, lat) {
   const phi = (lon + 180) * D, la = lat * D, c = Math.cos(la);
   arr[i * 3] = -Math.cos(phi) * c * R; arr[i * 3 + 1] = Math.sin(la) * R; arr[i * 3 + 2] = Math.sin(phi) * c * R;
 }
 function rng(a) { return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+// a point s km along a road, and its direction; i is a hint for where to start looking
+function at(rd, s, i = 1) {
+  const c = rd.cum; i = Math.max(1, Math.min(c.length - 1, i));
+  while (i < c.length - 1 && c[i] < s) i++;
+  while (i > 1 && c[i - 1] > s) i--;
+  const f = (s - c[i - 1]) / Math.max(1e-9, c[i] - c[i - 1]), p = rd.pts, a = (i - 1) * 2, b = i * 2;
+  return [p[a] + (p[b] - p[a]) * f, p[a + 1] + (p[b + 1] - p[a + 1]) * f, (p[b] - p[a]) * Math.cos(p[a + 1] * D), p[b + 1] - p[a + 1], i];
+}
 
 // sim: { density(lon, lat) -> [people per km², nearest city {mood, war}], tex }
 export function addOSM(world, tier, sim) {
   const group = new THREE.Group(); world.add(group);
   const [PB, CB] = BUDGET[tier] || BUDGET.medium;
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const lineMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, depthWrite: false });
-  const peopleMat = new THREE.PointsMaterial({ size: 3.0, sizeAttenuation: false, map: sim.tex, vertexColors: true, transparent: true, opacity: 0, depthWrite: false });
-  const carMat = new THREE.PointsMaterial({ size: 3.8, sizeAttenuation: false, map: sim.tex, vertexColors: true, transparent: true, opacity: 0, depthWrite: false });
-  let template = null, t = 0, credit = null;
-  const tiles = new Map();                                   // "x:y" -> { state, roads, names, objs }
-  window.simhordeStreets = () => [...tiles.values()].map((T) => [T.state, T.walkers && T.walkers.length, T.drivers && T.drivers.length, T.ppd, T.used === t, T.objs && [...T.objs[1].geometry.attributes.position.array.slice(0, 3)], T.objs && T.objs[1].visible, peopleMat.opacity, group.visible, T.walkers && T.walkers[0]]);   // for checking
+  const mats = new Map();                                    // zoom level -> its materials and how faded in it is
+  const matsFor = (z) => {
+    if (!mats.has(z)) mats.set(z, { op: 0,
+      line: new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, depthWrite: false }),
+      people: new THREE.PointsMaterial({ size: 3.0, sizeAttenuation: false, map: sim.tex, vertexColors: true, transparent: true, opacity: 0, depthWrite: false }),
+      car: new THREE.PointsMaterial({ size: z >= 12 ? 3.8 : 3.0, sizeAttenuation: false, map: sim.tex, vertexColors: true, transparent: true, opacity: 0, depthWrite: false }) });
+    return mats.get(z);
+  };
+  let template = null, t = 0, credit = null, shown = null;   // shown: the zoom level whose tiles are all in
+  const tiles = new Map();                                   // "z:x:y" -> { state, objs, ... }
+  window.simhordeStreets = () => [...tiles.values()].map((T) => [T.z, T.state, T.walkers && T.walkers.length, T.drivers && T.drivers.length]);   // for checking
   fetch("https://tiles.openfreemap.org/planet").then((r) => r.json()).then((j) => (template = j.tiles[0])).catch(() => {});
 
-  function load(x, y) {
-    const key = x + ":" + y, T = { state: "loading", used: t };
-    tiles.set(key, T);
-    fetch(template.replace("{z}", Z).replace("{x}", x).replace("{y}", y)).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject()))
-      .then((ab) => build(T, x, y, decode(new Uint8Array(ab), ["transportation", "transportation_name"])))
+  function load(z, x, y) {
+    const T = { z, state: "loading", used: t };
+    tiles.set(z + ":" + x + ":" + y, T);
+    const n = 1 << z, xx = ((x % n) + n) % n;
+    fetch(template.replace("{z}", z).replace("{x}", xx).replace("{y}", y)).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject()))
+      .then((ab) => build(T, z, x, y, decode(new Uint8Array(ab), z >= 14 ? ["transportation", "transportation_name"] : ["transportation"])))
       .catch(() => { T.state = "failed"; });
   }
-  const LL = (x, y, u, v) => [lonOf(x + u), latOf(y + v)];
 
-  function build(T, x, y, L) {
-    const segs = [], rgb = [], cand = [], roads = [];
+  function build(T, z, x, y, L) {
+    const M = matsFor(z), LL = (u, v) => [lonOf(x + u, z), latOf(y + v, z)];
+    const segs = [], rgb = [], roads = [];
     let totalLen = 0;
     for (const f of L.transportation || []) {
       const cls = f.props.class, C = CLASS[cls];
       if (!C || f.props.brunnel === "tunnel") continue;
       for (const line of f.lines) {
-        const pts = []; for (let i = 0; i < line.length; i += 2) pts.push(...LL(x, y, line[i], line[i + 1]));
+        const pts = []; for (let i = 0; i < line.length; i += 2) pts.push(...LL(line[i], line[i + 1]));
         let len = 0; const cum = [0];
         for (let i = 2; i < pts.length; i += 2) {
-          const dx = (pts[i] - pts[i - 2]) * 111.32 * Math.cos(pts[i + 1] * D), dy = (pts[i + 1] - pts[i - 1]) * 110.57, d = Math.hypot(dx, dy);
-          len += d; cum.push(len);
+          len += Math.hypot((pts[i] - pts[i - 2]) * 111.32 * Math.cos(pts[i + 1] * D), (pts[i + 1] - pts[i - 1]) * 110.57); cum.push(len);
           segs.push(pts[i - 2], pts[i - 1], pts[i], pts[i + 1]); rgb.push(C[0]);
         }
         if (len <= 0) continue;
-        roads.push({ pts, cum, len, cls, cars: C[1] });
-        totalLen += len;
+        roads.push({ pts, cum, len, cls, cars: C[1] }); totalLen += len;
       }
     }
-    // the lines
     const P = new Float32Array(segs.length / 4 * 6), Cc = new Float32Array(segs.length / 4 * 6);
     for (let k = 0; k < segs.length / 4; k++) {
       put(P, k * 2, segs[k * 4], segs[k * 4 + 1]); put(P, k * 2 + 1, segs[k * 4 + 2], segs[k * 4 + 3]);
-      const c = rgb[k]; Cc.set(c, k * 6); Cc.set(c, k * 6 + 3);
+      Cc.set(rgb[k], k * 6); Cc.set(rgb[k], k * 6 + 3);
     }
     const lg = new THREE.BufferGeometry(); lg.setAttribute("position", new THREE.BufferAttribute(P, 3)); lg.setAttribute("color", new THREE.BufferAttribute(Cc, 3));
-    const lines = new THREE.LineSegments(lg, lineMat); lines.frustumCulled = false; lines.renderOrder = 1;
+    const lines = new THREE.LineSegments(lg, M.line); lines.frustumCulled = false; lines.renderOrder = 1;
 
-    // people on the pavements: as many as the simulation puts here, weighted toward the busier streets
-    const rnd = rng(x * 92821 + y * 68917), lon0 = lonOf(x), lat0 = latOf(y + 1), lon1 = lonOf(x + 1), lat1 = latOf(y);
-    const area = (lon1 - lon0) * 111.32 * Math.cos(((lat0 + lat1) / 2) * D) * (lat1 - lat0) * 110.57;
-    let dsum = 0, dmax = 1; for (let a = 0; a < 4; a++) for (let b = 0; b < 4; b++) { const dd = sim.density(lon0 + (a + 0.5) * (lon1 - lon0) / 4, lat0 + (b + 0.5) * (lat1 - lat0) / 4)[0]; dsum += dd; dmax = Math.max(dmax, dd); }
-    const people = (dsum / 16) * area, ppd = Math.max(1, Math.ceil(people / PB));
+    const rnd = rng(z * 7919 + x * 92821 + y * 68917), lon0 = lonOf(x, z), lat0 = latOf(y + 1, z), lon1 = lonOf(x + 1, z), lat1 = latOf(y, z);
     const walkers = [], drivers = [];
-    if (roads.length) {
-      const nP = Math.min(PB, Math.round(people / ppd)), pick = () => {   // a road chosen by its length
-        let r = rnd() * totalLen; for (const rd of roads) { if ((r -= rd.len) <= 0) return rd; } return roads[roads.length - 1];
-      };
+    let ppd = null;
+    // people on the pavements, close up only: as many as the simulation puts here
+    if (z >= PEOPLE_Z && roads.length) {
+      const area = (lon1 - lon0) * 111.32 * Math.cos(((lat0 + lat1) / 2) * D) * (lat1 - lat0) * 110.57;
+      let dsum = 0, dmax = 1;
+      for (let a = 0; a < 4; a++) for (let b = 0; b < 4; b++) { const dd = sim.density(lon0 + (a + 0.5) * (lon1 - lon0) / 4, lat0 + (b + 0.5) * (lat1 - lat0) / 4)[0]; dsum += dd; dmax = Math.max(dmax, dd); }
+      const people = (dsum / 16) * area; ppd = Math.max(1, Math.ceil(people / PB));
+      const nP = Math.min(PB, Math.round(people / ppd)), pick = () => { let r = rnd() * totalLen; for (const rd of roads) if ((r -= rd.len) <= 0) return rd; return roads[roads.length - 1]; };
       for (let n = 0, tries = 0; n < nP && tries < nP * 6; tries++) {
         const rd = pick(); if (rd.cls === "motorway" || rd.cls === "trunk") continue;
-        const s = rnd() * rd.len, [lo, la, dx, dy] = at(rd, s), [d, ct] = sim.density(lo, la);
-        if (!ct || rnd() * (dmax * 1.3 + 50) > d + 50) continue;   // more people where more of the simulation's people live
-        const side = (rnd() < 0.5 ? -1 : 1) * 0.009, nl = Math.hypot(dx, dy) || 1;
-        const b = (0.7 + 0.3 * rnd()) * (ct.war ? 0.45 : 1);
+        const [lo, la, dx, dy] = at(rd, rnd() * rd.len), [d, ct] = sim.density(lo, la);
+        if (!ct || rnd() * (dmax * 1.3 + 50) > d + 50) continue;
+        const side = (rnd() < 0.5 ? -1 : 1) * 0.009, nl = Math.hypot(dx, dy) || 1, b = (0.7 + 0.3 * rnd()) * (ct.war ? 0.45 : 1);
         walkers.push({ lo: lo - (dy / nl) * side / (111.32 * Math.cos(la * D)), la: la + (dx / nl) * side / 110.57, dx: dx / nl, dy: dy / nl, ph: rnd() * 6.28, sp: 0.3 + rnd(), c: ct.mood.map((v) => v * b) });
         n++;
       }
-      // cars: more on the bigger roads, fewer where there's fighting
-      const carLen = roads.reduce((a, rd) => a + rd.len * rd.cars, 0);
-      for (const rd of roads) {
-        if (!rd.cars) continue;
-        const mid = at(rd, rd.len / 2), [, ct] = sim.density(mid[0], mid[1]);
-        const m = Math.round((CB * rd.len * rd.cars) / Math.max(1, carLen) * (ct && ct.war ? 0.3 : 1) + rnd() * 0.8);
-        for (let i = 0; i < m; i++) drivers.push({ rd, s: rnd() * rd.len, v: (rd.cars > 4 ? 0.09 : 0.05) * (0.7 + rnd() * 0.6) * (i % 2 ? -1 : 1), tail: i % 2 });
-      }
+    }
+    // cars on every zoom: more on the bigger roads and where more people live, fewer where there's fighting
+    if (roads.length) {
+      const weight = roads.map((rd) => { if (!rd.cars) return 0; const m = at(rd, rd.len / 2), [d, ct] = sim.density(m[0], m[1]); rd.war = ct && ct.war; return rd.len * rd.cars * (0.3 + Math.min(1, Math.sqrt(d / 800))) * (rd.war ? 0.3 : 1); });
+      const wsum = weight.reduce((a, b) => a + b, 0) || 1, spd = z >= 12 ? 1 : Math.pow(2, 12 - z) * 0.6;   // faster when far out, so you can see them move
+      roads.forEach((rd, k) => {
+        const m = Math.floor((CB * weight[k]) / wsum + rnd());
+        for (let i = 0; i < m; i++) drivers.push({ rd, s: rnd() * rd.len, i: 1, v: (rd.cars > 4 ? 0.09 : 0.05) * spd * (0.7 + rnd() * 0.6) * (i % 2 ? -1 : 1), tail: i % 2 });
+      });
     }
     const pg = new THREE.BufferGeometry(), pc = new Float32Array(walkers.length * 3);
     walkers.forEach((w, i) => pc.set(w.c, i * 3));
     pg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(walkers.length * 3), 3)); pg.setAttribute("color", new THREE.BufferAttribute(pc, 3));
-    const ppts = new THREE.Points(pg, peopleMat); ppts.frustumCulled = false; ppts.renderOrder = 2;
+    const ppts = new THREE.Points(pg, M.people); ppts.frustumCulled = false; ppts.renderOrder = 2;
     const cg = new THREE.BufferGeometry();
     cg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(drivers.length * 3), 3)); cg.setAttribute("color", new THREE.BufferAttribute(new Float32Array(drivers.length * 3), 3));
-    const cpts = new THREE.Points(cg, carMat); cpts.frustumCulled = false; cpts.renderOrder = 3;
+    const cpts = new THREE.Points(cg, M.car); cpts.frustumCulled = false; cpts.renderOrder = 3;
 
-    // street names: one label per named street, at the middle of its longest piece
+    // street names, closest zoom only: one label per named street, at the middle of its longest piece
     const named = new Map();
     for (const f of L.transportation_name || []) {
       const name = f.props["name:latin"] || f.props.name; if (!name || f.props.class === "path") continue;
       for (const line of f.lines) {
-        const pts = []; for (let i = 0; i < line.length; i += 2) pts.push(...LL(x, y, line[i], line[i + 1]));
+        const pts = []; for (let i = 0; i < line.length; i += 2) pts.push(...LL(line[i], line[i + 1]));
         let len = 0; for (let i = 2; i < pts.length; i += 2) len += Math.hypot((pts[i] - pts[i - 2]) * Math.cos(pts[i + 1] * D), pts[i + 1] - pts[i - 1]);
         const prev = named.get(name);
         if (!prev || prev.len < len) named.set(name, { name, pts, len, major: ["motorway", "trunk", "primary", "secondary"].includes(f.props.class) });
       }
     }
-    for (const o of [lines, ppts, cpts]) group.add(o);
-    Object.assign(T, { state: "ready", objs: [lines, ppts, cpts], walkers, drivers, names: [...named.values()].sort((a, b) => b.major - a.major || b.len - a.len), ppd });
-  }
-  // a point s km along a road, and its direction
-  function at(rd, s) {
-    const c = rd.cum; let i = 1; while (i < c.length - 1 && c[i] < s) i++;
-    const f = (s - c[i - 1]) / Math.max(1e-9, c[i] - c[i - 1]), p = rd.pts, a = (i - 1) * 2, b = i * 2;
-    const dx = (p[b] - p[a]) * Math.cos(p[a + 1] * D), dy = p[b + 1] - p[a + 1];
-    return [p[a] + (p[b] - p[a]) * f, p[a + 1] + (p[b + 1] - p[a + 1]) * f, dx, dy];
+    for (const o of [lines, ppts, cpts]) { o.visible = false; group.add(o); }
+    Object.assign(T, { state: "ready", objs: [lines, ppts, cpts], walkers, drivers, names: [...named.values()], ppd });
   }
   function drop(T) { if (T.objs) for (const o of T.objs) { group.remove(o); o.geometry.dispose(); } }
 
+  // the tile zoom that puts about five tiles across the view
+  const zoomFor = (lat, halfKm, aspect) => Math.max(5, Math.min(14, Math.floor(Math.log2((40075 * Math.cos(lat * D) * 5) / (2.5 * halfKm * Math.max(1, aspect))))));
+  function cover(z, lon, lat, halfKm, aspect) {
+    const dLat = (halfKm * 1.25) / 110.57, dLon = (halfKm * aspect * 1.25) / (111.32 * Math.max(0.1, Math.cos(lat * D)));
+    const x0 = Math.floor(tileX(lon - dLon, z)), x1 = Math.floor(tileX(lon + dLon, z));
+    const y0 = Math.max(0, Math.floor(tileY(Math.min(85, lat + dLat), z))), y1 = Math.min((1 << z) - 1, Math.floor(tileY(Math.max(-85, lat - dLat), z)));
+    const out = [];
+    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) if (out.length < 40) out.push([x, y]);
+    return out;
+  }
+
   const v = new THREE.Vector3(), v2 = new THREE.Vector3(), pool = [];
-  // returns how far the real streets have taken over from the simulated grid (0 to 1)
+  // returns how far the real people have taken over from the simulated dots (0 to 1)
   function update(dt, lon, lat, alt, aspect, camera, box) {
     t += dt;
-    const want = Math.max(0, Math.min(1, (START - alt) / (START - FULL)));
-    group.visible = want > 0;
-    if (want <= 0 || !template) { if (box) box.hidden = true; return 0; }
-    const halfKm = alt * 6371 * Math.tan(16 * D), dLat = (halfKm * 1.25) / 110.57, dLon = (halfKm * aspect * 1.25) / (111.32 * Math.cos(lat * D));
-    const x0 = Math.floor(tileX(lon - dLon)), x1 = Math.floor(tileX(lon + dLon)), y0 = Math.floor(tileY(lat + dLat)), y1 = Math.floor(tileY(lat - dLat));
-    let need = 0, have = 0;
-    const visible = [];
-    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) {
-      if (need > 30) break;
-      const key = x + ":" + y; need++;
-      let T = tiles.get(key); if (!T) { load(x, y); T = tiles.get(key); }
-      T.used = t; if (T.state !== "loading") have++;
-      if (T.state === "ready") visible.push(T);
+    const on = alt < START && template;
+    group.visible = !!on;
+    if (!on) { if (box) box.hidden = true; return 0; }
+    const halfKm = alt * 6371 * Math.tan(16 * D), z = zoomFor(lat, halfKm, aspect);
+    // load this zoom's tiles; keep showing the last complete zoom until they're all in, then fade across
+    const need = cover(z, lon, lat, halfKm, aspect);
+    let ready = 0;
+    for (const [x, y] of need) { const k = z + ":" + x + ":" + y; let T = tiles.get(k); if (!T) { load(z, x, y); T = tiles.get(k); } T.used = t; if (T.state !== "loading") ready++; }
+    if (ready === need.length) shown = z;
+    const keep = shown != null && shown !== z ? cover(shown, lon, lat, halfKm, aspect) : [];
+    for (const [x, y] of keep) { const T = tiles.get(shown + ":" + x + ":" + y); if (T) T.used = t; }
+    const fadeIn = Math.min(1, (START - alt) / (START * 0.3));
+    for (const [zz, M] of mats) {
+      M.op += ((zz === shown ? 1 : 0) - M.op) * Math.min(1, dt * 4);
+      const o = M.op * fadeIn; M.line.opacity = 0.85 * o; M.people.opacity = 0.95 * o; M.car.opacity = o;
     }
-    if (tiles.size > 80) for (const [k, T] of [...tiles].sort((a, b) => a[1].used - b[1].used).slice(0, tiles.size - 60)) { drop(T); tiles.delete(k); }
-    for (const T of tiles.values()) if (T.objs) { const on = T.used === t; for (const o of T.objs) o.visible = on; }
-    const op = want * (need ? have / need : 0);
-    lineMat.opacity = 0.9 * op; peopleMat.opacity = 0.95 * op; carMat.opacity = op;
+    if (tiles.size > 150) for (const [k, T] of [...tiles].sort((a, b) => a[1].used - b[1].used).slice(0, tiles.size - 110)) { drop(T); tiles.delete(k); }
 
-    for (const T of visible) {
-      const pa = T.objs[1].geometry.attributes.position.array;
-      T.walkers.forEach((w, i) => {
-        const r = still ? 0 : 0.006 * Math.sin(t * 0.35 * w.sp + w.ph);
-        put(pa, i, w.lo + (w.dx * r) / (111.32 * Math.cos(w.la * D)), w.la + (w.dy * r) / 110.57);
-      });
-      T.objs[1].geometry.attributes.position.needsUpdate = true;
+    const live = [];
+    for (const T of tiles.values()) {
+      if (!T.objs) continue;
+      const op = matsFor(T.z).op, vis = T.used === t && op > 0.01;
+      for (const o of T.objs) o.visible = vis;
+      if (vis) live.push(T);
+    }
+    for (const T of live) {
+      if (T.walkers.length) {
+        const pa = T.objs[1].geometry.attributes.position.array;
+        T.walkers.forEach((w, i) => { const r = still ? 0 : 0.006 * Math.sin(t * 0.35 * w.sp + w.ph); put(pa, i, w.lo + (w.dx * r) / (111.32 * Math.cos(w.la * D)), w.la + (w.dy * r) / 110.57); });
+        T.objs[1].geometry.attributes.position.needsUpdate = true;
+      }
       const ca = T.objs[2].geometry.attributes.position.array, cc = T.objs[2].geometry.attributes.color.array;
       T.drivers.forEach((q, i) => {
-        if (!still) q.s = ((q.s + q.v * dt) % q.rd.len + q.rd.len) % q.rd.len;
-        const [lo, la] = at(q.rd, q.s), g = Math.min(1, Math.sin((q.s / q.rd.len) * Math.PI) * 4);   // fade where the road ends
-        put(ca, i, lo, la);
+        if (!still) { q.s += q.v * dt; if (q.s > q.rd.len) { q.s -= q.rd.len; q.i = 1; } else if (q.s < 0) { q.s += q.rd.len; q.i = q.rd.cum.length - 1; } }
+        const p = at(q.rd, q.s, q.i); q.i = p[4];
+        const g = Math.min(1, Math.sin((q.s / q.rd.len) * Math.PI) * 4);   // fade where the road ends
+        put(ca, i, p[0], p[1]);
         if (q.tail) { cc[i * 3] = g; cc[i * 3 + 1] = 0.25 * g; cc[i * 3 + 2] = 0.2 * g; } else { cc[i * 3] = g; cc[i * 3 + 1] = 0.97 * g; cc[i * 3 + 2] = 0.88 * g; }
       });
       T.objs[2].geometry.attributes.position.needsUpdate = T.objs[2].geometry.attributes.color.needsUpdate = true;
     }
 
     // street names along the streets, the bigger roads first, never on top of each other
+    const close = live.filter((T) => T.z >= 14);
     if (box) {
-      const nop = Math.max(0, Math.min(1, (NAMES - alt) / 0.0002)) * op;
-      box.hidden = nop <= 0.01;
-      if (!credit) { credit = document.createElement("i"); credit.className = "credit"; credit.textContent = "Streets: © OpenStreetMap contributors, OpenFreeMap"; box.appendChild(credit); }
-      if (!box.hidden) {
-        box.style.opacity = nop;
+      const nop = Math.max(0, Math.min(1, (NAMES - alt) / 0.0002)) * (mats.get(14) ? mats.get(14).op : 0);
+      if (!credit) { credit = document.createElement("i"); credit.className = "credit"; credit.textContent = "Roads: © OpenStreetMap contributors, OpenFreeMap"; box.appendChild(credit); }
+      box.hidden = false;
+      for (const el of pool) el.hidden = true;
+      box.style.opacity = 1;
+      if (nop > 0.01) {
         const W = box.clientWidth, H = box.clientHeight, taken = [];
         let n = 0;
-        const all = visible.flatMap((T) => T.names).sort((a, b) => b.major - a.major || b.len - a.len), done = new Set();
+        const all = close.flatMap((T) => T.names).sort((a, b) => b.major - a.major || b.len - a.len), done = new Set();
+        const project = (lo, la, out) => { const a = new Float32Array(3); put(a, 0, lo, la); out.set(a[0], a[1], a[2]); world.localToWorld(out); out.project(camera); return [(out.x + 1) / 2 * W, (1 - out.y) / 2 * H]; };
         for (const s of all) {
           if (n >= 70) break; if (done.has(s.name)) continue;
           const m = Math.floor(s.pts.length / 4) * 2, j = Math.min(s.pts.length - 2, m + 2);
-          const project = (lo, la, out) => { const a = new Float32Array(3); put(a, 0, lo, la); out.set(a[0], a[1], a[2]); world.localToWorld(out); out.project(camera); return [(out.x + 1) / 2 * W, (1 - out.y) / 2 * H]; };
           const [ax, ay] = project(s.pts[m], s.pts[m + 1], v), [bx, by] = project(s.pts[j], s.pts[j + 1], v2);
           const x = (ax + bx) / 2, y = (ay + by) / 2;
           if (x < 0 || x > W || y < 0 || y > H) continue;
@@ -255,14 +280,14 @@ export function addOSM(world, tier, sim) {
           taken.push([x, y, bw, bh]); done.add(s.name);
           let el = pool[n]; if (!el) { el = document.createElement("span"); box.appendChild(el); pool.push(el); }
           if (el.textContent !== s.name) el.textContent = s.name;
-          el.className = s.major ? "major" : "";
+          el.className = s.major ? "major" : ""; el.style.opacity = nop;
           el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%) rotate(${ang.toFixed(1)}deg)`; el.hidden = false;
           n++;
         }
-        for (let i = n; i < pool.length; i++) pool[i].hidden = true;
       }
     }
-    return op;
+    let take = 0; for (const [zz, M] of mats) if (zz >= PEOPLE_Z) take += M.op;
+    return Math.min(1, take) * fadeIn;
   }
-  return { update, scale: () => { const T = [...tiles.values()].find((T) => T.used === t && T.state === "ready"); return T ? T.ppd : null; } };
+  return { update, scale: () => { const T = [...tiles.values()].find((T) => T.used === t && T.ppd); return T ? T.ppd : null; } };
 }
