@@ -579,7 +579,7 @@ export function mountGlobe(root, opts = {}) {
     EMBF: "FARC dissidents (EMBF)", "FARC-EMC": "FARC dissidents (EMC)", ELN: "National Liberation Army (ELN)",
     PIJ: "Palestinian Islamic Jihad", PRC: "Popular Resistance Committees", KIO: "Kachin Independence Organisation",
     KNPP: "Karenni National Progressive Party", KNU: "Karen National Union", NUG: "National Unity Government",
-    ULA: "Arakan Army (ULA)", PSLF: "Ta'ang rebels (PSLF)", "Forces of the Presidential Leadership Council": "the government's own allied forces",
+    ULA: "Arakan Army (ULA)", PSLF: "Ta'ang rebels (PSLF)", "Forces of the Presidential Leadership Council": "Presidential Leadership Council forces",
   };
   function conflictText(n) {
     const list = (xs) => (xs.length < 2 ? xs.join("") : xs.slice(0, -1).join(", ") + " and " + xs[xs.length - 1]);
