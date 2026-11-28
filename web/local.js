@@ -5,6 +5,7 @@
 // It's an illustration of the simulation: where its people live, how happy they are, how busy the roads are.
 import * as THREE from "/vendor/three.min.js";
 import { addOSM } from "/osm.js";
+import { townPlaces, loadTowns } from "/people.js";
 
 const D = Math.PI / 180, KX = 111.32, KY = 110.57, R = 1.00003;
 const BUDGET = { low: [6000, 900], medium: [14000, 2000], high: [30000, 4000], epic: [50000, 7000] };   // [people, cars] per level
@@ -63,25 +64,26 @@ export function addLocal(world, tier) {
   const cells = new Map();                                   // "L:i:j" -> generated dots, kept while nearby
   const levels = new Map();                                  // L -> { key, pPts, cPts, meta }
 
-  // every city stands for its share of its country's people: a dense core and a wide spread of suburbs and towns
-  function setData({ globe, cities: C, shapes, base }) {
+  // where the people are: the same places the far-off lights come from (people.js), every town of 5,000+ with
+  // its share of its country's people, so the glow from space splits into these same people close up
+  let lastData = null;
+  function setData(d) {
+    lastData = d;
+    const { globe, base } = d;
     const iso = {}; for (const n of (base && base.nations) || []) iso[String(Number(n.num))] = n.c;
-    const G = (globe && globe.nations) || {}, list = (C && C.cities) || {};
+    const G = (globe && globe.nations) || {};
+    const { places } = townPlaces(d);
+    if (!places.some((p) => p.town)) loadTowns().then(() => { if (lastData === d) setData(d); });
     cities = []; buckets = new Map(); cells.clear();
-    const lands = new Map();
-    for (const [num, rows] of Object.entries(list)) {
-      const g = G[num] || {}, csum = rows.reduce((a, c) => a + c[3], 0) || 1, pop = g.pop || csum * 3;
-      if (!lands.has(num)) lands.set(num, landTest(shapes && shapes.get(num)));
-      rows.forEach(([name, lat, lon, cp], k) => {
-        const people = pop * (cp / csum);
-        const s2 = 8 + Math.sqrt(people / 1000) * 0.7, s1 = Math.max(1.5, 1 + Math.sqrt(cp / 1000) * 0.18);
-        const c = { name, iso: iso[String(Number(num))], lon, lat, people, cp, s1, s2, mood: moodColor(g.happiness), war: !!g.conflict, protest: !!g.protests,
-                    land: lands.get(num), angle: (hash(+num, k, 7) >>> 0) / 4294967296 * Math.PI / 2, id: hash(+num, k, 1) };
-        cities.push(c);
-        const bk = Math.floor(lon / 5) + ":" + Math.floor(lat / 5);
-        if (!buckets.has(bk)) buckets.set(bk, []); buckets.get(bk).push(c);
-      });
-    }
+    places.forEach((p, k) => {
+      const g = G[p.num] || {}, reach = p.spread * 1.6 * KY;          // km: how far out the lights for this place go
+      const c = { name: "", iso: iso[String(Number(p.num))], lon: p.lon, lat: p.lat, people: p.people, cp: p.cp,
+                  s1: Math.max(1.2, reach * 0.12), s2: Math.max(3, reach * 0.42), mood: p.mood, war: p.war, protest: !!g.protests,
+                  land: p.land, angle: (hash(+p.num, k, 7) >>> 0) / 4294967296 * Math.PI / 2, id: hash(+p.num, k, 1) };
+      cities.push(c);
+      const bk = Math.floor(c.lon / 5) + ":" + Math.floor(c.lat / 5);
+      if (!buckets.has(bk)) buckets.set(bk, []); buckets.get(bk).push(c);
+    });
     for (const lv of levels.values()) drop(lv);
     levels.clear(); ready = cities.length > 0;
   }
@@ -230,7 +232,7 @@ export function addLocal(world, tier) {
   // alt: camera height over the ground (earth radius = 1); width: half the view across, in km
   function update(dt, lon, lat, alt, aspect, tagEl, camera, streetBox) {
     t += dt;
-    if (!osm && ready) osm = addOSM(world, tier, { tex, vehicles: (ct) => (ct && VEH[ct.iso]) || null, near, densityIn: density, density: (lo, la) => density(near(lo, la, 60), lo, la) });
+    if (!osm && ready) osm = addOSM(world, tier, { tex, vehicles: (ct) => (ct && VEH[ct.iso]) || null, near, densityIn: density, density: (lo, la) => density(near(lo, la, 150), lo, la) });
     real = osm && camera ? osm.update(dt, lon, lat, alt, aspect, camera, streetBox) : 0;   // real roads from further out; real people close up
     const on = ready && alt < 0.14;
     group.visible = on;
@@ -241,7 +243,8 @@ export function addLocal(world, tier) {
     for (const [L, lv] of levels) if (!show.has(L)) { drop(lv); levels.delete(L); }
     const fade = Math.min(1, (0.14 - alt) / 0.05);
     let tagPpd = 1;
-    for (const L of show) {
+    if (osm) for (const [L, lv] of levels) { drop(lv); levels.delete(L); }     // with the real map, only its people are drawn
+    for (const L of (osm ? [] : show)) {
       const lv = level(L, lon, lat, halfW, halfH), op = (L === La ? 1 - frac : frac) * fade;
       const syn = osm ? 0 : 1 - real;   // the map-based people (osm.js) are the only close-up people, so nothing swaps in between lv.pPts.material.opacity = 0.95 * op * syn; lv.cPts.material.opacity = op * syn; lv.rLines.material.opacity = 0.75 * op * syn; lv.rLines.visible = op * syn > 0.01;
       lv.pPts.visible = lv.cPts.visible = op * syn > 0.01;

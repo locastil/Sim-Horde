@@ -192,8 +192,13 @@ export function addOSM(world, tier, sim) {
       const nP = Math.min(PB, Math.round(people / ppd)), nOut = Math.round(nP * outShare);
       const pick = () => { let r = rnd() * totalLen; for (const rd of roads) if ((r -= rd.len) <= 0) return rd; return roads[roads.length - 1]; };
       const inBuildings = (L.building || []).length > 20, maskShare = homes.length / 65536;
-      const cs = sim.near((lon0 + lon1) / 2, (lat0 + lat1) / 2, Math.hypot(lon1 - lon0, lat1 - lat0) * 60 + 60);   // the cities near this tile, looked up once
-      const keep = (lo, la) => { const [d, ct] = sim.densityIn(cs, lo, la); return ct && ct.land(lo, la) && rnd() * (dmax * 1.3 + 50) <= d + 50 ? ct : null; };
+      // the towns whose people reach this tile, looked up once
+      const cLon = (lon0 + lon1) / 2, cLat = (lat0 + lat1) / 2, half = Math.hypot((lon1 - lon0) * 111.32 * Math.cos(cLat * D), (lat1 - lat0) * 110.57) / 2;
+      const cs = sim.near(cLon, cLat, half + 160).filter((c) => Math.hypot((c.lon - cLon) * 111.32 * Math.cos(cLat * D), (c.lat - cLat) * 110.57) < half + 3 * c.s2);
+      // far out, follow the towns' people exactly (as the lights from space do); close up, where the map marks
+      // homes, a little of everyone everywhere on top, since the map already says where homes are
+      const floor = z < 9 ? 0 : 50;
+      const keep = (lo, la) => { const [d, ct] = sim.densityIn(cs, lo, la); return ct && ct.land(lo, la) && rnd() * (dmax * 1.1 + floor) <= d + floor ? ct : null; };
       const cellOf = (lo, la) => { const u = tileX(lo, z) - x, v = tileY(la, z) - y; return Math.min(255, (v * 256) | 0) * 256 + Math.min(255, (u * 256) | 0); };
       let outCount = 0;
       const add = (w, home) => { w.home = home; if (!home) outCount++; walkers.push(w); };
@@ -209,7 +214,10 @@ export function addOSM(world, tier, sim) {
       for (let tries = 0; walkers.length < nP && tries < nP * 10; tries++) {
         const home = outCount >= nOut;
         let lo, la, dx = 0, dy = 0, ct;
-        if (home && homes.length && (inBuildings || rnd() < Math.min(1, maskShare / 0.25))) {   // a home in a building or residential area
+        if (home && z < 9) {                                 // far out: wherever the simulation's people live, like the lights from space
+          lo = lonOf(x + rnd(), z); la = latOf(y + rnd(), z);
+          if (!(ct = keep(lo, la))) continue;
+        } else if (home && homes.length && (inBuildings || rnd() < Math.min(1, maskShare / 0.25))) {   // a home in a building or residential area
           const c = homes[(rnd() * homes.length) | 0], u = ((c & 255) + rnd()) / 256, v = ((c >> 8) + rnd()) / 256;
           lo = lonOf(x + u, z); la = latOf(y + v, z);
           if (!(ct = keep(lo, la))) continue;
@@ -219,9 +227,6 @@ export function addOSM(world, tier, sim) {
           if (!(ct = keep(lo, la))) continue;
           const side = (rnd() < 0.5 ? -1 : 1) * (home ? 0.02 + rnd() * 0.05 : 0.009), nl = Math.hypot(dx, dy) || 1;
           dx /= nl; dy /= nl; lo -= (dy * side) / (111.32 * Math.cos(la * D)); la += (dx * side) / 110.57;
-        } else if (home && z < 9) {                          // far out, no map detail yet: wherever the simulation's people live
-          lo = lonOf(x + rnd(), z); la = latOf(y + rnd(), z);
-          if (!(ct = keep(lo, la))) continue;
         } else continue;
         add({ lo, la, dx, dy, ph: rnd() * 6.28, sp: home ? 0 : 0.3 + rnd(), r: rnd(), m: ct.mood, war: ct.war }, home);
       }

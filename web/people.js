@@ -57,9 +57,79 @@ function glowTexture() {
 
 // every town of 5,000+ (the same list the close-up names come from), fetched once and shared
 let TOWNS = null, townsP = null;
-function loadTowns() {
+export function loadTowns() {
   if (!townsP) townsP = fetch("/geo/towns.json").then((r) => r.json()).then((j) => (TOWNS = j.towns)).catch(() => null);
   return townsP;
+}
+
+// Where every country's people live, as places with a share of its people each: every town of 5,000+ when
+// the towns are in (each takes its country's people in proportion to its size, and the countryside around
+// it), otherwise the country's main cities. The far-off lights (here) and the close-up people (local.js,
+// osm.js) both use this list, so zooming in splits the same glow into the same people.
+const placesMemo = new WeakMap();
+export function townPlaces(d) {
+  const key = d.globe || d;
+  const hit = placesMemo.get(key);
+  if (hit && hit.towns === !!TOWNS && hit.cities === d.cities) return hit.v;
+  const { globe, cities, shapes } = d;
+  const G = (globe && globe.nations) || {}, C = (cities && cities.cities) || {};
+  const places = [];
+  let total = 0;
+  // with the towns in: each town takes its country's people in proportion to its size (and the countryside
+  // around it). A town belongs to the country of the nearest listed city whose land it's on.
+  const townBased = new Set();
+  if (TOWNS) {
+    // which country a town is in: the countries whose outline box holds it, smallest first, tested against
+    // the outline itself; places with no outline (small territories) go to the nearest listed city's country
+    const boxes = [], near = [];
+    for (const [num, list] of Object.entries(C)) {
+      const rings = shapes && shapes.get(num), L = landTest(rings);
+      if (L) {
+        let a = 180, b = -180, c = 90, e = -90;
+        for (const r of rings) for (let i = 0; i < r.length; i += 2) { a = Math.min(a, r[i]); b = Math.max(b, r[i]); c = Math.min(c, r[i + 1]); e = Math.max(e, r[i + 1]); }
+        boxes.push([num, a, b, c, e, (b - a) * (e - c), L]);
+      } else for (const ct of list) near.push([num, ct[2], ct[1]]);
+    }
+    boxes.sort((p, q) => p[5] - q[5]);
+    const owner = (lo, la) => {
+      for (const [num, a, b, c, e, , L] of boxes) if (lo >= a && lo <= b && la >= c && la <= e && L(lo, la)) return num;
+      let best = null, bd = 0.6;                                  // within ~60 km of a small place's city
+      for (const [num, x, y] of near) { const d = Math.hypot(x - lo, y - la); if (d < bd) { bd = d; best = num; } }
+      return best;
+    };
+    const lands = {}; for (const bx of boxes) lands[bx[0]] = bx[6];
+    const byNum = {};
+    for (const [, la, lo, tp] of TOWNS) { const num = owner(lo, la); if (num) (byNum[num] = byNum[num] || []).push([lo, la, tp]); }
+    for (const [num, ts] of Object.entries(byNum)) {
+      const g = G[num] || {}; if (!g.pop) continue;
+      const tsum = ts.reduce((a, t) => a + t[2], 0) || 1;
+      townBased.add(num);
+      for (const [lo, la, tp] of ts) {
+        const people = g.pop * (tp / tsum);
+        places.push({ num, lon: lo, lat: la, people, cp: tp, town: true, war: !!g.conflict, mood: moodColor(g.happiness), detail: DETAIL[g.detail] || 0.6, land: lands[num] || (() => true), outline: !!lands[num] });
+        total += people;
+      }
+    }
+  }
+  // countries with no towns listed (or before the towns arrive): the country's people shared out by city size
+  for (const [num, list] of Object.entries(C)) {
+    if (townBased.has(num)) continue;
+    const g = G[num] || {}, pop = g.pop || list.reduce((a, c) => a + c[3], 0) * 3;
+    const csum = list.reduce((a, c) => a + c[3], 0) || 1;
+    for (const [, lat, lon, cp] of list) {
+      const people = pop * (cp / csum);                    // includes the towns and countryside nearest each city
+      places.push({ num, lon, lat, people, cp, war: !!g.conflict, mood: moodColor(g.happiness), detail: DETAIL[g.detail] || 0.6, land: landTest(shapes && shapes.get(num)) || (() => true), outline: !!(shapes && shapes.get(num) && shapes.get(num).length) });
+      total += people;
+    }
+  }
+  // how far each place's people spread (degrees): towns sit close together, so each one's spread is small; a
+  // country shown only by its big cities spreads wide. Without a coastline to keep them on land (small
+  // territories like Hong Kong), they stay close.
+  for (const p of places) p.spread = p.town ? Math.min(p.outline ? 0.6 : 0.1, 0.03 + Math.sqrt(p.people / 1e6) * 0.09)
+    : Math.min(p.outline ? 2.6 : 0.12, 0.1 + Math.sqrt(p.people / 1e6) * 0.17);
+  const v = { places, total };
+  placesMemo.set(key, { towns: !!TOWNS, cities: d.cities, v });
+  return v;
 }
 
 export function addPeople(world, tier, data) {
@@ -78,57 +148,7 @@ export function addPeople(world, tier, data) {
     last = d;
     if (!TOWNS) loadTowns().then(() => { if (TOWNS && last === d) setData(d); });
     clear();
-    const { globe, cities, shapes } = d;
-    const G = (globe && globe.nations) || {}, C = (cities && cities.cities) || {};
-    const places = [];
-    let total = 0;
-    // with the towns in: each town takes its country's people in proportion to its size (and the countryside
-    // around it). A town belongs to the country of the nearest listed city whose land it's on.
-    const townBased = new Set();
-    if (TOWNS) {
-      // which country a town is in: the countries whose outline box holds it, smallest first, tested against
-      // the outline itself; places with no outline (small territories) go to the nearest listed city's country
-      const boxes = [], near = [];
-      for (const [num, list] of Object.entries(C)) {
-        const rings = shapes && shapes.get(num), L = landTest(rings);
-        if (L) {
-          let a = 180, b = -180, c = 90, e = -90;
-          for (const r of rings) for (let i = 0; i < r.length; i += 2) { a = Math.min(a, r[i]); b = Math.max(b, r[i]); c = Math.min(c, r[i + 1]); e = Math.max(e, r[i + 1]); }
-          boxes.push([num, a, b, c, e, (b - a) * (e - c), L]);
-        } else for (const ct of list) near.push([num, ct[2], ct[1]]);
-      }
-      boxes.sort((p, q) => p[5] - q[5]);
-      const owner = (lo, la) => {
-        for (const [num, a, b, c, e, , L] of boxes) if (lo >= a && lo <= b && la >= c && la <= e && L(lo, la)) return num;
-        let best = null, bd = 0.6;                                  // within ~60 km of a small place's city
-        for (const [num, x, y] of near) { const d = Math.hypot(x - lo, y - la); if (d < bd) { bd = d; best = num; } }
-        return best;
-      };
-      const lands = {}; for (const bx of boxes) lands[bx[0]] = bx[6];
-      const byNum = {};
-      for (const [, la, lo, tp] of TOWNS) { const num = owner(lo, la); if (num) (byNum[num] = byNum[num] || []).push([lo, la, tp]); }
-      for (const [num, ts] of Object.entries(byNum)) {
-        const g = G[num] || {}; if (!g.pop) continue;
-        const tsum = ts.reduce((a, t) => a + t[2], 0) || 1;
-        townBased.add(num);
-        for (const [lo, la, tp] of ts) {
-          const people = g.pop * (tp / tsum);
-          places.push({ lon: lo, lat: la, people, cp: tp, town: true, war: !!g.conflict, mood: moodColor(g.happiness), detail: DETAIL[g.detail] || 0.6, land: lands[num] || (() => true), outline: !!lands[num] });
-          total += people;
-        }
-      }
-    }
-    // countries with no towns listed (or before the towns arrive): the country's people shared out by city size
-    for (const [num, list] of Object.entries(C)) {
-      if (townBased.has(num)) continue;
-      const g = G[num] || {}, pop = g.pop || list.reduce((a, c) => a + c[3], 0) * 3;
-      const csum = list.reduce((a, c) => a + c[3], 0) || 1;
-      for (const [, lat, lon, cp] of list) {
-        const people = pop * (cp / csum);                    // includes the towns and countryside nearest each city
-        places.push({ lon, lat, people, cp, war: !!g.conflict, mood: moodColor(g.happiness), detail: DETAIL[g.detail] || 0.6, land: landTest(shapes && shapes.get(num)) || (() => true), outline: !!(shapes && shapes.get(num) && shapes.get(num).length) });
-        total += people;
-      }
-    }
+    const { places, total } = townPlaces(d);
     if (!places.length) return;
     const budget = BUDGET[tier] || BUDGET.medium;
     const pos = [], col = [], base = [], tpos = [], tcol = [], tbase = [];
@@ -139,11 +159,7 @@ export function addPeople(world, tier, data) {
       const b0 = Math.min(1, 0.55 + Math.log10(p.cp + 10) / 12);
       const core = !p.town || p.cp > 150000;
       if (core) { pos.push([p.lon, p.lat]); col.push(p.mood.map((v) => v * b0)); base.push(p.war); }
-      // its people: suburbs and countryside, thick near the place and thinning out, wider for bigger places.
-      // Towns sit close together, so each one's spread is small; a country shown only by its big cities spreads wide.
-      // Without a coastline to keep them on land (small territories like Hong Kong), keep them close.
-      const spread = p.town ? Math.min(p.outline ? 0.6 : 0.1, 0.03 + Math.sqrt(p.people / 1e6) * 0.09)
-        : Math.min(p.outline ? 2.6 : 0.12, 0.1 + Math.sqrt(p.people / 1e6) * 0.17);    // degrees
+      const spread = p.spread;
       for (let k = core ? 1 : 0; k < n; k++) {
         let r, lo, la, tries = 0;
         do {                                                   // towns only on the country's own land, never at sea
