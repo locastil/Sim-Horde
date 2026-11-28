@@ -453,7 +453,7 @@
     [
      "New civil conflicts, wars between neighbours",
      "UCDP/PRIO",
-     "A few new conflicts a year, rare wars; a conflict ends with about an 8% chance a year."
+     "A few new conflicts a year, rare wars; a civil conflict ends with about a 10% chance a year (a bit more once the country is stable again)."
     ],
     [
      "Protests and how governments answer them",
@@ -567,5 +567,257 @@
     ]
    ]
   }
- ]
+ ],
+ "weights": [
+  {
+   "title": "How a day goes: the behaviour weights",
+   "note": "Tuned in the California simulation (3,191 runs against county figures for distress, disconnection, people leaving and assaults; correlation 0.71 on the counties it was tuned on, 0.54 on counties it never saw), then used unchanged for every country. Each simulated person meets 2-5 people a day (more in crowded countries); each meeting goes kindly or rudely, with the chance of rudeness = logistic(sum of the terms below). Weights marked default weren't in the California tuning.",
+   "cols": [
+    "Weight",
+    "Value",
+    "What it does"
+   ],
+   "rows": [
+    [
+     "base",
+     "−2.760",
+     "How rude a meeting is with everything else at average: about 6%."
+    ],
+    [
+     "w_trait",
+     "0.510",
+     "Temperament: some people are simply shorter-tempered than others."
+    ],
+    [
+     "w_stress",
+     "0.286",
+     "Stress makes rudeness likelier."
+    ],
+    [
+     "w_irr",
+     "0.254",
+     "Irritation left over from earlier rude run-ins makes rudeness likelier: rudeness spreads."
+    ],
+    [
+     "hit",
+     "0.125",
+     "How much a rude meeting irritates the person on the other end."
+    ],
+    [
+     "social",
+     "0.030",
+     "How much a kind meeting soothes irritation."
+    ],
+    [
+     "w_pov",
+     "0.764",
+     "Hardship from low income (a country 7x poorer than $20,000 a year per person counts fully)."
+    ],
+    [
+     "w_dens",
+     "0.721",
+     "Crowding: the more people live in cities."
+    ],
+    [
+     "w_unemp",
+     "0.366",
+     "Unemployment."
+    ],
+    [
+     "w_ineq",
+     "0.5 (default)",
+     "Inequality."
+    ],
+    [
+     "w_young",
+     "0.2 (default)",
+     "A younger, working-age population."
+    ],
+    [
+     "w_net",
+     "0.1 (default)",
+     "Life online."
+    ]
+   ]
+  },
+  {
+   "title": "The fixed parts of each person",
+   "note": "These aren't tuned; they're the model's structure, published here and in the source.",
+   "cols": [
+    "Part",
+    "Formula",
+    "In plain words"
+   ],
+   "rows": [
+    [
+     "Stress at home",
+     "0.45 + 0.18 × poverty + 0.12 × unemployment + 0.08 × inequality + events",
+     "The stress a country's people drift toward each day when nothing else happens."
+    ],
+    [
+     "Irritation",
+     "each day: × 0.75, + 0.08 × hit × rude run-ins × (1.2 − connection), − social × kind run-ins",
+     "Fades by a quarter a day; rude run-ins add to it, less for well-connected people; kindness soothes it."
+    ],
+    [
+     "Connection",
+     "drifts toward 0.45 + 0.05 × kind run-ins − 0.12 × rude run-ins",
+     "Kindness builds it, rudeness wears it down."
+    ],
+    [
+     "Wanting to leave",
+     "logistic(−11.2 + 2 × stress + 1 × poverty + events)",
+     "Rises steeply with stress and hardship; war and coups push it up."
+    ],
+    [
+     "Happiness (0-10)",
+     "10 × logistic(0.55 − 1.6 × (stress − 0.5) + 1.3 × (connection − 0.5) − 0.7 × irritation − 3 × (hostile share − 0.12) − 0.9 × poverty − 0.3 × unemployment − 1.2 × event stress)",
+     "How people would rate their lives, the scale the surveys use; then lined up with the surveys by one straight line each year."
+    ]
+   ]
+  },
+  {
+   "title": "What events do to people",
+   "note": "Added to a country's stress, irritation, wish to leave and rudeness while the event lasts.",
+   "cols": [
+    "Event",
+    "Effect",
+    "Notes"
+   ],
+   "rows": [
+    [
+     "Armed conflict, major (1,000+ deaths a year)",
+     "stress +0.35, irritation +0.8, leaving +2.0, rudeness +0.25",
+     "At most 12% of the people flee abroad a year, to neighbours."
+    ],
+    [
+     "Armed conflict, minor",
+     "30% of the above",
+     "At most 0.3% flee abroad a year."
+    ],
+    [
+     "Protests",
+     "stress +0.05, irritation +0.6, rudeness +0.05",
+     "Lasts 1-6 months."
+    ],
+    [
+     "Deadly crackdown",
+     "stress +0.10, irritation +0.3",
+     "3 months."
+    ],
+    [
+     "Coup",
+     "stress +0.12, leaving +0.5",
+     ""
+    ],
+    [
+     "New government after an election",
+     "stress −0.03",
+     ""
+    ],
+    [
+     "Border standoff",
+     "stress +0.03",
+     ""
+    ],
+    [
+     "Sanctions",
+     "stress +0.05, leaving +0.3",
+     ""
+    ],
+    [
+     "Tariffs",
+     "stress +0.012",
+     ""
+    ],
+    [
+     "Many refugees or migrants arriving",
+     "stress up to +0.08 (refugees), +0.03 (migrants)",
+     "Grows with the share arriving that month."
+    ],
+    [
+     "Inflation above 4%",
+     "stress +1.2 × (inflation − 4%), at most +0.12",
+     ""
+    ],
+    [
+     "Stagflation",
+     "stress +0.03",
+     ""
+    ],
+    [
+     "Shrinking economy (growth below −1%)",
+     "stress +1.5 × the fall, at most +0.06",
+     ""
+    ],
+    [
+     "Falling stock market (more than 5%)",
+     "stress up to +0.06, more in richer countries",
+     ""
+    ],
+    [
+     "Shorter healthy life",
+     "stress +0.1 per standard unit (about ±0.25 at the extremes)",
+     "Added after testing."
+    ]
+   ]
+  },
+  {
+   "title": "How often things happen",
+   "note": "World totals a year; which countries they land on depends on the simulation (stress, rudeness, hardship, instability, kind of government).",
+   "cols": [
+    "Rule",
+    "Value",
+    "Source"
+   ],
+   "rows": [
+    [
+     "Coup attempts",
+     "3 a year; half succeed",
+     "Powell & Thyne"
+    ],
+    [
+     "New civil conflicts",
+     "3.5 a year; each ends with about a 10% chance a year",
+     "UCDP/PRIO"
+    ],
+    [
+     "Protest waves",
+     "24 a year",
+     "Rough historical rate"
+    ],
+    [
+     "Border standoffs; wars between neighbours",
+     "1.2 a year; about 1 in 5 becomes a war",
+     "Rough historical rate"
+    ],
+    [
+     "Police break up protests / deadly force",
+     "democracies 28% / 2%; hybrid 40% / 8%; autocracies 55% / 15%",
+     "Mass Mobilization data"
+    ],
+    [
+     "Who leaves (migration)",
+     "× e^(1.2 × money sent home + 1.5 × immigrants already there), capped at e^±3",
+     "Tested on 2015-2023"
+    ],
+    [
+     "Trade laws",
+     "8 tariffs, 5 trade deals, 1.5 sanctions, 3 export bans a year",
+     "Rough historical rate"
+    ],
+    [
+     "Stock markets",
+     "about 0.75% a month on average, 3% monthly swings; a crash of 20%+ about once a decade",
+     "Rough historical rate"
+    ],
+    [
+     "World price spikes",
+     "energy and food spikes a few times a decade",
+     "Rough historical rate"
+    ]
+   ]
+  }
+ ],
+ "weights_note": "The California simulation has further weights of its own (rent, schooling, drinking, commuting and others) that only apply there and aren't used in the shared world."
 }

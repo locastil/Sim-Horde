@@ -630,6 +630,7 @@ html.st-open { overflow: hidden; }
 .lab-inv thead th { border-top: 0; font-size: 0.78rem; font-weight: 600; color: var(--ink-3); background: #F6F8FA; }
 .lab-inv tbody th { font-weight: 600; width: 24%; }
 .lab-inv td:nth-child(2) { color: var(--ink-3); width: 30%; }
+.lab-inv td.num { color: var(--ink); font-variant-numeric: tabular-nums; }
 @media (max-width: 760px) { .lab-inv thead { display: none; } .lab-inv tr, .lab-inv th, .lab-inv td { display: block; width: auto !important; } .lab-inv td { border-top: 0; padding-top: 0; } }
 .lab-out ul, .lab-fixes ul { max-width: 72ch; padding-left: 1.2em; }
 .lab-out li, .lab-fixes li { margin-bottom: 10px; }

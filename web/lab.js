@@ -37,6 +37,11 @@
     if (inv && L.inventory) inv.innerHTML = L.inventory.map((g) => `<div class="lab-inv"><h3>${esc(g.title)}</h3>${g.note ? `<p class="lab-note">${esc(g.note)}</p>` : ""}` +
       `<table><thead><tr><th scope="col">Variable</th><th scope="col">Source</th><th scope="col">What it does</th></tr></thead><tbody>` +
       g.rows.map(([v, src, does]) => `<tr><th scope="row">${esc(v)}</th><td>${esc(src)}</td><td>${esc(does)}</td></tr>`).join("") + "</tbody></table></div>").join("");
+    const wt = $("labWeights");
+    if (wt && L.weights) wt.innerHTML = L.weights.map((g) => `<div class="lab-inv"><h3>${esc(g.title)}</h3>${g.note ? `<p class="lab-note">${esc(g.note)}</p>` : ""}` +
+      `<table><thead><tr>${g.cols.map((c) => `<th scope="col">${esc(c)}</th>`).join("")}</tr></thead><tbody>` +
+      g.rows.map(([a, b, c]) => `<tr><th scope="row">${esc(a)}</th><td class="num">${esc(b)}</td><td>${esc(c)}</td></tr>`).join("") + "</tbody></table></div>").join("") +
+      (L.weights_note ? `<p class="lab-note">${esc(L.weights_note)}</p>` : "");
     $("labFixes").innerHTML = (L.fixes || []).map((f) => `<li><time>${esc(f.date)}</time> ${esc(f.text)}</li>`).join("");
   }).catch(() => { $("labList").innerHTML = '<p class="lab-note">The lab results did not load. Reload the page to try again.</p>'; });
 })();

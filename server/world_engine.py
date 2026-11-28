@@ -60,12 +60,12 @@ REFUGEE_CAP = {1: 3.0, 2: REFUGEE_MAX}       # per 1,000 people a year
 # Who actually leaves, beyond how many want to: tested on real 2015-2023 migration in migration_test.py and
 # chosen on half the countries, scored on the other half (see the Model lab page). Standard units per country
 # come from world/migration_vars.json; a country with no figure counts as typical.
-MIG_PUSH = dict(remittances=1.2, immigrants=1.5)
+MIG_PUSH = dict(remittances=1.2, immigrants=1.5)      # in a broad range that scores about the same (0.43 vs 0.06 now)
 # Day-to-day hardship beyond income: healthy life expectancy (WHO). Tested on real 2015-2023 happiness in
 # happiness_test.py and happiness_test2.py, chosen on half the countries and scored on the other half (see the
 # Model lab): a steady push on stress per standard unit of shorter healthy life; stronger settings and adding food
 # insecurity (which comes from the same Gallup poll as the happiness surveys) did no better.
-HAPPY_PUSH = dict(life_expectancy=0.1)      # in a broad range that scores about the same (0.43 vs 0.06 now)
+HAPPY_PUSH = dict(life_expectancy=0.1)
 GUARD = dict(happy=1.5, civ=0.08, stress=0.5)    # a detail result far from the Low result for the same nation is ignored
 
 PER_YEAR = dict(coup=3.0, conflict=3.5, protest=24.0, standoff=1.2, war=0.25)    # world totals a year
@@ -91,7 +91,7 @@ SHOCK = dict(PROTEST=-0.03, CRACKDOWN=-0.015, COUP=-0.12, CONFLICT=-0.10, WAR=-0
 ECON = dict(energy_spike=0.15, food_spike=0.2, stag_infl=6.0, stag_growth=0.5)
 GOODS = ["rice", "wheat", "fertilizer", "cooking oil", "steel", "rare earth metals", "natural gas", "medical supplies",
          "sugar", "computer chips", "lithium", "corn"]
-CONFLICT_END = 0.08          # chance a civil conflict ends in a given year... per month below
+CONFLICT_END = 0.10          # chance a civil conflict ends in a given year... per month below
 CONFLICT_END_M = 1 - (1 - 0.10) ** (1 / 12)
 GOV_LABEL = dict(dem="Democracy", hyb="Mixed regime", aut="Autocracy", mil="Military rule")
 
