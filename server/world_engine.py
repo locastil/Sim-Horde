@@ -210,6 +210,10 @@ class World:
                 self.set_conflict_levels()
                 self.save()
             self.fill_conflict_detail()
+            if not self.w.get("warmup") and not self.w.get("scale_fix") and any(n.get("last") for n in self.w["nations"].values()):
+                self.w["scale_fix"] = self.w["epoch"]      # a running world from before 1.6: its happiness scale is set once, now, and kept
+                self.fit_happiness()
+                self.save()
             if self.w.get("version") == "2.5.3":
                 self.w["version"] = "1.5.3"        # renumbered: the first long run was the unofficial test version
                 self.save()
@@ -1154,7 +1158,7 @@ class World:
         for n in live:
             n["stab"] = max(0.02, min(0.98, n["stab"]))
             n["series"] = (n["series"] + [[e, round(n["last"]["civ"], 4), round(n["last"]["stress"], 3)]])[-240:]
-        if not W.get("warmup") and (e % 12 == 0 or "happy_fit" not in W):
+        if not W.get("warmup") and not W.get("scale_fix") and (e % 12 == 0 or "happy_fit" not in W):
             self.fit_happiness()          # worlds from before 1.6 still refit yearly; newer ones keep the scale set at day one
         if e % 12 == 0:
             self.fit_migration()
@@ -1460,7 +1464,7 @@ class World:
         mx = sum(x * w for x, _, w in pts) / sw; my = sum(y * w for _, y, w in pts) / sw
         sxx = sum(w * (x - mx) ** 2 for x, _, w in pts); sxy = sum(w * (x - mx) * (y - my) for x, y, w in pts)
         syy = sum(w * (y - my) ** 2 for _, y, w in pts)
-        if self.w.get("warmup"):
+        if self.w.get("warmup") or self.w.get("scale_fix"):
             # set once, at the end of the warm-up: the simulation's spread matched to the surveys' spread (not a
             # least-squares line, which squeezes every country toward the middle), and kept from then on
             b = math.sqrt(syy / sxx) if sxx > 0 and sxy > 0 else 1.0
