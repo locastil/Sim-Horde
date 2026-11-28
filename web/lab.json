@@ -277,6 +277,28 @@
    },
    "status": "set_aside",
    "why": "Added nothing to either."
+  },
+  {
+   "id": "alone",
+   "name": "Living alone (a stand-in for sociability)",
+   "what": "Share of households with one person, latest year 2000-2018 (most around 2013).",
+   "source": "UN household size data, via Our World in Data",
+   "quick": {
+    "happiness": 0.027,
+    "migration": 0.3,
+    "countries": 133
+   },
+   "status": "set_aside",
+   "why": "Not a clean measure of sociability. Once the simulation is accounted for, countries where more people live alone are happier, not lonelier: it tracks wealth and independence (Sweden 43%, Germany 42%, Pakistan 1%). Its migration gain comes from the same wealth link, since rich countries draw migrants."
+  },
+  {
+   "id": "sociable",
+   "name": "Sociability, as a personal trait",
+   "what": "Each simulated person gets their own sociability: how many people they meet and how much connection they need to feel all right, so a loner and a social person react differently to living alone or in a crowded city.",
+   "source": "To be tuned against county loneliness data in the California calibration",
+   "quick": null,
+   "status": "next",
+   "why": "There's no clean country-by-country measure (the obvious survey questions come from the same poll as the happiness surveys, and living alone tracks wealth instead), so this would be tested on people, not countries: does it help the California model match real loneliness by county?"
   }
  ],
  "migration_baseline": {
