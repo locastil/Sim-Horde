@@ -100,7 +100,11 @@
       const a = m.querySourceFeatures(id, { sourceLayer: "aerodrome_label" })[0];
       if (a && a.geometry.type === "Point") airport = a.geometry.coordinates;
     } catch (e) {}
-    return { roads: roads.slice(0, 1500), walks: walks.slice(0, 1500), airport };
+    // only the streets on screen (with a margin), so the traffic and people are where you're looking
+    const b = m.getBounds(), padX = (b.getEast() - b.getWest()) * 0.15, padY = (b.getNorth() - b.getSouth()) * 0.15;
+    const seen_ = (l) => l.c.some(([x, y]) => x > b.getWest() - padX && x < b.getEast() + padX && y > b.getSouth() - padY && y < b.getNorth() + padY);
+    const R2 = roads.filter(seen_), W2 = walks.filter(seen_);
+    return { roads: (R2.length > 20 ? R2 : roads).slice(0, 1500), walks: (W2.length > 20 ? W2 : walks).slice(0, 1500), airport };
   }
 
   function makeCars(roads, n) {
@@ -176,7 +180,7 @@
       m.addSource("s2", { type: "raster", tileSize: 256, maxzoom: 15,
         tiles: ["https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg"],
         attribution: '<a href="https://s2maps.eu">Sentinel-2 cloudless</a> by EOX IT Services GmbH (contains modified Copernicus Sentinel data 2020)' });
-      m.addLayer({ id: "s2", type: "raster", source: "s2", paint: { "raster-opacity": ["interpolate", ["linear"], ["zoom"], 9, 0.95, 14, 0.85, 17, 0.55], "raster-saturation": 0.1 } }, before);
+      m.addLayer({ id: "s2", type: "raster", source: "s2", paint: { "raster-opacity": ["interpolate", ["linear"], ["zoom"], 9, 1, 14, 0.95, 17, 0.8], "raster-saturation": 0.1 } }, before);
       m.addSource("dem", { type: "raster-dem", encoding: "terrarium", tileSize: 256, maxzoom: 14,
         tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"], attribution: "Elevation: Terrain Tiles (Mapzen, AWS Open Data)" });
       m.addLayer({ id: "relief", type: "hillshade", source: "dem", paint: { "hillshade-exaggeration": 0.35, "hillshade-shadow-color": "#1d2a1a" } }, before);
