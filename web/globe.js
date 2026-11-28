@@ -365,7 +365,7 @@ export function mountGlobe(root, opts = {}) {
     if (atmoMat) atmoMat.uniforms.k.value = (tier === "epic" ? 0.85 : 0.65) * Math.min(1, alt() / 0.4);
     if (traffic) traffic.update(dt);
     if (people) people.update(dt);
-    if (local) { world.updateMatrixWorld(); camera.updateMatrixWorld(); const keep = local.update(dt, lon, lat, alt(), camera.aspect, scaleTag, camera, streetNames); if (people) people.setFade(keep); world.updateMatrixWorld(); camera.updateMatrixWorld(); local.labels(camera, cityNames, lon, lat, alt(), camera.aspect); }
+    if (local) { world.updateMatrixWorld(); camera.updateMatrixWorld(); const keep = local.update(dt, lon, lat, alt(), camera.aspect, scaleTag, camera, streetNames); if (people) people.setFade(keep, alt()); world.updateMatrixWorld(); camera.updateMatrixWorld(); local.labels(camera, cityNames, lon, lat, alt(), camera.aspect); }
     renderer.render(scene, camera);
     // smoothness governor (Auto only). It counts late frames rather than averaging, because a
     // choppy 45 fps looks worse than a steady 30. Down: resolution first, then the tier. Up: after

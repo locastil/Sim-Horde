@@ -359,7 +359,12 @@ export function addPeople(world, tier, data) {
 
   if (data) setData(data);
   return {
-    setFade: (f) => { group.visible = f > 0.01; for (const o of group.children) o.material.opacity = 0.95 * f; if (glow) glow.material.opacity = 0.95 * Math.max(f, 0.6); },   // the glow stays under the close-up people, so the hand-over never goes dark
+    // the glow stays under the close-up people through the hand-over, so mid zoom never goes dark; at street level
+    // (where one 5 km cell would fill the screen as a flat tint) it fades away and the dots and map take over
+    setFade: (f, alt) => {
+      group.visible = f > 0.01; for (const o of group.children) o.material.opacity = 0.95 * f;
+      if (glow) { const g = Math.max(f, 0.6 * Math.max(0, Math.min(1, ((alt == null ? 1 : alt) - 0.006) / 0.03))); glow.visible = g > 0.01; glow.material.opacity = 0.95 * g; }
+    },
     setData, update,
     dispose: () => { clear(); world.remove(group); if (glow) { world.remove(glow); glow.geometry.dispose(); glow.material.map.dispose(); glow.material.dispose(); glow = null; } },
   };
