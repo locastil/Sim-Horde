@@ -5,7 +5,7 @@ import * as THREE from "/vendor/three.min.js";
 
 const D = Math.PI / 180, Z = 14, R = 1.000035;
 const START = 0.0018, FULL = 0.0011, NAMES = 0.0009;       // camera heights (earth radius = 1)
-const BUDGET = { low: [300, 60], medium: [700, 160], high: [1200, 320], epic: [2000, 560] };   // [people, cars] per tile
+const BUDGET = { low: [800, 120], medium: [2000, 300], high: [3500, 600], epic: [6000, 1000] };   // [people, cars] per tile
 const CLASS = {                                              // colour, cars per km, drawn width weight
   motorway: [[1, 0.78, 0.45], 9], trunk: [[1, 0.78, 0.45], 7], primary: [[0.96, 0.88, 0.68], 5], secondary: [[0.9, 0.86, 0.74], 3.5],
   tertiary: [[0.7, 0.76, 0.88], 2.5], minor: [[0.6, 0.67, 0.8], 1.2], service: [[0.45, 0.52, 0.66], 0.4], track: [[0.4, 0.46, 0.56], 0], path: [[0.38, 0.44, 0.54], 0],
@@ -89,11 +89,10 @@ export function addOSM(world, tier, sim) {
   const [PB, CB] = BUDGET[tier] || BUDGET.medium;
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const lineMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, depthWrite: false });
-  const peopleMat = new THREE.PointsMaterial({ size: 2.4, sizeAttenuation: false, map: sim.tex, vertexColors: true, transparent: true, opacity: 0, depthWrite: false });
-  const carMat = new THREE.PointsMaterial({ size: 3.4, sizeAttenuation: false, map: sim.tex, vertexColors: true, transparent: true, opacity: 0, depthWrite: false });
+  const peopleMat = new THREE.PointsMaterial({ size: 3.0, sizeAttenuation: false, map: sim.tex, vertexColors: true, transparent: true, opacity: 0, depthWrite: false });
+  const carMat = new THREE.PointsMaterial({ size: 3.8, sizeAttenuation: false, map: sim.tex, vertexColors: true, transparent: true, opacity: 0, depthWrite: false });
   let template = null, t = 0, credit = null;
   const tiles = new Map();                                   // "x:y" -> { state, roads, names, objs }
-  window.simhordeStreetMats = { peopleMat, carMat, lineMat, group };
   window.simhordeStreets = () => [...tiles.values()].map((T) => [T.state, T.walkers && T.walkers.length, T.drivers && T.drivers.length, T.ppd, T.used === t, T.objs && [...T.objs[1].geometry.attributes.position.array.slice(0, 3)], T.objs && T.objs[1].visible, peopleMat.opacity, group.visible, T.walkers && T.walkers[0]]);   // for checking
   fetch("https://tiles.openfreemap.org/planet").then((r) => r.json()).then((j) => (template = j.tiles[0])).catch(() => {});
 
