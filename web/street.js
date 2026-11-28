@@ -191,6 +191,9 @@
     if (!list.length || !lib) return;
     const name = (nv && nv.name) || (mk && mk.name) || "";
     const md = mood(nv, mk);
+    // in full screen only the full-screen element shows, so the street view has to open inside it
+    const host = document.fullscreenElement || document.body;
+    if (ui.parentNode !== host) host.appendChild(ui);
     ui.hidden = false;
     document.documentElement.classList.add("st-open");
     ui.querySelector("#stTitle").textContent = name;
