@@ -34,6 +34,9 @@ import world_kernel as WK
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
+REGION_CAP = 480_000                 # people in one region of a job: under the worker's limit of 500,000
+
+
 def sim_version():
     """The simulation's version, stamped on each new world (sim_version.txt). generation.model.restart: the middle
     number goes up when the model changes (the last goes back to 0); the last goes up each time the world is
@@ -197,6 +200,12 @@ class World:
             if not self.w.get("conflict_levels"):
                 self.set_conflict_levels()
                 self.save()
+            if self.w.get("version") == "2.5.3":
+                self.w["version"] = "1.5.3"        # renumbered: the first long run was the unofficial test version
+                self.save()
+            if self.regions and not self.w.get("region_cap"):
+                self.w.pop("gdl_regions", None)    # rebuilt below with the biggest regions split under the worker's limit
+                self.w["region_cap"] = REGION_CAP
             if (self.counties and not self.w.get("county_regions")) or (self.regions and not self.w.get("gdl_regions")):
                 self.build_layers(self.w)          # the US splits into counties at the finer levels; those pieces start fresh
                 self.w["detail"] = {}
@@ -276,6 +285,17 @@ class World:
             self.oecd_regions = json.load(open(path, encoding="utf-8")).get("oecd", []) or self.oecd_regions
         except (OSError, ValueError):
             pass
+
+    @staticmethod
+    def cap_groups(c, groups, cap):
+        """A region bigger than one worker job may hold (world_kernel: 500,000 people a region) is split into equal
+        parts that share its conditions; codes are numbered again so each stays short."""
+        out = []
+        for _, a, x in groups:
+            k = max(1, math.ceil(a / cap))
+            for j in range(k):
+                out.append((a // k + (1 if j < a % k else 0), x))
+        return [(f"{c}#{i}", a, x) for i, (a, x) in enumerate(out)]
 
     def region_groups(self, c, total, min_agents):
         """A country's simulated people at one level, shared over its regions by population; a region too small for
@@ -460,7 +480,7 @@ class World:
         if today.get("conflicts"):
             print(f"Starting as today's real world: {sum(1 for n in N.values() if n['conflict'])} countries in armed conflict ({today.get('source')}).")
         w = dict(created=time.strftime("%Y-%m-%d"), epoch=0, scale=scale, seed=seed, data=d.get("meta", {}),
-                 start=[start.tm_year, start.tm_mon], version=sim_version(), today=dict(source=today.get("source"), year=today.get("year")) if today else None,
+                 start=[start.tm_year, start.tm_mon], version=sim_version(), region_cap=REGION_CAP, today=dict(source=today.get("source"), year=today.get("year")) if today else None,
                  nations=N, shards=shards, events=[], world_series=[])
         self.build_layers(w)
         return w
@@ -501,14 +521,16 @@ class World:
                 total = int(min(N[c]["agents"] * L["mult"], max(N[c]["agents"], N[c]["pop"] / 10)))
                 if c == COUNTY_NATION and getattr(self, "counties", None):
                     groups = self.county_groups(total, max(400, L["piece"] // 250))     # at most ~250 regions in a piece
+                    groups = self.cap_groups(c, groups, min(REGION_CAP, L["piece"]))
                     w["county_regions"][str(k)] = {code: fs for code, _, fs in groups}
                     regions = [(code, a) for code, a, _ in groups]
                 elif c in (getattr(self, "regions", None) or {}) and total >= 200:
                     groups = self.region_groups(c, total, max(100, L["piece"] // 250))
+                    groups = self.cap_groups(c, groups, min(REGION_CAP, L["piece"]))
                     w["gdl_regions"].setdefault(str(k), {}).update({code: codes for code, _, codes in groups})
                     regions = [(code, a) for code, a, _ in groups]
                 else:
-                    r = max(1, math.ceil(total / L["piece"]))
+                    r = max(1, math.ceil(total / min(REGION_CAP, L["piece"])))
                     regions = [(f"{c}#{j}", total // r + (1 if j < total % r else 0)) for j in range(r)]
                 for code, a in regions:
                     if a < 50:
