@@ -66,7 +66,7 @@
   let P = null;
   function findPlaces(t) {
     // returns {where, countries} or null
-    if (/\b(everywhere|worldwide|world-wide|global(ly)?|whole (world|planet)|all (countries|nations)|the world|every country|planet)\b/.test(t)) return { where: "all", countries: [] };
+    if (/\b(everywhere|worldwide|world-wide|global(ly)?|whole (world|planet)|all (countries|nations)|the world|every country|planet|every ?one|every ?body|all people|all humans|humanity|mankind|the whole population)\b/.test(t)) return { where: "all", countries: [] };
     const found = new Set(); let rest = " " + t + " ";
     const take = (name) => { const c = P.byName.get(name.toLowerCase()); if (c) found.add(c); };
     for (const [g, list] of Object.entries(GROUPS)) {
@@ -123,6 +123,12 @@
   }
   function confirmLine() { return `<div class="ag-actions"><button type="button" data-say="run it">Run it</button><button type="button" data-say="make it milder">Milder</button><button type="button" data-say="make it worse">Worse</button><button type="button" data-say="start over">Start over</button></div>`; }
 
+  // the same event, in the same places, at the same time, only once
+  function dedupe(list) {
+    const seen = new Set();
+    return list.filter((e) => { const k = [e.type, e.where, (e.countries || []).slice().sort().join(","), e.start, e.months].join("|"); if (seen.has(k)) return false; seen.add(k); return true; });
+  }
+
   function handle(raw) {
     const t = " " + raw.toLowerCase().replace(/[“”]/g, '"').replace(/[’]/g, "'").replace(/\s+/g, " ").trim() + " ";
     let ev = S.get().slice();
@@ -176,6 +182,19 @@
       }
     }
 
+    // an answer to "where should it happen?": events still waiting for a place take it, even when the answer
+    // names the event again ("cash support for everyone"), instead of adding another copy
+    const waiting = ev.filter((e) => e.where === "pick" && !e.countries.length);
+    if (waiting.length) {
+      const pl = findPlaces(t), named = KINDS.filter(([, re]) => re.test(t)).map(([k]) => k);
+      const fits = waiting.filter((e) => !named.length || named.includes(e.type));
+      if (pl && fits.length && named.every((k) => waiting.some((e) => e.type === k))) {
+        const tm = findTiming(t), st = strengthOf(t);
+        for (const e of fits) { e.where = pl.where; e.countries = pl.countries; if (tm.start) e.start = tm.start; if (tm.months) e.months = tm.months; if (st) e.strength = st; }
+        S.set(dedupe(ev)); return "Got it.<br>" + planText() + confirmLine();
+      }
+    }
+
     // new events: one per clause
     const hasKind = (x) => KINDS.some(([, re]) => re.test(x));
     const clauses0 = t.split(/\bthen\b|;|\. |\bafter that\b|\bfollowed by\b|\balso\b|\bplus\b|\bwhile\b|\bmeanwhile\b|, and\b|\band (?=(?:a|an|then|later)\b)/);
@@ -201,7 +220,9 @@
     }
     if (added.length) {
       const fresh = /\b(instead|new|start over|what if|imagine|suppose)\b/.test(t) && !/\b(also|add|and then)\b/.test(t);
-      ev = (fresh ? [] : ev).concat(added);
+      // a new event replaces one of the same kind that never got a place
+      if (!fresh) ev = ev.filter((e) => !(e.where === "pick" && !e.countries.length && added.some((a) => a.type === e.type)));
+      ev = dedupe((fresh ? [] : ev).concat(added));
       if (y) S.years(y);
       const lastEnd = Math.max(...ev.map((e) => e.start + Math.min(e.months, 60)));
       if (!y) { const need = lastEnd + 5; S.years([1, 2, 3, 5].find((k) => k * 12 >= need) || 5); }   // long enough to see it play out
