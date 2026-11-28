@@ -369,31 +369,50 @@ export function addLocal(world, tier) {
 
   // city names, once you're close enough to see the streets: biggest places first, none overlapping
   const v = new THREE.Vector3(), pool = [];
-  // every city and town in view is named at once, one scroll step before the close-up dots start
+  // place names: every city and town of 5,000 people or more (GeoNames), all appearing together one scroll
+  // step before the close-up dots start. Loaded the first time you zoom in that far.
   const MAJOR = 1e6;
-  let majors = [];
+  let towns = null, tbuckets = null, loading = false;
+  function loadTowns() {
+    if (loading) return; loading = true;
+    fetch("/geo/towns.json").then((r) => r.json()).then((j) => {
+      tbuckets = new Map();
+      for (const [name, lat, lon, pop] of j.towns) {
+        const k = Math.floor(lon / 2) + ":" + Math.floor(lat / 2);
+        if (!tbuckets.has(k)) tbuckets.set(k, []); tbuckets.get(k).push({ name, lat, lon, pop });
+      }
+      towns = true;
+    }).catch(() => { loading = false; });
+  }
+  function townsNear(lon, lat, km) {
+    const out = [], dLat = km / KY, dLon = km / (KX * Math.max(0.15, Math.cos(lat * D)));
+    for (let x = Math.floor((lon - dLon) / 2); x <= Math.floor((lon + dLon) / 2); x++)
+      for (let y = Math.floor((lat - dLat) / 2); y <= Math.floor((lat + dLat) / 2); y++) {
+        const b = tbuckets.get((((x + 90) % 180 + 180) % 180 - 90) + ":" + y); if (b) out.push(...b);
+      }
+    return out;
+  }
+  let credit = null;
   function labels(camera, box, lon, lat, alt, aspect) {
-    if (!ready) { box.hidden = true; return; }
-    if (majors.length === 0 || majors.src !== cities) { majors = cities.filter((c) => c.cp >= MAJOR).sort((a, b) => b.cp - a.cp); majors.src = cities; }
-    box.hidden = false;
     const op = Math.max(0, Math.min(1, (0.165 - alt) / 0.02)), z = 1 + alt;
-    if (op <= 0) { box.hidden = true; return; }
+    if (alt < 0.4 && !towns) loadTowns();                      // fetch a little early so the names are ready in time
+    if (op <= 0 || !towns) { box.hidden = true; return; }
+    box.hidden = false; box.style.opacity = op;
+    if (!credit) { credit = document.createElement("i"); credit.className = "credit"; credit.textContent = "Place names: GeoNames (CC BY 4.0)"; box.appendChild(credit); }
     const W = box.clientWidth, H = box.clientHeight, halfKm = alt * 6371 * Math.tan(16 * D) * Math.max(1, aspect);
-    const list = near(lon, lat, halfKm * 1.6 + 5).sort((a, b) => b.cp - a.cp), taken = [];
+    const list = townsNear(lon, lat, halfKm * 1.3 + 5).sort((a, b) => b.pop - a.pop);
     let n = 0;
     for (const c of list) {
-      if (n >= 150) break;
-      const major = c.cp >= MAJOR;
+      if (n >= 400) break;
       const pa = new Float32Array(3); put(pa, 0, c.lon, c.lat); v.set(pa[0], pa[1], pa[2]);
       world.localToWorld(v); if (v.z * z < 1.0005) continue;       // over the horizon
       v.project(camera); if (v.z > 1) continue;
       const x = (v.x + 1) / 2 * W, y = (1 - v.y) / 2 * H;
       if (x < -40 || x > W + 40 || y < -20 || y > H + 20) continue;
-      const big = major ? 1 : c.cp > 2e5 ? 2 : 3, w = c.name.length * (big === 1 ? 9 : big === 2 ? 7.5 : 6.5) + 10, h = big === 1 ? 22 : 18;
-      taken.push([x, y, w, h]);
+      const big = c.pop >= MAJOR ? 1 : c.pop >= 2e5 ? 2 : c.pop >= 40000 ? 3 : 4;
       let el = pool[n]; if (!el) { el = document.createElement("span"); box.appendChild(el); pool.push(el); }
       if (el.textContent !== c.name) el.textContent = c.name;
-      el.className = "s" + big; el.style.opacity = op;
+      el.className = "s" + big;
       el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`; el.hidden = false;
       n++;
     }
