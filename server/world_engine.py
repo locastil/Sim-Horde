@@ -58,6 +58,9 @@ MIG_PUSH = dict(remittances=1.2, immigrants=1.5)      # in a broad range that sc
 GUARD = dict(happy=1.5, civ=0.08, stress=0.5)    # a detail result far from the Low result for the same nation is ignored
 
 PER_YEAR = dict(coup=3.0, conflict=3.5, protest=24.0, standoff=1.2, war=0.25)    # world totals a year
+# share of protest waves that police break up or arrest (any), and that meet deadly force: Mass Mobilization data
+CRACK_ANY = dict(dem=0.28, hyb=0.40, aut=0.55, mil=0.55)
+CRACK_DEADLY = dict(dem=0.02, hyb=0.08, aut=0.15, mil=0.15)
 
 # Markets and trade. Every country has a stock index (1,000 at the start) that moves each month with the world
 # market, with what the simulation did there (people's mood and stress, protests, coups, conflict, elections)
@@ -724,9 +727,18 @@ class World:
                       lambda n: n["protests"] == 0):
             n["protests"] = rnd.randint(1, 6); n["stab"] -= 0.08
             say(n, "PROTEST", f"Mass protests spread through cities in {the(n['name'])} over the cost of living and public services.")
-            if n["gov"] in ("aut", "mil", "hyb") and rnd.random() < (0.55 if n["gov"] != "hyb" else 0.3):
+            # how governments answer protests, from the Mass Mobilization data (protests against governments in 162
+            # countries, 1990-2020): police break up or arrest protesters in about a quarter of protests even in
+            # democracies, and more often the less free the government; deadly force is rare outside autocracies.
+            # Tested on half the countries and scored on the other half (see the Model lab); the countries' V-Dem
+            # repression scores added nothing on top of the kind of government.
+            u = rnd.random()
+            if u < CRACK_DEADLY[n["gov"]]:
                 n["crackdown"] = 3; n["stab"] -= 0.05
-                say(n, "CRACKDOWN", f"Security forces in {the(n['name'])} break up the protests; hundreds are detained.")
+                say(n, "CRACKDOWN", f"Security forces in {the(n['name'])} fire on protesters; there are deaths, and hundreds are detained.")
+            elif u < CRACK_ANY[n["gov"]]:
+                n["stab"] -= 0.02
+                say(n, "CRACKDOWN", f"Police in {the(n['name'])} break up the protests and make arrests.")
         # coup attempts
         for n in draw("coup", lambda n: {"dem": 0.08, "hyb": 1.0, "aut": 0.7, "mil": 1.3}[n["gov"]]
                       * math.exp(1.2 * n["feat"]["pov"] + 2.0 * (0.5 - n["stab"]) + 0.8 * (n["protests"] > 0)

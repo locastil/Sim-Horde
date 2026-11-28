@@ -13,6 +13,10 @@
   {
    "date": "2026-11-28",
    "text": "Refugee flows from war zones had no upper limit, so over 31 simulated years some countries emptied (Yemen fell below a million people) and their neighbours overfilled. Flight is now capped at 12% of a country a year, about the worst ever recorded, and every country was put back to its real share of the world's population."
+  },
+  {
+   "date": "2026-11-28",
+   "text": "Crackdowns follow real records: police break up some protests even in democracies, and deadly force is now rarer and separate (Mass Mobilization data)."
   }
  ],
  "items": [
@@ -348,14 +352,14 @@
   },
   {
    "id": "crackdowns",
-   "name": "Crackdowns that follow real repression",
-   "what": "Whether security forces break up protests should depend on how repressive the government really is, not only on its broad kind (democracy, hybrid, autocracy).",
-   "source": "V-Dem v16, via Our World in Data; checked against the simulation's own 22 years of protests and crackdowns",
+   "name": "How governments answer protests",
+   "what": "How often police break up or arrest protesters, and how often they use deadly force, by kind of government.",
+   "source": "Mass Mobilization Protest Data v5.1 (Clark & Regan, 15,239 protests against governments in 162 countries, 1990-2020, CC0); V-Dem v16 via Our World in Data",
    "quick": {
-    "note": "the simulation's crackdowns vs real repression: rank 0.33; share of protests met with a crackdown: rank 0.47 (129 countries)"
+    "note": "138 countries with 15+ protests; rules tuned on half the countries, scored on the other half"
    },
-   "status": "next",
-   "why": "The simulation decides crackdowns from three broad kinds of government, and those hide a lot: its \"hybrid\" governments range from barely repressive to among the most repressive in the world. Next: let the real repression score set the chance of a crackdown, then check it against an independent record of how governments actually answered protests (the Mass Mobilization data), not against the same score it was set from."
+   "status": "kept",
+   "why": "Before: democracies never broke up a protest, and autocracies did so 55% of the time, always as a heavy crackdown. Real records show police break up or arrest protesters in about a quarter of protests even in democracies, and deadly force is rare outside autocracies. New rates, any crackdown / deadly force: democracies 28% / 2%, hybrid 40% / 8%, autocracies 55% / 15%. On unseen countries the average miss on deadly force fell from 0.23-0.24 to 0.06-0.07, and on any crackdown from 0.16-0.20 to 0.14-0.15. Each country's V-Dem repression score added nothing on top of the kind of government (rank match 0.36 vs 0.37, 0.71 vs 0.68), so it isn't used."
   }
  ],
  "migration_baseline": {
