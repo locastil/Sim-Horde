@@ -5,7 +5,7 @@
 // It's an illustration of the simulation: where its people live, how happy they are, how busy the roads are.
 import * as THREE from "/vendor/three.min.js";
 import { addOSM } from "/osm.js";
-import { townPlaces, loadTowns } from "/people.js";
+import { townPlaces, loadTowns as loadTownPlaces } from "/people.js";
 
 const D = Math.PI / 180, KX = 111.32, KY = 110.57, R = 1.00003;
 const BUDGET = { low: [6000, 900], medium: [14000, 2000], high: [30000, 4000], epic: [50000, 7000] };   // [people, cars] per level
@@ -73,7 +73,7 @@ export function addLocal(world, tier) {
     const iso = {}; for (const n of (base && base.nations) || []) iso[String(Number(n.num))] = n.c;
     const G = (globe && globe.nations) || {};
     const { places } = townPlaces(d);
-    if (!places.some((p) => p.town)) loadTowns().then(() => { if (lastData === d) setData(d); });
+    if (!places.some((p) => p.town)) loadTownPlaces().then(() => { if (lastData === d) setData(d); });
     cities = []; buckets = new Map(); cells.clear();
     places.forEach((p, k) => {
       const g = G[p.num] || {}, reach = p.spread * 1.6 * KY;          // km: how far out the lights for this place go
