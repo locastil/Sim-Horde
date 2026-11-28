@@ -142,9 +142,9 @@ export function addLocal(world, tier) {
             const [m0, m1] = axis ? toLL(a + step / 2, b) : toLL(b, a + step / 2);
             if (m0 < lon0 || m0 >= lon0 + s || m1 < lat0 || m1 >= lat0 + s) continue;
             const [d, best] = density(cs, m0, m1);
-            if (best !== c || d < (major ? 60 : 250) || !c.land(m0, m1)) continue;
+            if (best !== c || d < (major ? 250 : 400) || !c.land(m0, m1)) continue;
             const p = axis ? toLL(a, b) : toLL(b, a), q = axis ? toLL(a + step, b) : toLL(b, a + step);
-            out.push(p[0], p[1], q[0], q[1], major ? 1 : 0.55);
+            out.push(p[0], p[1], q[0], q[1], (major ? 1 : 0.55) * Math.max(0.3, Math.min(1, d / 2500)));   // brighter where it's busier
           }
         }
       }
