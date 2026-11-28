@@ -1,0 +1,543 @@
+{
+ "made": "2026-11-27 16:21",
+ "years": [
+  2015,
+  2024
+ ],
+ "people": 2000674,
+ "countries": 208,
+ "weights_from": "the California tuning (calibrated_weights.json)",
+ "scale_fit_2015": {
+  "a": 2.487,
+  "b": 0.443,
+  "countries": 154
+ },
+ "change": {
+  "countries": 150,
+  "r": 0.273,
+  "rank": 0.356,
+  "mae": 0.471,
+  "mae_no_change": 0.49,
+  "direction": 0.641,
+  "direction_countries": 92,
+  "biggest_misses": [
+   {
+    "code": "AFG",
+    "name": "Afghanistan",
+    "from_year": 2015,
+    "to_year": 2024,
+    "sim": 0.572,
+    "real": -1.996
+   },
+   {
+    "code": "BFA",
+    "name": "Burkina Faso",
+    "from_year": 2015,
+    "to_year": 2024,
+    "sim": -1.021,
+    "real": 0.644
+   },
+   {
+    "code": "SLE",
+    "name": "Sierra Leone",
+    "from_year": 2015,
+    "to_year": 2024,
+    "sim": -0.07,
+    "real": -1.637
+   },
+   {
+    "code": "MOZ",
+    "name": "Mozambique",
+    "from_year": 2016,
+    "to_year": 2024,
+    "sim": -0.918,
+    "real": 0.64
+   },
+   {
+    "code": "CMR",
+    "name": "Cameroon",
+    "from_year": 2015,
+    "to_year": 2024,
+    "sim": -1.166,
+    "real": 0.374
+   },
+   {
+    "code": "MMR",
+    "name": "Myanmar",
+    "from_year": 2015,
+    "to_year": 2024,
+    "sim": -1.413,
+    "real": -0.074
+   },
+   {
+    "code": "UKR",
+    "name": "Ukraine",
+    "from_year": 2015,
+    "to_year": 2024,
+    "sim": -0.981,
+    "real": 0.356
+   },
+   {
+    "code": "PSE",
+    "name": "Palestine",
+    "from_year": 2015,
+    "to_year": 2024,
+    "sim": -1.217,
+    "real": 0.026
+   }
+  ],
+  "examples": [
+   {
+    "code": "AFG",
+    "name": "Afghanistan",
+    "from_year": 2015,
+    "to_year": 2024,
+    "sim": 0.572,
+    "real": -1.996
+   },
+   {
+    "code": "LBN",
+    "name": "Lebanon",
+    "from_year": 2015,
+    "to_year": 2024,
+    "sim": -0.83,
+    "real": -1.941
+   },
+   {
+    "code": "SLE",
+    "name": "Sierra Leone",
+    "from_year": 2015,
+    "to_year": 2024,
+    "sim": -0.07,
+    "real": -1.637
+   },
+   {
+    "code": "SOM",
+    "name": "Somalia",
+    "from_year": 2015,
+    "to_year": 2024,
+    "sim": -0.043,
+    "real": -1.093
+   },
+   {
+    "code": "JOR",
+    "name": "Jordan",
+    "from_year": 2015,
+    "to_year": 2024,
+    "sim": -0.453,
+    "real": -0.993
+   },
+   {
+    "code": "CIV",
+    "name": "Ivory Coast",
+    "from_year": 2015,
+    "to_year": 2024,
+    "sim": 0.198,
+    "real": 1.186
+   },
+   {
+    "code": "VNM",
+    "name": "Vietnam",
+    "from_year": 2015,
+    "to_year": 2024,
+    "sim": 0.243,
+    "real": 1.291
+   },
+   {
+    "code": "GIN",
+    "name": "Guinea",
+    "from_year": 2015,
+    "to_year": 2024,
+    "sim": 0.371,
+    "real": 1.322
+   },
+   {
+    "code": "BGR",
+    "name": "Bulgaria",
+    "from_year": 2015,
+    "to_year": 2024,
+    "sim": 0.396,
+    "real": 1.337
+   },
+   {
+    "code": "SRB",
+    "name": "Serbia",
+    "from_year": 2015,
+    "to_year": 2024,
+    "sim": 0.778,
+    "real": 1.429
+   }
+  ]
+ },
+ "per_year": [
+  {
+   "year": 2015,
+   "countries": 154,
+   "mae": 0.61,
+   "rank": 0.803,
+   "sim_world": 5.351,
+   "real_world": 5.382
+  },
+  {
+   "year": 2016,
+   "countries": 153,
+   "mae": 0.575,
+   "rank": 0.828,
+   "sim_world": 5.324,
+   "real_world": 5.352
+  },
+  {
+   "year": 2017,
+   "countries": 154,
+   "mae": 0.566,
+   "rank": 0.835,
+   "sim_world": 5.327,
+   "real_world": 5.371
+  },
+  {
+   "year": 2018,
+   "countries": 154,
+   "mae": 0.57,
+   "rank": 0.821,
+   "sim_world": 5.363,
+   "real_world": 5.401
+  },
+  {
+   "year": 2019,
+   "countries": 151,
+   "mae": 0.569,
+   "rank": 0.818,
+   "sim_world": 5.391,
+   "real_world": 5.467
+  },
+  {
+   "year": 2020,
+   "countries": 147,
+   "mae": 0.62,
+   "rank": 0.802,
+   "sim_world": 5.182,
+   "real_world": 5.527
+  },
+  {
+   "year": 2021,
+   "countries": 144,
+   "mae": 0.598,
+   "rank": 0.844,
+   "sim_world": 5.198,
+   "real_world": 5.548
+  },
+  {
+   "year": 2022,
+   "countries": 136,
+   "mae": 0.589,
+   "rank": 0.844,
+   "sim_world": 5.364,
+   "real_world": 5.534
+  },
+  {
+   "year": 2023,
+   "countries": 142,
+   "mae": 0.603,
+   "rank": 0.838,
+   "sim_world": 5.406,
+   "real_world": 5.52
+  },
+  {
+   "year": 2024,
+   "countries": 146,
+   "mae": 0.594,
+   "rank": 0.825,
+   "sim_world": 5.448,
+   "real_world": 5.571
+  }
+ ],
+ "emigration": {
+  "countries": 127,
+  "rank": -0.054
+ },
+ "secs": 128,
+ "missing_figures": [
+  "young 2012",
+  "young 2013",
+  "young 2014",
+  "young 2015",
+  "young 2016",
+  "young 2017",
+  "young 2018",
+  "young 2019",
+  "young 2020",
+  "young 2021",
+  "young 2022",
+  "young 2023",
+  "young 2024",
+  "netmig 2012",
+  "netmig 2013",
+  "netmig 2014",
+  "netmig 2015",
+  "netmig 2016",
+  "netmig 2017",
+  "netmig 2018",
+  "netmig 2019",
+  "netmig 2020",
+  "netmig 2021",
+  "netmig 2022",
+  "netmig 2023",
+  "netmig 2024"
+ ],
+ "incomplete": false,
+ "events": {
+  "wars": {
+   "SYR": [
+    2015,
+    2024
+   ],
+   "YEM": [
+    2015,
+    2024
+   ],
+   "AFG": [
+    2015,
+    2021
+   ],
+   "IRQ": [
+    2015,
+    2017
+   ],
+   "LBY": [
+    2015,
+    2020
+   ],
+   "SSD": [
+    2015,
+    2020
+   ],
+   "SOM": [
+    2015,
+    2024
+   ],
+   "NGA": [
+    2015,
+    2024
+   ],
+   "MLI": [
+    2015,
+    2024
+   ],
+   "UKR": [
+    2022,
+    2024
+   ],
+   "ETH": [
+    2020,
+    2022
+   ],
+   "MMR": [
+    2021,
+    2024
+   ],
+   "SDN": [
+    2023,
+    2024
+   ],
+   "PSE": [
+    2023,
+    2024
+   ],
+   "COD": [
+    2015,
+    2024
+   ],
+   "CAF": [
+    2015,
+    2024
+   ],
+   "BFA": [
+    2016,
+    2024
+   ],
+   "MOZ": [
+    2017,
+    2024
+   ],
+   "AZE": [
+    2020,
+    2020
+   ],
+   "ARM": [
+    2020,
+    2020
+   ],
+   "CMR": [
+    2017,
+    2024
+   ],
+   "NER": [
+    2015,
+    2024
+   ],
+   "HTI": [
+    2021,
+    2024
+   ]
+  },
+  "coups": {
+   "ZWE": [
+    2017
+   ],
+   "SDN": [
+    2019,
+    2021
+   ],
+   "MLI": [
+    2020,
+    2021
+   ],
+   "MMR": [
+    2021
+   ],
+   "GIN": [
+    2021
+   ],
+   "TCD": [
+    2021
+   ],
+   "BFA": [
+    2022
+   ],
+   "NER": [
+    2023
+   ],
+   "GAB": [
+    2023
+   ],
+   "BOL": [
+    2019
+   ]
+  },
+  "sanctions": {
+   "RUS": [
+    2022,
+    2024
+   ],
+   "IRN": [
+    2015,
+    2024
+   ],
+   "VEN": [
+    2017,
+    2024
+   ],
+   "PRK": [
+    2015,
+    2024
+   ],
+   "SYR": [
+    2015,
+    2024
+   ],
+   "CUB": [
+    2015,
+    2024
+   ],
+   "BLR": [
+    2020,
+    2024
+   ],
+   "MMR": [
+    2021,
+    2024
+   ]
+  },
+  "protests": {
+   "FRA": [
+    2018,
+    2019,
+    2023
+   ],
+   "CHL": [
+    2019
+   ],
+   "COL": [
+    2021
+   ],
+   "IRN": [
+    2019,
+    2022
+   ],
+   "LBN": [
+    2019,
+    2020
+   ],
+   "SDN": [
+    2019
+   ],
+   "USA": [
+    2020
+   ],
+   "BLR": [
+    2020
+   ],
+   "KAZ": [
+    2022
+   ],
+   "LKA": [
+    2022
+   ],
+   "IRQ": [
+    2019
+   ],
+   "ECU": [
+    2019
+   ],
+   "BOL": [
+    2019
+   ],
+   "VEN": [
+    2017,
+    2019
+   ],
+   "NIC": [
+    2018
+   ],
+   "THA": [
+    2020
+   ],
+   "PER": [
+    2022
+   ],
+   "KEN": [
+    2023,
+    2024
+   ],
+   "BGD": [
+    2024
+   ],
+   "ISR": [
+    2023
+   ],
+   "HUN": [
+    2018
+   ],
+   "SRB": [
+    2024
+   ],
+   "GEO": [
+    2024
+   ],
+   "BRA": [
+    2015,
+    2016
+   ]
+  },
+  "pandemic": [
+   2020,
+   3,
+   2021,
+   12
+  ]
+ },
+ "sources": [
+  "World Bank Open Data (indicators in backtest.py)",
+  "World Happiness Report via Our World in Data (CC BY)"
+ ]
+}
