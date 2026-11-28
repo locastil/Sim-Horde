@@ -58,6 +58,29 @@ function glowTexture() {
 
 // every town of 5,000+ (the same list the close-up names come from), fetched once and shared
 let TOWNS = null, townsP = null;
+// the United States county by county, when the finer levels have run it: each county's simulated happiness, and
+// its centre, so a US town takes the colour of its nearest county (/api/v1/us_counties)
+let COUNTY = null, countyP = null, countyStamp = 0;
+export function loadCounties() {
+  if (!countyP) countyP = fetch("/api/v1/us_counties").then((r) => r.json()).then((j) => {
+    if (!j || !j.pts || !j.pts.length) return null;
+    const grid = new Map();
+    for (const [f, la, lo, h] of j.pts) { const k = Math.floor(lo) + ":" + Math.floor(la); if (!grid.has(k)) grid.set(k, []); grid.get(k).push([lo, la, h]); }
+    COUNTY = { grid, level: j.level }; countyStamp++; return COUNTY;
+  }).catch(() => null);
+  return countyP;
+}
+function countyHappy(lon, lat) {
+  if (!COUNTY) return null;
+  let best = null, bd = 1e9;
+  for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++)
+    for (const [lo, la, h] of COUNTY.grid.get((Math.floor(lon) + dx) + ":" + (Math.floor(lat) + dy)) || []) {
+      const d = (lo - lon) * (lo - lon) * Math.cos(lat * D) ** 2 + (la - lat) * (la - lat);
+      if (d < bd) { bd = d; best = h; }
+    }
+  return best;
+}
+
 export function loadTowns() {
   if (!townsP) townsP = fetch("/geo/towns.json").then((r) => r.json()).then((j) => (TOWNS = j.towns)).catch(() => null);
   return townsP;
@@ -71,7 +94,7 @@ const placesMemo = new WeakMap();
 export function townPlaces(d) {
   const key = d.globe || d;
   const hit = placesMemo.get(key);
-  if (hit && hit.towns === !!TOWNS && hit.cities === d.cities) return hit.v;
+  if (hit && hit.towns === !!TOWNS && hit.cities === d.cities && hit.county === countyStamp) return hit.v;
   const { globe, cities, shapes } = d;
   const G = (globe && globe.nations) || {}, C = (cities && cities.cities) || {};
   const places = [];
@@ -107,7 +130,8 @@ export function townPlaces(d) {
       townBased.add(num);
       for (const [lo, la, tp] of ts) {
         const people = g.pop * (tp / tsum);
-        places.push({ num, lon: lo, lat: la, people, cp: tp, town: true, war: !!g.conflict, mood: moodColor(g.happiness), detail: DETAIL[g.detail] || 0.6, land: lands[num] || (() => true), outline: !!lands[num] });
+        const ch = num === "840" ? countyHappy(lo, la) : null;          // a US town: its county's colour, when counties ran
+        places.push({ num, lon: lo, lat: la, people, cp: tp, town: true, war: !!g.conflict, mood: moodColor(ch != null ? ch : g.happiness), detail: DETAIL[g.detail] || 0.6, land: lands[num] || (() => true), outline: !!lands[num] });
         total += people;
       }
     }
@@ -129,7 +153,7 @@ export function townPlaces(d) {
   for (const p of places) p.spread = p.town ? Math.min(p.outline ? 0.6 : 0.1, 0.03 + Math.sqrt(p.people / 1e6) * 0.09)
     : Math.min(p.outline ? 2.6 : 0.12, 0.1 + Math.sqrt(p.people / 1e6) * 0.17);
   const v = { places, total };
-  placesMemo.set(key, { towns: !!TOWNS, cities: d.cities, v });
+  placesMemo.set(key, { towns: !!TOWNS, cities: d.cities, county: countyStamp, v });
   return v;
 }
 
@@ -148,6 +172,7 @@ export function addPeople(world, tier, data) {
   function setData(d) {
     last = d;
     if (!TOWNS) loadTowns().then(() => { if (TOWNS && last === d) setData(d); });
+    if (!COUNTY) loadCounties().then((c) => { if (c && last === d) { setData(d); window.dispatchEvent(new Event("simhorde:counties")); } });
     clear();
     const { places, total } = townPlaces(d);
     if (!places.length) return;

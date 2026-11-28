@@ -406,6 +406,8 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, dict(t=None, planes=[], ships=[], status=dict(planes="off", ships="off")))
             self._gz = body[1]
             return self._send(200, body[0], cache="public, max-age=20")
+        if path == "/api/v1/us_counties":             # each US county's simulated happiness, when the finer levels ran it
+            return self._send(200, WORLD.county_public() if WORLD else dict(counties={}), cache="public, max-age=60")
         if path == "/api/v1/counties":
             return self._send(200, COUNTY_SHAPES, cache="public, max-age=86400")
         if path == "/":

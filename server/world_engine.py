@@ -23,6 +23,7 @@ stress, rudeness, hardship, inequality and instability make a nation likelier to
 import json
 import math
 import os
+import sys
 import random
 import threading
 import time
@@ -66,6 +67,13 @@ MIG_PUSH = dict(remittances=1.2, immigrants=1.5)      # in a broad range that sc
 # Model lab): a steady push on stress per standard unit of shorter healthy life; stronger settings and adding food
 # insecurity (which comes from the same Gallup poll as the happiness surveys) did no better.
 HAPPY_PUSH = dict(life_expectancy=0.1)
+# The United States, county by county. At the finer levels of detail the US's simulated people are split into its
+# real counties (small neighbouring counties in the same state grouped together), each with its own conditions from
+# the Census Bureau's American Community Survey (world/us_counties_data.py): hardship from the share below 150% of
+# the poverty line, unemployment, crowding from population density, age, and broadband. Inequality stays at the
+# national figure (no county figure in the source). Each county's conditions are the national ones moved by how far
+# the county is from the national average, so the country as a whole stays where the Low level puts it.
+COUNTY_NATION = "USA"
 GUARD = dict(happy=1.5, civ=0.08, stress=0.5)    # a detail result far from the Low result for the same nation is ignored
 
 PER_YEAR = dict(coup=3.0, conflict=3.5, protest=24.0, standoff=1.2, war=0.25)    # world totals a year
@@ -158,6 +166,7 @@ class World:
         os.makedirs(STATE_DIR, exist_ok=True)
         self.path = os.path.join(STATE_DIR, "world.json")
         self.jobs = {}                     # shard index -> dict(status, worker, at, result)
+        self.counties = self.load_counties()
         if os.path.exists(self.path):
             self.w = json.load(open(self.path, encoding="utf-8"))
             if "layers" not in self.w:
@@ -168,6 +177,10 @@ class World:
                 self.save()
             if not self.w.get("conflict_levels"):
                 self.set_conflict_levels()
+                self.save()
+            if self.counties and not self.w.get("county_regions"):
+                self.build_layers(self.w)          # the US splits into counties at the finer levels; those pieces start fresh
+                self.w["detail"] = {}
                 self.save()
         else:
             self.w = self.create(target_agents, seed)
@@ -187,6 +200,61 @@ class World:
         self.opened = 0.0                     # after a restart, carry on right away
 
     # ------------------------------------------------------------------ setup
+    def load_counties(self):
+        """US county figures (world/us_counties_cdc.json); fetched once if missing (needs internet)."""
+        path = os.path.join(HERE, "world", "us_counties_cdc.json")
+        if not os.path.exists(path):
+            try:
+                sys.path.insert(0, os.path.join(HERE, "world"))
+                import us_counties_data
+                us_counties_data.main()
+            except Exception as e:
+                print(f"No US county data ({e}): the US runs as one country at every level.", flush=True)
+                return {}
+        try:
+            C = json.load(open(path, encoding="utf-8"))["counties"]
+        except (OSError, ValueError, KeyError):
+            return {}
+        C = {f: c for f, c in C.items() if c.get("pop", 0) > 0 and "pov150" in c and "unemp" in c}
+        print(f"US counties: {len(C)} with figures, for the finer levels of detail", flush=True)
+        return C
+
+    def county_feat(self, fips_list):
+        """A group of counties' conditions: the US's own, moved by how far the group is from the US average."""
+        n = self.w["nations"][COUNTY_NATION]
+        base = dict(n["feat"])
+        C = self.counties
+        if not hasattr(self, "_us_avg"):
+            pop = sum(c["pop"] for c in C.values())
+            avg = lambda k: sum(c[k] * c["pop"] for c in C.values() if k in c) / max(1, sum(c["pop"] for c in C.values() if k in c))
+            urb = lambda c: 100 / (1 + math.exp(-1.3 * (math.log(max(0.1, c["pop"] / c["land_km2"])) - math.log(60)))) if c.get("land_km2") else None
+            self._urb = urb
+            self._us_avg = dict(pov150=avg("pov150"), unemp=avg("unemp"), age65=avg("age65"), broad=avg("broad"),
+                                urban=sum(urb(c) * c["pop"] for c in C.values() if urb(c) is not None) / max(1, sum(c["pop"] for c in C.values() if urb(c) is not None)))
+        A, cs = self._us_avg, [C[f] for f in fips_list if f in C]
+        if not cs:
+            return base
+        w = sum(c["pop"] for c in cs)
+        g = lambda k: sum(c.get(k, A[k]) * c["pop"] for c in cs) / w
+        urbs = [(self._urb(c), c["pop"]) for c in cs if self._urb(c) is not None]
+        urban = sum(u * p for u, p in urbs) / sum(p for _, p in urbs) if urbs else A["urban"]
+        clip = lambda v, lo, hi: max(lo, min(hi, v))
+        return dict(base,
+                    pov=round(clip(base["pov"] + 0.4 * math.log(max(1.0, g("pov150")) / max(1.0, A["pov150"])), -1.0, 1.0), 4),
+                    unemp=round(clip(base["unemp"] + (g("unemp") - A["unemp"]) / 8.0, -1.0, 1.5), 4),
+                    dens=round(clip(base["dens"] + (urban - A["urban"]) / 35.0, -1.0, 1.0), 4),
+                    young=round(clip(base["young"] - (g("age65") - A["age65"]) / 8.0, -1.0, 1.0), 4),
+                    net=round(clip(base["net"] - (g("broad") - A["broad"]) / 35.0, -1.0, 1.0), 4))
+
+    def region_feat(self, k, code):
+        fs = (self.w.get("county_regions") or {}).get(str(k), {}).get(code)
+        if fs is None:
+            return self.w["nations"][code.split("#")[0]]["feat"]
+        cache = self.__dict__.setdefault("_rfeat", {})
+        if (k, code) not in cache:
+            cache[(k, code)] = self.county_feat(fs)
+        return cache[(k, code)]
+
     def set_conflict_levels(self):
         """Once, for worlds made before conflicts had a size: today's real conflicts take their UCDP size
         (major at 1,000+ battle deaths a year); conflicts the simulation started count as minor."""
@@ -280,25 +348,52 @@ class World:
         self.build_layers(w)
         return w
 
+    def county_groups(self, total, min_agents):
+        """The US's simulated people at one level, shared out over its counties by population; small counties
+        are grouped with their neighbours in the same state (in FIPS order) until a group has min_agents.
+        Returns [(code, agents, [fips...])]."""
+        C = self.counties
+        pop = sum(c["pop"] for c in C.values()) or 1
+        out, cur, acc, prev_st = [], [], 0.0, None
+        for f in sorted(C):
+            st = f[:2]
+            if cur and st != prev_st and acc >= min_agents / 2:
+                out.append((cur, acc)); cur, acc = [], 0.0
+            cur.append(f); acc += total * C[f]["pop"] / pop; prev_st = st
+            if acc >= min_agents:
+                out.append((cur, acc)); cur, acc = [], 0.0
+        if cur:
+            if out and acc < min_agents / 2:
+                out[-1] = (out[-1][0] + cur, out[-1][1] + acc)
+            else:
+                out.append((cur, acc))
+        return [(f"{COUNTY_NATION}#{i}", max(50, int(round(a))), fs) for i, (fs, a) in enumerate(out)]
+
     def build_layers(self, w):
         """Regions and pieces for the finer levels (worlds made before levels existed get them on load)."""
         N = w["nations"]
         codes = sorted(N, key=lambda c: (N[c]["region"], -N[c]["pop"]))
         layers = []
+        w["county_regions"] = {}
         for k, L in enumerate(LAYERS):
             if k == 0:
                 continue
             pieces, cur, size = [], [], 0
             for c in codes:
                 total = int(min(N[c]["agents"] * L["mult"], max(N[c]["agents"], N[c]["pop"] / 10)))
-                r = max(1, math.ceil(total / L["piece"]))
-                for j in range(r):
-                    a = total // r + (1 if j < total % r else 0)
+                if c == COUNTY_NATION and getattr(self, "counties", None):
+                    groups = self.county_groups(total, max(400, L["piece"] // 250))     # at most ~250 regions in a piece
+                    w["county_regions"][str(k)] = {code: fs for code, _, fs in groups}
+                    regions = [(code, a) for code, a, _ in groups]
+                else:
+                    r = max(1, math.ceil(total / L["piece"]))
+                    regions = [(f"{c}#{j}", total // r + (1 if j < total % r else 0)) for j in range(r)]
+                for code, a in regions:
                     if a < 50:
                         continue
                     if size + a > L["piece"] and cur:
                         pieces.append(cur); cur, size = [], 0
-                    cur.append([f"{c}#{j}", a]); size += a
+                    cur.append([code, a]); size += a
             if cur:
                 pieces.append(cur)
             layers.append(dict(name=L["name"], pieces=pieces))
@@ -553,7 +648,7 @@ class World:
         _, k, p, mine = best
         self.djobs[(k, p)]["assigned"][worker_id] = now
         N = self.w["nations"]
-        nations = [dict(code=code, agents=a, feat=N[code.split("#")[0]]["feat"], pressure=self.pressure(N[code.split("#")[0]]))
+        nations = [dict(code=code, agents=a, feat=self.region_feat(k, code), pressure=self.pressure(N[code.split("#")[0]]))
                    for code, a in self.piece_nations(k, p)]
         payload = dict(nations=nations, theta=self.theta, days=EPOCH_DAYS,
                        seed=self.w["seed"] * 1_000_003 + e * 1009 + 100_000 * k + p, state=None,
@@ -1127,7 +1222,7 @@ class World:
                 c = code.split("#")[0]
                 need[(k, c)] = need.get((k, c), 0) + 1
                 if ok:
-                    by.setdefault((k, c), []).append((j["result"][code], a))
+                    by.setdefault((k, c), []).append((j["result"][code], a, code))
         counts = [0] * len(LAYERS)
         for c, n in N.items():
             if not n.get("last"):
@@ -1136,14 +1231,20 @@ class World:
                 got = by.get((k, c), [])
                 if not got or len(got) != need.get((k, c)):
                     continue
-                tot = sum(a for _, a in got)
-                v = {f: sum(r[f] * a for r, a in got) / tot for f in ("happy", "civ", "stress", "irr", "conn", "leave")}
+                tot = sum(a for _, a, _ in got)
+                v = {f: sum(r[f] * a for r, a, _ in got) / tot for f in ("happy", "civ", "stress", "irr", "conn", "leave")}
                 low = n["last"]
                 if any(abs(v[f] - low[f]) > GUARD[f] for f in GUARD):
                     continue                            # far from the Low run: don't trust it this month
                 n["last"] = {f: round(x, 5) for f, x in v.items()}
                 n["detail"] = k
                 n["detail_agents"] = tot
+                if c == COUNTY_NATION and (self.w.get("county_regions") or {}).get(str(k)):
+                    regs = self.w["county_regions"][str(k)]
+                    self.w["county_results"] = dict(level=k, epoch=self.w["epoch"], regions={
+                        code: dict(fips=regs.get(code, []), happy=round(r["happy"], 4), stress=round(r["stress"], 4), conn=round(r["conn"], 4))
+                        for r, a, code in got})
+                    self.fit_counties()
                 break
             counts[n.get("detail", 0)] += 1
         self.w["detail_counts"] = counts
@@ -1166,6 +1267,44 @@ class World:
         b = max(0.3, min(3.0, sxy / sxx)) if sxx > 0 else 1.0
         self.w["happy_fit"] = dict(a=round(my - b * mx, 4), b=round(b, 4), n=len(pts),
                                    r=round(sxy / math.sqrt(sxx * syy), 3) if sxx > 0 and syy > 0 else None)
+
+    def fit_counties(self):
+        """How the simulated counties line up with the CDC's county survey figures: groups ranked by simulated stress
+        against their share of adults in frequent mental distress, and by simulated connection against loneliness."""
+        R = (self.w.get("county_results") or {}).get("regions") or {}
+        C = self.counties
+        def group(fs, k):
+            xs = [(C[f][k], C[f]["pop"]) for f in fs if f in C and k in C[f]]
+            return sum(v * p for v, p in xs) / sum(p for _, p in xs) if xs else None
+        def rho(a, b):
+            if len(a) < 20:
+                return None
+            ra = {i: r for r, i in enumerate(sorted(range(len(a)), key=lambda j: a[j]))}
+            rb = {i: r for r, i in enumerate(sorted(range(len(b)), key=lambda j: b[j]))}
+            n = len(a)
+            return round(1 - 6 * sum((ra[i] - rb[i]) ** 2 for i in range(n)) / (n * (n * n - 1)), 3)
+        out = {}
+        for key, sim, real, sign in (("distress", "stress", "t_mhlth", 1), ("lonely", "conn", "t_loneliness", -1)):
+            pts = [(sign * r[sim], group(r["fips"], real)) for r in R.values()]
+            pts = [p for p in pts if p[1] is not None]
+            out[key] = dict(rank=rho([p[0] for p in pts], [p[1] for p in pts]), n=len(pts))
+        self.w["county_fit"] = out
+
+    def county_public(self):
+        """Each US county's simulated happiness on the survey scale (0-10), from the finest level that ran this month."""
+        with self.lock:
+            R = (self.w.get("county_results") or {}).get("regions") or {}
+            f = self.w.get("happy_fit") or dict(a=0.0, b=1.0)
+            out = {}
+            for r in R.values():
+                h = round(max(0.0, min(10.0, f["a"] + f["b"] * r["happy"])), 2)
+                for fips in r["fips"]:
+                    out[fips] = h
+            C = self.counties
+            pts = [[f, C[f]["lat"], C[f]["lon"], h] for f, h in out.items() if f in C and "lat" in C[f]]   # for the globe: nearest county centre
+            return dict(date=self.date(), level=LAYERS[(self.w.get("county_results") or {}).get("level", 0)]["name"] if R else None,
+                        counties=out, pts=pts, fit=self.w.get("county_fit"),
+                        source="Simulated; county conditions from the U.S. Census Bureau ACS via CDC PLACES")
 
     def happiness(self, n):
         f = self.w.get("happy_fit") or dict(a=0.0, b=1.0)
@@ -1200,4 +1339,4 @@ class World:
                         people=round(sum(n["pop"] for n in N.values())), simulated=sum(n["agents"] for n in N.values()),
                         happiness=last[1] if last else None, fit=W.get("happy_fit"), mig_fit=W.get("mig_fit"), conflicts=last[3] if last else 0, levels=levels,
                         simulated_detail=sum(n.get("detail_agents", n["agents"]) if n.get("detail") else n["agents"] for n in N.values()),
-                        nations=nations, events=ev, series=[[x[0], x[1], x[3], x[4]] for x in W["world_series"][-240:]], source=W.get("data", {}).get("source"))
+                        nations=nations, events=ev, county_fit=W.get("county_fit"), series=[[x[0], x[1], x[3], x[4]] for x in W["world_series"][-240:]], source=W.get("data", {}).get("source"))

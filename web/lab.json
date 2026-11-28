@@ -25,6 +25,10 @@
   {
    "date": "2026-11-28",
    "text": "Conflicts have a size: a minor conflict (an insurgency in one region, a border clash) weighs on part of a country and sends few people abroad; only major ones (1,000+ battle deaths a year) count as full-scale war. Before, India's Kashmir insurgency sent 12% of Indians abroad a year."
+  },
+  {
+   "date": "2026-11-28",
+   "text": "The United States runs county by county at the finer levels of detail, and US towns on the globe take their county's colour."
   }
  ],
  "items": [
@@ -423,6 +427,11 @@
      "Healthy life expectancy",
      "WHO, via Our World in Data",
      "Added after testing (below): a steady push on day-to-day stress where people live shorter healthy lives."
+    ],
+    [
+     "United States, county by county",
+     "U.S. Census Bureau American Community Survey 2017-2021, via CDC PLACES; county land area from the Census gazetteer",
+     "At the finer levels of detail the US splits into its 3,143 counties (small ones grouped with neighbours): each gets its own hardship (share below 150% of the poverty line), unemployment, crowding, age and broadband, moved from the national figures by how far the county is from the US average. Inequality stays national."
     ]
    ]
   },
@@ -522,6 +531,11 @@
      "Migration",
      "World Bank Open Data (SM.POP.NETM)",
      "Which countries people leave, ranked."
+    ],
+    [
+     "US counties",
+     "CDC PLACES County Data 2025 (BRFSS surveys)",
+     "Simulated stress against the share of adults in frequent mental distress, and simulated connection against loneliness, county by county."
     ]
    ]
   },

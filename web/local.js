@@ -66,7 +66,7 @@ export function addLocal(world, tier) {
 
   // where the people are: the same places the far-off lights come from (people.js), every town of 5,000+ with
   // its share of its country's people, so the glow from space splits into these same people close up
-  let lastData = null;
+  let lastData = null, countyHook = false;
   function setData(d) {
     lastData = d;
     const { globe, base } = d;
@@ -74,6 +74,7 @@ export function addLocal(world, tier) {
     const G = (globe && globe.nations) || {};
     const { places } = townPlaces(d);
     if (!places.some((p) => p.town)) loadTownPlaces().then(() => { if (lastData === d) setData(d); });
+    if (!countyHook) { countyHook = true; window.addEventListener("simhorde:counties", () => { if (lastData) setData(lastData); }); }
     cities = []; buckets = new Map(); cells.clear();
     places.forEach((p, k) => {
       const g = G[p.num] || {}, reach = p.spread * 1.6 * KY;          // km: how far out the lights for this place go
