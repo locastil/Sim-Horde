@@ -201,7 +201,7 @@ export function addOSM(world, tier, sim) {
       const up = tiles.get((z - 1) + ":" + (x >> 1) + ":" + (y >> 1));
       if (up && up.walkers) for (const w of up.walkers) {
         if (!w.home || w.lo < lon0 || w.lo >= lon1 || w.la < lat0 || w.la >= lat1) continue;
-        if ((inBuildings || maskShare > 0.05) && !mask[cellOf(w.lo, w.la)] && rnd() < 0.8) continue;   // it turned out not to be in a home
+        if (homes.length ? !mask[cellOf(w.lo, w.la)] : z >= 9) continue;   // it turned out not to be in a home (or this close up, the map says where homes are)
         add({ ...w }, true);
         if (walkers.length >= nP - nOut) break;
       }
@@ -219,7 +219,7 @@ export function addOSM(world, tier, sim) {
           if (!(ct = keep(lo, la))) continue;
           const side = (rnd() < 0.5 ? -1 : 1) * (home ? 0.02 + rnd() * 0.05 : 0.009), nl = Math.hypot(dx, dy) || 1;
           dx /= nl; dy /= nl; lo -= (dy * side) / (111.32 * Math.cos(la * D)); la += (dx * side) / 110.57;
-        } else if (home) {                                   // no map detail at all: wherever the simulation's people live
+        } else if (home && z < 9) {                          // far out, no map detail yet: wherever the simulation's people live
           lo = lonOf(x + rnd(), z); la = latOf(y + rnd(), z);
           if (!(ct = keep(lo, la))) continue;
         } else continue;
