@@ -200,6 +200,34 @@ export function addPeople(world, tier, data) {
     pts = null;
   }
 
+  // the glow: the whole population grid painted onto the globe, every ~5 km cell lit by how many live there and
+  // coloured by how they rate their lives, so sprawl, suburbs and farm country all show from space at any zoom.
+  // Kept apart from the dots (repainted at most every 20 s; a month's change in colour is small).
+  let glow = null, glowAt = 0;
+  function paintGlow(fcol, fwar, f, fw) {
+    const now = performance.now();
+    if (glow && now - glowAt < 20000) return;
+    glowAt = now;
+    const { w, h, v } = GRID, TW = Math.min(w, tier === "epic" ? 8192 : 4096), TH = TW / 2;
+    const data = glow ? glow.material.map.image.data : new Uint8Array(TW * TH * 4);
+    for (let y = 0; y < TH; y++) {
+      const r = Math.floor(((TH - 1 - y) * h) / TH), fr = ((r / f) | 0) * fw;      // texture rows run south to north
+      for (let x = 0; x < TW; x++) {
+        const c = Math.floor((x * w) / TW), b = v[r * w + c], o = (y * TW + x) * 4;
+        if (!b) { data[o] = data[o + 1] = data[o + 2] = data[o + 3] = 0; continue; }
+        const fi = fr + ((c / f) | 0), k = 0.16 + 0.84 * Math.pow(b / 255, 1.6), m = fwar[fi] ? 0.5 : 1;
+        data[o] = 255 * Math.min(1, fcol[fi * 3] * k * m); data[o + 1] = 255 * Math.min(1, fcol[fi * 3 + 1] * k * m);
+        data[o + 2] = 255 * Math.min(1, fcol[fi * 3 + 2] * k * m); data[o + 3] = 255;
+      }
+    }
+    if (glow) { glow.material.map.needsUpdate = true; return; }
+    const tex = new THREE.DataTexture(data, TW, TH, THREE.RGBAFormat);
+    tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearFilter; tex.needsUpdate = true;
+    glow = new THREE.Mesh(new THREE.SphereGeometry(1.0003, 256, 128),
+      new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
+    world.add(glow);
+  }
+
   let last = null;
   function setData(d) {
     last = d;
@@ -254,15 +282,18 @@ export function addPeople(world, tier, data) {
           }
         }
       }
-      const fcd = cd * f;
+      const fcd = cd * f, fcol = new Float32Array(fmax.length * 3), fwar = new Uint8Array(fmax.length);
       for (let fi = 0; fi < fmax.length; fi++) {
-        if (!fmax[fi] || lit[fi]) continue;
-        const lo = -180 + ((fi % fw) + Math.random()) * fcd, la = 90 - (((fi / fw) | 0) + Math.random()) * fcd;
+        if (!fmax[fi]) continue;
+        const lo = -180 + ((fi % fw) + 0.5) * fcd, la = 90 - (((fi / fw) | 0) + 0.5) * fcd;
         const p = nearest(lo, la);
         const ch = p && p.num === "840" ? countyHappy(lo, la) : null, mood = ch != null ? moodColor(ch) : p ? p.mood : [0.75, 0.7, 0.6];
+        fcol.set(mood, fi * 3); fwar[fi] = p && p.war ? 1 : 0;
+        if (lit[fi]) continue;
         const bright = 0.28 + 0.5 * (fmax[fi] / 255);
-        tpos.push([lo, la]); tcol.push(mood.map((x) => x * bright)); tbase.push(p ? p.war : false);
+        tpos.push([lo + (Math.random() - 0.5) * fcd, la + (Math.random() - 0.5) * fcd]); tcol.push(mood.map((x) => x * bright)); tbase.push(p ? p.war : false);
       }
+      paintGlow(fcol, fwar, f, fw);
       for (const p of places) if (p.cp > 150000) { pos.push([p.lon, p.lat]); col.push(p.mood.map((x) => x * Math.min(1, 0.55 + Math.log10(p.cp + 10) / 12))); base.push(p.war); }
     }
     for (const p of (GRID && places.some((q) => q.town)) ? [] : places) {
@@ -317,5 +348,9 @@ export function addPeople(world, tier, data) {
   }
 
   if (data) setData(data);
-  return { setFade: (f) => { group.visible = f > 0.01; for (const o of group.children) o.material.opacity = 0.95 * f; }, setData, update, dispose: () => { clear(); world.remove(group); } };
+  return {
+    setFade: (f) => { group.visible = f > 0.01; for (const o of group.children) o.material.opacity = 0.95 * f; if (glow) { glow.visible = f > 0.01; glow.material.opacity = 0.95 * f; } },
+    setData, update,
+    dispose: () => { clear(); world.remove(group); if (glow) { world.remove(glow); glow.geometry.dispose(); glow.material.map.dispose(); glow.material.dispose(); glow = null; } },
+  };
 }
