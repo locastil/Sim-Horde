@@ -500,6 +500,7 @@ export function mountGlobe(root, opts = {}) {
   // ---- what this device is simulating right now, lit up on the globe
   let piece = null, pieceGroup = null, focus = null, pulse = 0;
   const tag = document.getElementById("pieceTag");
+  window.simhordeGlobe = { view: () => ({ lon, lat, alt: alt() }), go: (lo, la, a) => { lon = lo; lat = la; zoom = 1 + a; vLon = 0; focus = null; } };   // for checking the view
   const scaleTag = document.getElementById("scaleTag");
   const D = Math.PI / 180;
   const v3 = (lo, la, r) => { const phi = (lo + 180) * D, a = la * D; return new THREE.Vector3(-Math.cos(phi) * Math.cos(a) * r, Math.sin(a) * r, Math.sin(phi) * Math.cos(a) * r); };
