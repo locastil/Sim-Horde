@@ -53,7 +53,7 @@ export function addLocal(world, tier) {
   const [PB, CB] = BUDGET[tier] || BUDGET.medium;
   const tex = dotTexture();
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  let cities = [], buckets = new Map(), ready = false, t = 0, lastScale = "";
+  let cities = [], buckets = new Map(), roads = null, ready = false, t = 0, lastScale = "";
   const cells = new Map();                                   // "L:i:j" -> generated dots, kept while nearby
   const levels = new Map();                                  // L -> { key, pPts, cPts, meta }
 
@@ -77,6 +77,29 @@ export function addLocal(world, tier) {
     }
     for (const lv of levels.values()) drop(lv);
     levels.clear(); ready = cities.length > 0;
+    // highways: each city to its nearest neighbours, so the roads join up between towns
+    if (roads) { group.remove(roads); roads.geometry.dispose(); roads.material.dispose(); roads = null; }
+    const seen = new Set(), hp = [], hc = [];
+    for (const c of cities) {
+      const ns = near(c.lon, c.lat, 300).filter((o) => o !== c).map((o) => [o, Math.hypot((o.lon - c.lon) * KX * Math.cos(c.lat * D), (o.lat - c.lat) * KY)])
+        .filter(([, d]) => d < 300).sort((a, b) => a[1] - b[1]).slice(0, 3);
+      for (const [o, d] of ns) {
+        const key = c.id < o.id ? c.id + ":" + o.id : o.id + ":" + c.id; if (seen.has(key)) continue; seen.add(key);
+        const mlo = (c.lon + o.lon) / 2, mla = (c.lat + o.lat) / 2; if (!c.land(mlo, mla) && !o.land(mlo, mla)) continue;   // no roads across the sea
+        const n = Math.max(2, Math.ceil(d / 15)), w = Math.min(1, 0.45 + Math.log10((c.people + o.people) / 1e5 + 1) * 0.25);
+        let plo = c.lon, pla = c.lat;
+        for (let k = 1; k <= n; k++) {
+          const f = k / n, bend = Math.sin(f * Math.PI) * 0.06 * ((c.id ^ o.id) % 2 ? 1 : -1);    // roads aren't ruler-straight
+          const lo = c.lon + (o.lon - c.lon) * f - (o.lat - c.lat) * bend, la = c.lat + (o.lat - c.lat) * f + (o.lon - c.lon) * bend;
+          hp.push(plo, pla, lo, la); hc.push(w, w); plo = lo; pla = la;
+        }
+      }
+    }
+    const P3 = new Float32Array(hp.length / 2 * 3), C3 = new Float32Array(hp.length / 2 * 3);
+    for (let i = 0; i < hp.length / 2; i++) { put(P3, i, hp[i * 2], hp[i * 2 + 1]); const w = hc[i]; C3[i * 3] = 0.85 * w; C3[i * 3 + 1] = 0.75 * w; C3[i * 3 + 2] = 0.5 * w; }
+    const hg = new THREE.BufferGeometry(); hg.setAttribute("position", new THREE.BufferAttribute(P3, 3)); hg.setAttribute("color", new THREE.BufferAttribute(C3, 3));
+    roads = new THREE.LineSegments(hg, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, depthWrite: false }));
+    roads.frustumCulled = false; roads.renderOrder = 1; group.add(roads);
   }
   function near(lon, lat, km) {
     const out = [], dLat = km / KY, dLon = km / (KX * Math.max(0.15, Math.cos(lat * D)));
@@ -97,6 +120,37 @@ export function addLocal(world, tier) {
     return [d, best];
   }
 
+  // the street grid each city's people and cars use, drawn where people actually live:
+  // every street when you're close, only the avenues (every fifth street) further out
+  function streets(cs, lon0, lat0, s, wkm) {
+    if (wkm > 40) return new Float32Array(0);
+    const step = wkm > 8 ? 0.8 : 0.16, out = [];
+    for (const c of cs) {
+      const ca = Math.cos(c.angle), sa = Math.sin(c.angle), cl = Math.cos(c.lat * D);
+      let umin = 1e9, umax = -1e9, vmin = 1e9, vmax = -1e9;
+      for (const [lo, la] of [[lon0, lat0], [lon0 + s, lat0], [lon0, lat0 + s], [lon0 + s, lat0 + s]]) {
+        const x = (lo - c.lon) * KX * cl, y = (la - c.lat) * KY, u = x * ca + y * sa, v = -x * sa + y * ca;
+        umin = Math.min(umin, u); umax = Math.max(umax, u); vmin = Math.min(vmin, v); vmax = Math.max(vmax, v);
+      }
+      if (Math.min(Math.abs(umin), Math.abs(umax), Math.abs(vmin), Math.abs(vmax)) > 4 * c.s2 && umin * umax > 0 && vmin * vmax > 0) continue;
+      const toLL = (u, v) => { const X = u * ca - v * sa, Y = u * sa + v * ca, la = c.lat + Y / KY; return [c.lon + X / (KX * Math.cos(la * D)), la]; };
+      for (let axis = 0; axis < 2; axis++) {
+        const [a0, a1, b0, b1] = axis ? [umin, umax, vmin, vmax] : [vmin, vmax, umin, umax];
+        for (let b = Math.ceil(b0 / step) * step; b <= b1; b += step) {
+          const major = Math.abs(b / 0.8 - Math.round(b / 0.8)) < 1e-6;
+          for (let a = Math.floor(a0 / step) * step; a < a1; a += step) {
+            const [m0, m1] = axis ? toLL(a + step / 2, b) : toLL(b, a + step / 2);
+            if (m0 < lon0 || m0 >= lon0 + s || m1 < lat0 || m1 >= lat0 + s) continue;
+            const [d, best] = density(cs, m0, m1);
+            if (best !== c || d < (major ? 60 : 250) || !c.land(m0, m1)) continue;
+            const p = axis ? toLL(a, b) : toLL(b, a), q = axis ? toLL(a + step, b) : toLL(b, a + step);
+            out.push(p[0], p[1], q[0], q[1], major ? 1 : 0.55);
+          }
+        }
+      }
+    }
+    return new Float32Array(out);
+  }
   const cellDeg = (L) => 360 / Math.pow(2, L);
   function cell(L, i, j, perP, perC) {
     const key = L + ":" + i + ":" + j;
@@ -147,8 +201,8 @@ export function addLocal(world, tier) {
           P.push(lo, la, 1, 0.92, 0.7, rnd() * 6.283, 0.2);
         }
       }
-      c = { P: new Float32Array(P), C: new Float32Array(Cr), ppd, used: t };
-    } else c = { P: new Float32Array(0), C: new Float32Array(0), ppd: 1, used: t };
+      c = { P: new Float32Array(P), C: new Float32Array(Cr), Rd: streets(cs, lon0, lat0, s, wkm), ppd, used: t };
+    } else c = { P: new Float32Array(0), C: new Float32Array(0), Rd: new Float32Array(0), ppd: 1, used: t };
     cells.set(key, c);
     if (cells.size > 700) {                                  // forget the cells furthest back in time
       const old = [...cells.entries()].sort((a, b) => a[1].used - b[1].used).slice(0, 200);
@@ -157,7 +211,7 @@ export function addLocal(world, tier) {
     return c;
   }
 
-  function drop(lv) { for (const o of [lv.pPts, lv.cPts]) if (o) { group.remove(o); o.geometry.dispose(); o.material.dispose(); } }
+  function drop(lv) { for (const o of [lv.pPts, lv.cPts, lv.rLines]) if (o) { group.remove(o); o.geometry.dispose(); o.material.dispose(); } }
   function points(n, size) {
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(n * 3), 3));
@@ -185,6 +239,17 @@ export function addLocal(world, tier) {
     let k = 0;
     for (const c of list) for (let q = 0; q < c.P.length; q += 7, k++) { put(pp, k, c.P[q], c.P[q + 1]); pc[k * 3] = c.P[q + 2]; pc[k * 3 + 1] = c.P[q + 3]; pc[k * 3 + 2] = c.P[q + 4]; }
     lv.pPts.geometry.attributes.position.needsUpdate = lv.pPts.geometry.attributes.color.needsUpdate = true;
+    // the streets, as faint lines under the dots
+    const nr = list.reduce((a, c) => a + c.Rd.length / 5, 0), rp = new Float32Array(nr * 6), rc = new Float32Array(nr * 6);
+    k = 0;
+    for (const c of list) for (let q = 0; q < c.Rd.length; q += 5, k++) {
+      put(rp, k * 2, c.Rd[q], c.Rd[q + 1]); put(rp, k * 2 + 1, c.Rd[q + 2], c.Rd[q + 3]);
+      const w = c.Rd[q + 4]; for (let e = 0; e < 2; e++) { rc[k * 6 + e * 3] = 0.55 * w; rc[k * 6 + e * 3 + 1] = 0.66 * w; rc[k * 6 + e * 3 + 2] = 0.82 * w; }
+    }
+    const rg = new THREE.BufferGeometry();
+    rg.setAttribute("position", new THREE.BufferAttribute(rp, 3)); rg.setAttribute("color", new THREE.BufferAttribute(rc, 3));
+    lv.rLines = new THREE.LineSegments(rg, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, depthWrite: false }));
+    lv.rLines.frustumCulled = false; lv.rLines.renderOrder = 1; lv.pPts.renderOrder = 2; lv.cPts.renderOrder = 3; group.add(lv.rLines);
     levels.set(L, lv);
     return lv;
   }
@@ -200,10 +265,11 @@ export function addLocal(world, tier) {
     const La = Math.floor(f), frac = f - La, show = new Set([La, La + 1]);
     for (const [L, lv] of levels) if (!show.has(L)) { drop(lv); levels.delete(L); }
     const fade = Math.min(1, (0.14 - alt) / 0.05);
+    if (roads) roads.material.opacity = 0.7 * fade;
     let tagPpd = 1;
     for (const L of show) {
       const lv = level(L, lon, lat, halfW, halfH), op = (L === La ? 1 - frac : frac) * fade;
-      lv.pPts.material.opacity = 0.95 * op; lv.cPts.material.opacity = op;
+      lv.pPts.material.opacity = 0.95 * op; lv.cPts.material.opacity = op; lv.rLines.material.opacity = 0.75 * op; lv.rLines.visible = op > 0.01;
       lv.pPts.visible = lv.cPts.visible = op > 0.01;
       if (L === (frac < 0.5 ? La : La + 1)) tagPpd = lv.ppd;
       // walkers wander a little when you're close enough to see it
