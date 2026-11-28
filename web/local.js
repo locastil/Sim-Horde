@@ -181,6 +181,7 @@ export function addLocal(world, tier) {
   // the street grid each city's people and cars use, drawn where people actually live:
   // every street when you're close, only the avenues (every fifth street) further out
   function streets(cs, lon0, lat0, s, wkm) {
+    return new Float32Array(0);                              // the generated grid is off: only real streets (osm.js) are drawn
     if (wkm > 40) return new Float32Array(0);
     const step = wkm > 8 ? 0.8 : 0.16, out = [];
     for (const c of cs) {
@@ -235,24 +236,8 @@ export function addLocal(world, tier) {
         if (rnd() * mx > d || !ct || !ct.land(lo, la)) continue;
         n++;
         const b = (0.7 + 0.3 * rnd()) * (ct.war ? 0.45 : 1);
-        // most people are out on the pavements of the same street grid the cars use
         let plo = lo, pla = la;
-        if (rnd() < 0.7) {
-          const ca = Math.cos(ct.angle), sa = Math.sin(ct.angle), cl = Math.cos(la * D);
-          const x = (lo - ct.lon) * KX * cl, y = (la - ct.lat) * KY;
-          let u = x * ca + y * sa, v = -x * sa + y * ca; const side = (rnd() < 0.5 ? -1 : 1) * 0.014;
-          if (rnd() < 0.5) v = Math.round(v / 0.16) * 0.16 + side; else u = Math.round(u / 0.16) * 0.16 + side;
-          const X = u * ca - v * sa, Y = u * sa + v * ca; pla = ct.lat + Y / KY; plo = ct.lon + X / (KX * Math.cos(pla * D));
-        }
         P.push(plo, pla, ct.mood[0] * b, ct.mood[1] * b, ct.mood[2] * b, rnd() * 6.283, 0.3 + rnd());
-        // cars: on a street grid laid out around the nearest city, fewer where there's fighting
-        if (rnd() < Math.min(1, (0.05 * ppd) / cpd) * (ct.war ? 0.3 : 1)) {
-          const ca = Math.cos(ct.angle), sa = Math.sin(ct.angle), cl = Math.cos(la * D);
-          const x = (lo - ct.lon) * KX * cl, y = (la - ct.lat) * KY;
-          let u = x * ca + y * sa, v = -x * sa + y * ca, axis = rnd() < 0.5;
-          const step = 0.16; if (axis) v = Math.round(v / step) * step; else u = Math.round(u / step) * step;
-          Cr.push(ct.lon, ct.lat, u, v, axis ? 1 : 0, ct.angle, (0.04 + rnd() * 0.04) * (rnd() < 0.5 ? -1 : 1), rnd() * 10, rnd() < 0.5 ? 1 : 0);
-        }
       }
       // protests: crowds in the city centre
       for (const ct of cs) if (ct.protest && Math.abs(ct.lon - (lon0 + s / 2)) < s && Math.abs(ct.lat - mid) < s) {
@@ -365,7 +350,7 @@ export function addLocal(world, tier) {
     }
     if (real > 0.5 && osm.scale()) tagPpd = osm.scale();
     if (tagEl) {
-      const txt = tagPpd <= 1 ? "Close up: each dot is one person, white and red dots are cars (illustrative)" : `Close up: each dot is about ${tagPpd.toLocaleString()} people, white and red dots are cars (illustrative)`;
+      const txt = tagPpd <= 1 ? "Close up: each dot is one person; white and red dots on the roads are cars (illustrative)" : `Close up: each dot is about ${tagPpd.toLocaleString()} people; white and red dots on the roads are cars (illustrative)`;
       if (txt !== lastScale) { tagEl.textContent = txt; lastScale = txt; }
       tagEl.hidden = fade < 0.3;
     }
