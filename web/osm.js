@@ -93,7 +93,7 @@ function at(rd, s, i = 1) {
   return [p[a] + (p[b] - p[a]) * f, p[a + 1] + (p[b + 1] - p[a + 1]) * f, (p[b] - p[a]) * Math.cos(p[a + 1] * D), p[b + 1] - p[a + 1], i];
 }
 
-// sim: { density(lon, lat) -> [people per km², nearest city {mood, war}], tex }
+// sim: { density(lon, lat) -> [people per km², nearest city {mood, war, iso}], vehicles(city) -> per 1,000 people or null, tex }
 export function addOSM(world, tier, sim) {
   const group = new THREE.Group(); world.add(group);
   const [PB, CB] = BUDGET[tier] || BUDGET.medium;
@@ -189,7 +189,9 @@ export function addOSM(world, tier, sim) {
       const driving = hour < 5 ? 0.003 : hour < 7 ? 0.012 : hour < 9.5 ? 0.04 : hour < 16 ? 0.02 : hour < 19 ? 0.04 : hour < 22 ? 0.012 : 0.005;
       const weight = roads.map((rd) => { if (!rd.cars) return 0; const m = at(rd, rd.len / 2), [d, ct] = sim.density(m[0], m[1]); rd.war = ct && ct.war; return rd.len * rd.cars * (0.3 + Math.min(1, Math.sqrt(d / 800))) * (rd.war ? 0.3 : 1); });
       const wsum = weight.reduce((a, b) => a + b, 0) || 1, spd = z >= 12 ? 1 : Math.pow(2, 12 - z) * 0.6;   // faster when far out, so you can see them move
-      const cars = (people * driving) / 1.3;
+      // scaled by how many vehicles people there own (the driving shares above are for about 600 per 1,000 people)
+      const [, here] = sim.density((lon0 + lon1) / 2, (lat0 + lat1) / 2), owned = sim.vehicles(here);
+      const cars = ((people * driving) / 1.3) * Math.min(1.5, (owned == null ? 150 : owned) / 600);
       cpd = ppd || Math.max(1, Math.ceil(cars / CB));
       const total = cars / cpd;
       roads.forEach((rd, k) => {
@@ -285,7 +287,7 @@ export function addOSM(world, tier, sim) {
     const close = live.filter((T) => T.z >= 14);
     if (box) {
       const nop = Math.max(0, Math.min(1, (NAMES - alt) / 0.0002)) * (mats.get(14) ? mats.get(14).op : 0);
-      if (!credit) { credit = document.createElement("i"); credit.className = "credit"; credit.textContent = "Roads: © OpenStreetMap contributors, OpenFreeMap"; box.appendChild(credit); }
+      if (!credit) { credit = document.createElement("i"); credit.className = "credit"; credit.textContent = "Roads: © OpenStreetMap contributors, OpenFreeMap. Vehicles per person: WHO via Our World in Data"; box.appendChild(credit); }
       box.hidden = false;
       for (const el of pool) el.hidden = true;
       box.style.opacity = 1;

@@ -49,6 +49,10 @@ function dotTexture() {
   return new THREE.CanvasTexture(c);
 }
 
+// registered vehicles per 1,000 people by country (WHO, via Our World in Data), for how busy the roads are
+let VEH = {};
+fetch("/geo/vehicles.json").then((r) => r.json()).then((j) => (VEH = j.per1000)).catch(() => {});
+
 export function addLocal(world, tier) {
   const group = new THREE.Group(); world.add(group);
   const [PB, CB] = BUDGET[tier] || BUDGET.medium;
@@ -60,7 +64,8 @@ export function addLocal(world, tier) {
   const levels = new Map();                                  // L -> { key, pPts, cPts, meta }
 
   // every city stands for its share of its country's people: a dense core and a wide spread of suburbs and towns
-  function setData({ globe, cities: C, shapes }) {
+  function setData({ globe, cities: C, shapes, base }) {
+    const iso = {}; for (const n of (base && base.nations) || []) iso[String(Number(n.num))] = n.c;
     const G = (globe && globe.nations) || {}, list = (C && C.cities) || {};
     cities = []; buckets = new Map(); cells.clear();
     const lands = new Map();
@@ -70,7 +75,7 @@ export function addLocal(world, tier) {
       rows.forEach(([name, lat, lon, cp], k) => {
         const people = pop * (cp / csum);
         const s2 = 8 + Math.sqrt(people / 1000) * 0.7, s1 = Math.max(1.5, 1 + Math.sqrt(cp / 1000) * 0.18);
-        const c = { name, lon, lat, people, cp, s1, s2, mood: moodColor(g.happiness), war: !!g.conflict, protest: !!g.protests,
+        const c = { name, iso: iso[String(Number(num))], lon, lat, people, cp, s1, s2, mood: moodColor(g.happiness), war: !!g.conflict, protest: !!g.protests,
                     land: lands.get(num), angle: (hash(+num, k, 7) >>> 0) / 4294967296 * Math.PI / 2, id: hash(+num, k, 1) };
         cities.push(c);
         const bk = Math.floor(lon / 5) + ":" + Math.floor(lat / 5);
@@ -225,7 +230,7 @@ export function addLocal(world, tier) {
   // alt: camera height over the ground (earth radius = 1); width: half the view across, in km
   function update(dt, lon, lat, alt, aspect, tagEl, camera, streetBox) {
     t += dt;
-    if (!osm && ready) osm = addOSM(world, tier, { tex, density: (lo, la) => density(near(lo, la, 60), lo, la) });
+    if (!osm && ready) osm = addOSM(world, tier, { tex, vehicles: (ct) => (ct && VEH[ct.iso]) || null, density: (lo, la) => density(near(lo, la, 60), lo, la) });
     real = osm && camera ? osm.update(dt, lon, lat, alt, aspect, camera, streetBox) : 0;   // real roads from further out; real people close up
     const on = ready && alt < 0.14;
     group.visible = on;
