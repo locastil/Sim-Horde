@@ -187,11 +187,11 @@ export function addOSM(world, tier, sim) {
     // still sit in a home), then adds new ones between them. Zooming in, the glow you saw from far out splits
     // into the dots it was made of instead of being swapped for different ones.
     if (z >= PEOPLE_Z) {
-      // one ratio for every tile at this zoom (planned for 4,000 people per km², as the wider view does), so more
+      // one ratio for every tile at this zoom (planned for 2,000 people per km², with room for three times that in the busiest places), so more
       // dots always means more people, and each dot stands for fewer people the closer you zoom
-      ppd = Math.max(1, Math.ceil((4000 * area) / PB));
+      ppd = Math.max(1, Math.ceil((2000 * area) / PB));
       const close = z >= WALK_Z, outShare = !close ? 0 : hour < 5 ? 0.005 : hour < 7 ? 0.02 : hour < 9 ? 0.08 : hour < 17 ? 0.12 : hour < 20 ? 0.09 : hour < 22 ? 0.04 : 0.012;
-      const nP = Math.min(PB * 2, Math.round(people / ppd)), nOut = Math.round(nP * outShare);
+      const nP = Math.min(PB * 3, Math.round(people / ppd)), nOut = Math.round(nP * outShare);
       const pick = () => { let r = rnd() * totalLen; for (const rd of roads) if ((r -= rd.len) <= 0) return rd; return roads[roads.length - 1]; };
       const inBuildings = (L.building || []).length > 20, maskShare = homes.length / 65536;
       // the towns whose people reach this tile, looked up once
