@@ -324,6 +324,7 @@ export function mountGlobe(root, opts = {}) {
     world.rotation.y = -(lon + 90) * Math.PI / 180;
     pitch = Math.min(pitch, pitchMax()); if (pitch < 1e-4) pitch = 0;
     if (alt() > 0.45 && heading) heading = Math.abs(heading) < 0.01 ? 0 : heading * (1 - Math.min(1, dt * 3));   // far out, north comes back up
+    camera.userData.pitch = pitch; camera.userData.heading = heading;
     if (pitch || heading) {                                  // over the point in view (0, 0, 1), leaning back and turned
       const a = alt(), sp = Math.sin(pitch), cp = Math.cos(pitch), fx = Math.sin(heading), fy = Math.cos(heading);
       camera.up.set(fx, fy, 0); camera.position.set(-fx * a * sp, -fy * a * sp, 1 + a * cp); camera.lookAt(0, 0, 1);

@@ -227,7 +227,7 @@ export function addOSM(world, tier, sim) {
       }
       // colours for this distance: home lights soft close up, brighter from far out so towns glow
       for (const w of walkers) {
-        const b = (w.home ? (close ? 0.5 + 0.2 * w.r : 0.75 + 0.25 * w.r) : 0.8 + 0.2 * w.r) * (w.war ? 0.45 : 1);
+        const b = (w.home ? (close ? 0.42 + 0.18 * w.r : 0.75 + 0.25 * w.r) : 0.8 + 0.2 * w.r) * (w.war ? 0.45 : 1);
         w.c = w.m.map((v) => v * b);
       }
     }
@@ -279,7 +279,7 @@ export function addOSM(world, tier, sim) {
     const x0 = Math.floor(tileX(lon - dLon, z)), x1 = Math.floor(tileX(lon + dLon, z));
     const y0 = Math.max(0, Math.floor(tileY(Math.min(85, lat + dLat), z))), y1 = Math.min((1 << z) - 1, Math.floor(tileY(Math.max(-85, lat - dLat), z)));
     const out = [];
-    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) if (out.length < 40) out.push([x, y]);
+    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) if (out.length < 48) out.push([x, y]);
     return out;
   }
 
@@ -290,7 +290,16 @@ export function addOSM(world, tier, sim) {
     const on = alt < START && template;
     group.visible = !!on;
     if (!on) { if (box) box.hidden = true; return 0; }
-    const halfKm = alt * 6371 * Math.tan(16 * D), z = zoomFor(lat, halfKm, aspect);
+    let halfKm = alt * 6371 * Math.tan(16 * D);
+    // tilted (globe.js puts pitch and heading on the camera): cover the ground out toward the horizon too,
+    // centred ahead of the point below, at the zoom that fits that longer stretch
+    const P = camera && camera.userData.pitch || 0, H = camera && camera.userData.heading || 0;
+    if (P > 0.05) {
+      const near = alt * 6371 * Math.tan(Math.max(-0.28, P - 0.28)), far = alt * 6371 * Math.tan(Math.min(1.2, P + 0.28)), mid = (near + far) / 2;
+      halfKm = Math.max(halfKm, (far - near) / 2);
+      lat += (mid * Math.cos(H)) / 110.57; lon += (mid * Math.sin(H)) / (111.32 * Math.max(0.1, Math.cos(lat * D)));
+    }
+    const z = zoomFor(lat, halfKm, aspect);
     // load this zoom's tiles; keep showing the last complete zoom until they're all in, then fade across
     const need = cover(z, lon, lat, halfKm, aspect);
     let ready = 0;
