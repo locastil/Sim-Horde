@@ -269,7 +269,8 @@ export function addLocal(world, tier) {
     }
     if (real > 0.5 && osm.scale()) tagPpd = osm.scale();
     if (tagEl) {
-      const txt = tagPpd <= 1 ? "Close up: each dot is one person; white and red dots on the roads are cars (illustrative)" : `Close up: each dot is about ${tagPpd.toLocaleString()} people; white and red dots on the roads are cars (illustrative)`;
+      const who = real > 0.5 ? "; bright dots are out on the street, dim ones at home" : "";
+      const txt = (tagPpd <= 1 ? "Close up: each dot is one person" : `Close up: each dot is about ${tagPpd.toLocaleString()} people`) + who + "; white and red dots on the roads are cars (illustrative)";
       if (txt !== lastScale) { tagEl.textContent = txt; lastScale = txt; }
       tagEl.hidden = fade < 0.3;
     }

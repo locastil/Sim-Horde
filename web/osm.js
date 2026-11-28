@@ -168,13 +168,17 @@ export function addOSM(world, tier, sim) {
       let dsum = 0, dmax = 1;
       for (let a = 0; a < 4; a++) for (let b = 0; b < 4; b++) { const dd = sim.density(lon0 + (a + 0.5) * (lon1 - lon0) / 4, lat0 + (b + 0.5) * (lat1 - lat0) / 4)[0]; dsum += dd; dmax = Math.max(dmax, dd); }
       const people = (dsum / 16) * area; ppd = Math.max(1, Math.ceil(people / PB));
-      const nP = Math.min(PB, Math.round(people / ppd)), pick = () => { let r = rnd() * totalLen; for (const rd of roads) if ((r -= rd.len) <= 0) return rd; return roads[roads.length - 1]; };
+      // most people are indoors: only a share are out on the street, more in the day than at night (local time there)
+      const hour = ((new Date().getUTCHours() + new Date().getUTCMinutes() / 60 + (lon0 + lon1) / 30) % 24 + 24) % 24;
+      const outShare = hour < 6 ? 0.02 : hour < 8 ? 0.08 : hour < 19 ? 0.13 : hour < 23 ? 0.07 : 0.03;
+      const nP = Math.min(PB, Math.round(people / ppd)), nOut = Math.max(1, Math.round(nP * outShare)), pick = () => { let r = rnd() * totalLen; for (const rd of roads) if ((r -= rd.len) <= 0) return rd; return roads[roads.length - 1]; };
       for (let n = 0, tries = 0; n < nP && tries < nP * 6; tries++) {
         const rd = pick(); if (rd.cls === "motorway" || rd.cls === "trunk") continue;
         const [lo, la, dx, dy] = at(rd, rnd() * rd.len), [d, ct] = sim.density(lo, la);
         if (!ct || rnd() * (dmax * 1.3 + 50) > d + 50) continue;
-        const side = (rnd() < 0.5 ? -1 : 1) * 0.009, nl = Math.hypot(dx, dy) || 1, b = (0.7 + 0.3 * rnd()) * (ct.war ? 0.45 : 1);
-        walkers.push({ lo: lo - (dy / nl) * side / (111.32 * Math.cos(la * D)), la: la + (dx / nl) * side / 110.57, dx: dx / nl, dy: dy / nl, ph: rnd() * 6.28, sp: 0.3 + rnd(), c: ct.mood.map((v) => v * b) });
+        const home = n >= nOut;                                 // at home: set back from the street, a dimmer, still light
+        const side = (rnd() < 0.5 ? -1 : 1) * (home ? 0.02 + rnd() * 0.05 : 0.009), nl = Math.hypot(dx, dy) || 1, b = (home ? 0.28 + 0.12 * rnd() : 0.8 + 0.2 * rnd()) * (ct.war ? 0.45 : 1);
+        walkers.push({ lo: lo - (dy / nl) * side / (111.32 * Math.cos(la * D)), la: la + (dx / nl) * side / 110.57, dx: dx / nl, dy: dy / nl, ph: rnd() * 6.28, sp: home ? 0 : 0.3 + rnd(), c: ct.mood.map((v) => v * b) });
         n++;
       }
     }
@@ -257,7 +261,7 @@ export function addOSM(world, tier, sim) {
     for (const T of live) {
       if (T.walkers.length) {
         const pa = T.objs[1].geometry.attributes.position.array;
-        T.walkers.forEach((w, i) => { const r = still ? 0 : 0.006 * Math.sin(t * 0.35 * w.sp + w.ph); put(pa, i, w.lo + (w.dx * r) / (111.32 * Math.cos(w.la * D)), w.la + (w.dy * r) / 110.57); });
+        T.walkers.forEach((w, i) => { const r = still || !w.sp ? 0 : 0.006 * Math.sin(t * 0.35 * w.sp + w.ph); put(pa, i, w.lo + (w.dx * r) / (111.32 * Math.cos(w.la * D)), w.la + (w.dy * r) / 110.57); });
         T.objs[1].geometry.attributes.position.needsUpdate = true;
       }
       const ca = T.objs[2].geometry.attributes.position.array, cc = T.objs[2].geometry.attributes.color.array;
