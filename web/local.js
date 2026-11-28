@@ -145,7 +145,7 @@ export function addLocal(world, tier) {
             if (best !== c) continue;
             // streets thin out with the people: fewer and fainter toward the edge of town, never a hard cut-off
             const w = Math.min(1, Math.max(0, (d - (major ? 15 : 40)) / 1200));
-            const keep = (hash(Math.round(m0 * 1e4), Math.round(m1 * 1e4), 11) >>> 0) / 4294967296;
+            const keep = (hash(c.id ^ Math.round(b / step), Math.floor(a / (step * 4) + 1e-6), axis + 11) >>> 0) / 4294967296;   // whole stretches of road, not scraps
             if (keep > Math.min(1, w * (major ? 3 : 1.6) + 0.02) || !c.land(m0, m1)) continue;
             const p = axis ? toLL(a, b) : toLL(b, a), q = axis ? toLL(a + step, b) : toLL(b, a + step);
             out.push(p[0], p[1], q[0], q[1], (major ? 1 : 0.55) * (0.35 + 0.65 * w));   // brighter where it's busier
