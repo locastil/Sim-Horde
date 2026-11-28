@@ -39,6 +39,11 @@ IND = dict(pop="SP.POP.TOTL", urban="SP.URB.TOTL.IN.ZS", gdp="NY.GDP.PCAP.PP.CD"
            young="SP.POP.1564.TO.ZS", gini="SI.POV.GINI", net="IT.NET.USER.ZS", infl="FP.CPI.TOTL.ZG",
            netmig="SM.POP.NETM")
 HAPPY_URL = "https://ourworldindata.org/grapher/happiness-cantril-ladder.csv"
+# Our World in Data republishes these World Bank series as single files, which download far more reliably
+# than the World Bank's own API: used first, with the World Bank as a fallback (and for the two OWID lacks).
+OWID = dict(pop="population", urban="share-of-population-urban", gdp="gdp-per-capita-worldbank", unemp="unemployment-rate",
+            gini="economic-inequality-gini-index", net="share-of-individuals-using-the-internet", infl="inflation-of-consumer-prices")
+OWID_URL = "https://ourworldindata.org/grapher/{slug}.csv?v=1&csvType=full&useColumnShortNames=true"
 
 # What really happened, 2015-2024, by country (ISO codes) and years. Broad and public; no people named.
 WARS = {  # major armed conflict on the country's own territory
@@ -82,25 +87,53 @@ def cached(name, fetch):
     return v
 
 
+def owid(slug):
+    """year-by-country figures from an Our World in Data file (the first value column)."""
+    rows = cached("owid_" + slug, lambda: list(csv.reader(io.StringIO(get(OWID_URL.format(slug=slug)).decode("utf-8")))))
+    head, out = rows[0], {}
+    ci, yi = head.index("code"), head.index("year")
+    vi = yi + 1
+    for r in rows[1:]:
+        try:
+            c, y, v = r[ci], int(r[yi]), float(r[vi])
+        except (ValueError, IndexError):
+            continue
+        if len(c) == 3 and 2012 <= y <= 2024:
+            out.setdefault(c, {})[y] = v
+    return out
+
+
 def world_bank():
-    """Each figure, one year at a time (the World Bank's server copes far better with small requests).
-    A year or figure that still won't download is left out, and the run says so."""
+    """Each figure from Our World in Data where it has it, otherwise from the World Bank one year at a time.
+    A figure that still won't download is left out (the run then holds it at its latest value) and says so."""
     data, missing = {}, []
     for key, code in IND.items():
         got = 0
+        if key in OWID:
+            try:
+                for c, ys in owid(OWID[key]).items():
+                    data.setdefault(c, {})[key] = ys; got += len(ys)
+                print(f"  {key:7s} {OWID[key]:40s} {got} figures (Our World in Data)")
+                continue
+            except Exception as e:
+                print(f"    Our World in Data didn't answer for {key} ({e}); trying the World Bank")
+        bad = 0
         for year in range(2012, 2025):
             try:
-                rows = cached(f"wb_{key}_{year}", lambda: json.loads(get(WB.format(code=code, year=year))))
+                rows = cached(f"wb_{key}_{year}", lambda: json.loads(get(WB.format(code=code, year=year), tries=2)))
             except Exception as e:
-                missing.append(f"{key} {year}")
-                print(f"    couldn't get {key} for {year} ({e}); carrying on without it")
+                missing.append(f"{key} {year}"); bad += 1
+                if bad >= 3 and not got:
+                    print(f"    the World Bank isn't answering for {key}; holding it at its latest value")
+                    missing += [f"{key} {y}" for y in range(year + 1, 2025)]
+                    break
                 continue
             rows = rows[1] if isinstance(rows, list) and len(rows) > 1 and rows[1] else []
             for r in rows:
                 iso, v = r.get("countryiso3code"), r.get("value")
                 if iso and v is not None:
                     data.setdefault(iso, {}).setdefault(key, {})[int(r["date"])] = float(v); got += 1
-        print(f"  {key:7s} {code:18s} {sum(1 for c in data.values() if key in c)} countries, {got} figures")
+        print(f"  {key:7s} {code:40s} {got} figures (World Bank)")
     data["_missing"] = missing
     return data
 
@@ -186,7 +219,8 @@ def main():
     print("Downloading real figures...")
     wb, happy = world_bank(), happiness()
     missing = wb.pop("_missing", [])
-    incomplete = len(missing) > len(IND) * 13 * 0.25
+    core = [m for m in missing if m.split()[0] not in ("young", "netmig")]
+    incomplete = len(core) > len(OWID) * 13 * 0.25
     if incomplete:
         print(f"\n  WARNING: {len(missing)} of {len(IND) * 13} World Bank downloads failed. The run will finish, but it")
         print("  would mostly be testing made-up flat figures, so it's marked incomplete and won't be shown on the site.")
@@ -272,7 +306,7 @@ def main():
     # emigration: where the simulation's people most wanted to leave vs where people really left
     em = []
     for c in codes:
-        nm = wb.get(c, {}).get("netmig")
+        nm = wb.get(c, {}).get("netmig") or ({2023: latest[c]["netmig"]} if latest[c].get("netmig") else None)   # latest if the yearly series didn't download
         if not nm:
             continue
         real = sum(value(nm, y, 0) for y in YEARS) / len(YEARS) / pop15[c] * 1000
