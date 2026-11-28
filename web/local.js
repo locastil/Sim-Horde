@@ -86,7 +86,8 @@ export function addLocal(world, tier) {
     });
     for (const lv of levels.values()) drop(lv);
     levels.clear(); ready = cities.length > 0;
-    if (osm) osm.reset();                                   // tiles placed with the old list start again
+    if (osm) osm.reset();
+    window.simhordeDensity = (lo, la) => { const cs = near(lo, la, 150), [d, c] = density(cs, lo, la); return { d: Math.round(d), towns: cs.length, top: c && { lon: c.lon, lat: c.lat, people: Math.round(c.people), s1: +c.s1.toFixed(1), s2: +c.s2.toFixed(1), cp: c.cp } }; };   // for checking                                   // tiles placed with the old list start again
   }
   function near(lon, lat, km) {
     const out = [], dLat = km / KY, dLon = km / (KX * Math.max(0.15, Math.cos(lat * D)));
