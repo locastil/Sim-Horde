@@ -555,6 +555,11 @@
    "note": "Display only: none of these change the simulation.",
    "rows": [
     [
+     "Where people live",
+     "GHS-POP R2023A population grid, 2025 (European Commission, Joint Research Centre), CC BY 4.0",
+     "People per ~4.6 km cell, built from census counts spread over satellite-mapped buildings: the lights from space and the close-up people both come from it, so cities, suburbs and sprawl show as they are."
+    ],
+    [
      "Towns and cities",
      "GeoNames (CC BY 4.0)",
      "Where each country's people live on the globe, and the place names."

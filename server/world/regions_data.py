@@ -98,7 +98,9 @@ def xlsx_rows(data, sheet_name):
 
 
 def oecd(names):
-    R = xlsx_rows(get(OECD), "Indicator_Last")
+    raw = get(OECD)
+    open(os.path.join(HERE, "oecd_regional.xlsx"), "wb").write(raw)          # kept, so a failed read can be checked
+    R = xlsx_rows(raw, "Indicator_Last")
     hi = next(i for i, r in enumerate(R) if any(v and "Life satisfaction" in v for v in r))
     h = [(v or "").strip() for v in R[hi]]
     ix = lambda name: next(i for i, v in enumerate(h) if v.lower().startswith(name.lower()))
@@ -132,6 +134,7 @@ def main():
     try:
         res["oecd"] = oecd(names); print(f"  OECD: {len(res['oecd'])} regions, {sum(1 for r in res['oecd'] if r['life_sat'] is not None)} with life satisfaction")
     except Exception as e:
+        import traceback; traceback.print_exc()
         print(f"  OECD download failed: {e}"); res["oecd"] = []
     if not res["gdl"]:
         raise SystemExit("No regional data: the world keeps running country by country.")

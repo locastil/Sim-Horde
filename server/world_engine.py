@@ -252,6 +252,21 @@ class World:
               f"{sum(1 for r in d.get('oecd', []) if r.get('life_sat') is not None)} OECD regions to check against", flush=True)
         return R, d.get("oecd", [])
 
+    def reload_oecd(self):
+        """The OECD check can arrive after a restart (world/regions.json re-downloaded): pick it up when the file changes."""
+        path = os.path.join(HERE, "world", "regions.json")
+        try:
+            m = os.path.getmtime(path)
+        except OSError:
+            return
+        if getattr(self, "_oecd_mtime", None) == m:
+            return
+        self._oecd_mtime = m
+        try:
+            self.oecd_regions = json.load(open(path, encoding="utf-8")).get("oecd", []) or self.oecd_regions
+        except (OSError, ValueError):
+            pass
+
     def region_groups(self, c, total, min_agents):
         """A country's simulated people at one level, shared over its regions by population; a region too small for
         min_agents joins the next one. Returns [(code, agents, [GDL codes])]."""
@@ -1350,6 +1365,7 @@ class World:
                 break
             counts[n.get("detail", 0)] += 1
         self.w["detail_counts"] = counts
+        self.reload_oecd()
         if self.oecd_regions and (self.w.get("region_results") or self.w.get("county_results")):
             self.fit_regions()
         self.w["detail_pieces"] = [[sum(1 for (k, _), j in self.djobs.items() if k == kk and j["result"] is not None),
