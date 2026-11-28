@@ -261,7 +261,7 @@
       if (near && map.getZoom() >= 4.5) { setCountry(near[0]); run.city = cities.cities[near[0]][near[1]]; }
     });
     map.on("zoomend", () => {                                           // zoomed all the way out: back to the globe, looking at the same place
-      if (!armed || !map || map.getZoom() >= 3.2) return;
+      if (!armed || !map || map.getZoom() >= 3.8) return;
       const c = map.getCenter();
       close();
       window.dispatchEvent(new CustomEvent("simhorde:focus", { detail: { lon: c.lng, lat: c.lat } }));
