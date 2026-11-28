@@ -567,9 +567,23 @@ export function mountGlobe(root, opts = {}) {
   }
   // who a country is fighting: the states it is at war with, and fighting at home (a civil war when it's a major
   // one, 1,000+ deaths a year), with the armed groups named where the conflict data names them
+  // the conflict data's short names for armed groups, spelled out (left as they are when unsure)
+  const GROUPS = {
+    IS: "Islamic State", JAS: "Boko Haram (JAS)", IPOB: "Indigenous People of Biafra", TTP: "Pakistani Taliban (TTP)",
+    BRAS: "Baloch separatist alliance (BRAS)", HGB: "Hafiz Gul Bahadur group", IMP: "Ittehad-ul-Mujahideen Pakistan",
+    RSF: "Rapid Support Forces (RSF)", "SPLM/A-North": "SPLM-North", AFC: "M23 alliance (AFC)", OLA: "Oromo Liberation Army",
+    Fano: "Fano militias", "CPI-Maoist": "Maoist rebels (CPI-Maoist)", OPM: "Free Papua Movement", FLA: "Azawad Liberation Front",
+    JNIM: "al-Qaeda's JNIM", CPP: "Communist Party / New People's Army", "FDLR-FOCA": "FDLR (Rwandan Hutu rebels)",
+    "SPLM/A - IO": "SPLM-In Opposition", PKK: "Kurdistan Workers' Party (PKK)", STC: "Southern Transitional Council",
+    NRF: "National Resistance Front", "FLEC-FAC-TN": "Cabinda separatists (FLEC)", CPC: "Coalition of Patriots for Change",
+    EMBF: "FARC dissidents (EMBF)", "FARC-EMC": "FARC dissidents (EMC)", ELN: "National Liberation Army (ELN)",
+    PIJ: "Palestinian Islamic Jihad", PRC: "Popular Resistance Committees", KIO: "Kachin Independence Organisation",
+    KNPP: "Karenni National Progressive Party", KNU: "Karen National Union", NUG: "National Unity Government",
+    ULA: "Arakan Army (ULA)", PSLF: "Ta'ang rebels (PSLF)", "Forces of the Presidential Leadership Council": "the government's own allied forces",
+  };
   function conflictText(n) {
     const list = (xs) => (xs.length < 2 ? xs.join("") : xs.slice(0, -1).join(", ") + " and " + xs[xs.length - 1]);
-    const home = n.civil ? (n.conflict_level === 2 ? "civil war" : "armed conflict at home") + (n.groups && n.groups.length ? " (against " + list(n.groups.map(esc)) + ")" : "") : "";
+    const home = n.civil ? (n.conflict_level === 2 ? "civil war" : "armed conflict at home") + (n.groups && n.groups.length ? " (against " + list(n.groups.map((g) => esc(GROUPS[g] || g))) + ")" : "") : "";
     const out = n.war_with && n.war_with.length ? "at war with " + list(n.war_with.map((x) => esc(x.replace(/^the /i, "the ")))) + (home ? "; " + home : "") : home || "armed conflict";
     return `<span style="color:#ff8a80">${out.charAt(0).toUpperCase() + out.slice(1)}</span>`;
   }
