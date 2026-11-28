@@ -161,15 +161,16 @@ export function addOSM(world, tier, sim) {
 
     const rnd = rng(z * 7919 + x * 92821 + y * 68917), lon0 = lonOf(x, z), lat0 = latOf(y + 1, z), lon1 = lonOf(x + 1, z), lat1 = latOf(y, z);
     const walkers = [], drivers = [];
-    let ppd = null;
-    // people on the pavements, close up only: as many as the simulation puts here
+    let ppd = null, cpd = 1;
+    // how many people live in this tile, by the simulation, and the local time of day there
+    const area = (lon1 - lon0) * 111.32 * Math.cos(((lat0 + lat1) / 2) * D) * (lat1 - lat0) * 110.57;
+    let dsum = 0, dmax = 1;
+    for (let a = 0; a < 4; a++) for (let b = 0; b < 4; b++) { const dd = sim.density(lon0 + (a + 0.5) * (lon1 - lon0) / 4, lat0 + (b + 0.5) * (lat1 - lat0) / 4)[0]; dsum += dd; dmax = Math.max(dmax, dd); }
+    const people = (dsum / 16) * area;
+    const hour = ((new Date().getUTCHours() + new Date().getUTCMinutes() / 60 + (lon0 + lon1) / 30) % 24 + 24) % 24;
+    // people on the pavements, close up only. Most people are indoors: only a share are out, more by day than at night
     if (z >= PEOPLE_Z && roads.length) {
-      const area = (lon1 - lon0) * 111.32 * Math.cos(((lat0 + lat1) / 2) * D) * (lat1 - lat0) * 110.57;
-      let dsum = 0, dmax = 1;
-      for (let a = 0; a < 4; a++) for (let b = 0; b < 4; b++) { const dd = sim.density(lon0 + (a + 0.5) * (lon1 - lon0) / 4, lat0 + (b + 0.5) * (lat1 - lat0) / 4)[0]; dsum += dd; dmax = Math.max(dmax, dd); }
-      const people = (dsum / 16) * area; ppd = Math.max(1, Math.ceil(people / PB));
-      // most people are indoors: only a share are out on the street, more in the day than at night (local time there)
-      const hour = ((new Date().getUTCHours() + new Date().getUTCMinutes() / 60 + (lon0 + lon1) / 30) % 24 + 24) % 24;
+      ppd = Math.max(1, Math.ceil(people / PB));
       const outShare = hour < 6 ? 0.02 : hour < 8 ? 0.08 : hour < 19 ? 0.13 : hour < 23 ? 0.07 : 0.03;
       const nP = Math.min(PB, Math.round(people / ppd)), nOut = Math.max(1, Math.round(nP * outShare)), pick = () => { let r = rnd() * totalLen; for (const rd of roads) if ((r -= rd.len) <= 0) return rd; return roads[roads.length - 1]; };
       for (let n = 0, tries = 0; n < nP && tries < nP * 6; tries++) {
@@ -182,12 +183,17 @@ export function addOSM(world, tier, sim) {
         n++;
       }
     }
-    // cars on every zoom: more on the bigger roads and where more people live, fewer where there's fighting
+    // cars: as many as are really on the road at this hour for this many people (a few in a hundred at rush hour,
+    // almost none at night, about 1.3 people a car), on the same scale as the people dots when they show
     if (roads.length) {
+      const driving = hour < 5 ? 0.003 : hour < 7 ? 0.012 : hour < 9.5 ? 0.04 : hour < 16 ? 0.02 : hour < 19 ? 0.04 : hour < 22 ? 0.012 : 0.005;
       const weight = roads.map((rd) => { if (!rd.cars) return 0; const m = at(rd, rd.len / 2), [d, ct] = sim.density(m[0], m[1]); rd.war = ct && ct.war; return rd.len * rd.cars * (0.3 + Math.min(1, Math.sqrt(d / 800))) * (rd.war ? 0.3 : 1); });
       const wsum = weight.reduce((a, b) => a + b, 0) || 1, spd = z >= 12 ? 1 : Math.pow(2, 12 - z) * 0.6;   // faster when far out, so you can see them move
+      const cars = (people * driving) / 1.3;
+      cpd = ppd || Math.max(1, Math.ceil(cars / CB));
+      const total = cars / cpd;
       roads.forEach((rd, k) => {
-        const m = Math.floor((CB * weight[k]) / wsum + rnd());
+        const m = Math.floor((total * weight[k]) / wsum + rnd());
         for (let i = 0; i < m; i++) drivers.push({ rd, s: rnd() * rd.len, i: 1, v: (rd.cars > 4 ? 0.09 : 0.05) * spd * (0.7 + rnd() * 0.6) * (i % 2 ? -1 : 1), tail: i % 2 });
       });
     }
@@ -211,7 +217,7 @@ export function addOSM(world, tier, sim) {
       }
     }
     for (const o of [lines, ppts, cpts]) { o.visible = false; group.add(o); }
-    Object.assign(T, { state: "ready", objs: [lines, ppts, cpts], walkers, drivers, names: [...named.values()], ppd });
+    Object.assign(T, { state: "ready", objs: [lines, ppts, cpts], walkers, drivers, names: [...named.values()], ppd, cpd });
   }
   function drop(T) { if (T.objs) for (const o of T.objs) { group.remove(o); o.geometry.dispose(); } }
 
@@ -309,5 +315,5 @@ export function addOSM(world, tier, sim) {
     let take = 0; for (const [zz, M] of mats) if (zz >= PEOPLE_Z) take += M.op;
     return Math.min(1, take) * fadeIn;
   }
-  return { update, scale: () => { const T = [...tiles.values()].find((T) => T.used === t && T.ppd); return T ? T.ppd : null; } };
+  return { update, carScale: () => { const T = [...tiles.values()].find((T) => T.used === t && T.cpd); return T ? T.cpd : null; }, scale: () => { const T = [...tiles.values()].find((T) => T.used === t && T.ppd); return T ? T.ppd : null; } };
 }
