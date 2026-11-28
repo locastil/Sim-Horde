@@ -243,8 +243,8 @@ export function addLocal(world, tier) {
     let tagPpd = 1;
     for (const L of show) {
       const lv = level(L, lon, lat, halfW, halfH), op = (L === La ? 1 - frac : frac) * fade;
-      const syn = 1 - real; lv.pPts.material.opacity = 0.95 * op * syn; lv.cPts.material.opacity = op * syn; lv.rLines.material.opacity = 0.75 * op * syn; lv.rLines.visible = op * syn > 0.01;
-      lv.pPts.visible = lv.cPts.visible = op * (1 - real) > 0.01;
+      const syn = osm ? 0 : 1 - real;   // the map-based people (osm.js) are the only close-up people, so nothing swaps in between lv.pPts.material.opacity = 0.95 * op * syn; lv.cPts.material.opacity = op * syn; lv.rLines.material.opacity = 0.75 * op * syn; lv.rLines.visible = op * syn > 0.01;
+      lv.pPts.visible = lv.cPts.visible = op * syn > 0.01;
       if (L === (frac < 0.5 ? La : La + 1)) tagPpd = lv.ppd;
       // walkers wander a little when you're close enough to see it
       if (!still && alt < 0.004 && lv.pPts.visible) {
@@ -272,7 +272,7 @@ export function addLocal(world, tier) {
         lv.cPts.geometry.attributes.position.needsUpdate = lv.cPts.geometry.attributes.color.needsUpdate = true;
       }
     }
-    if (real > 0.5 && osm.scale()) tagPpd = osm.scale();
+    if (osm && osm.scale()) tagPpd = osm.scale();
     if (tagEl) {
       const who = real > 0.5 && alt < 0.005 ? "; bright dots are out on the street, dim ones at home" : real > 0.5 ? " at home in residential areas" : "";
       const txt = (tagPpd <= 1 ? "Close up: each dot is one person" : `Close up: each dot is about ${tagPpd.toLocaleString()} people`) + who + (real > 0.5 || !osm || !osm.carScale() || osm.carScale() <= 1 ? "; white and red dots on the roads are cars" : `; white and red dots on the roads are cars, each about ${osm.carScale().toLocaleString()}`) + " (illustrative)";
