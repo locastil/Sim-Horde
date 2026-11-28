@@ -312,20 +312,21 @@ export function addLocal(world, tier) {
 
   // city names, once you're close enough to see the streets: biggest places first, none overlapping
   const v = new THREE.Vector3(), pool = [];
-  // major cities are always named; the rest join in once you're close enough to see the streets
+  // city names come in one scroll step before the close-up dots start, biggest places first
   const MAJOR = 1e6;
   let majors = [];
   function labels(camera, box, lon, lat, alt, aspect) {
     if (!ready) { box.hidden = true; return; }
     if (majors.length === 0 || majors.src !== cities) { majors = cities.filter((c) => c.cp >= MAJOR).sort((a, b) => b.cp - a.cp); majors.src = cities; }
     box.hidden = false;
-    const op = Math.max(0, Math.min(1, (0.03 - alt) / 0.01)), z = 1 + alt;
+    const op = Math.max(0, Math.min(1, (0.165 - alt) / 0.02)), z = 1 + alt;
+    if (op <= 0) { box.hidden = true; return; }
     const W = box.clientWidth, H = box.clientHeight, halfKm = alt * 6371 * Math.tan(16 * D) * Math.max(1, aspect);
-    const list = op > 0 ? near(lon, lat, halfKm * 1.6 + 5).sort((a, b) => b.people - a.people) : majors, taken = [];
+    const list = near(lon, lat, halfKm * 1.6 + 5).sort((a, b) => b.cp - a.cp), taken = [];
     let n = 0;
     for (const c of list) {
-      if (n >= (op > 0 ? 16 : 30)) break;
-      const major = c.cp >= MAJOR; if (!major && op <= 0) continue;
+      if (n >= 20) break;
+      const major = c.cp >= MAJOR;
       const pa = new Float32Array(3); put(pa, 0, c.lon, c.lat); v.set(pa[0], pa[1], pa[2]);
       world.localToWorld(v); if (v.z * z < 1.0005) continue;       // over the horizon
       v.project(camera); if (v.z > 1) continue;
@@ -336,7 +337,7 @@ export function addLocal(world, tier) {
       taken.push([x, y, w, h]);
       let el = pool[n]; if (!el) { el = document.createElement("span"); box.appendChild(el); pool.push(el); }
       if (el.textContent !== c.name) el.textContent = c.name;
-      el.className = "s" + big + (alt > 0.3 ? " far" : ""); el.style.opacity = major ? 1 : op;
+      el.className = "s" + big; el.style.opacity = op;
       el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`; el.hidden = false;
       n++;
     }
