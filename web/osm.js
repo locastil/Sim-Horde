@@ -93,6 +93,7 @@ export function addOSM(world, tier, sim) {
   const carMat = new THREE.PointsMaterial({ size: 3.4, sizeAttenuation: false, map: sim.tex, vertexColors: true, transparent: true, opacity: 0, depthWrite: false });
   let template = null, t = 0, credit = null;
   const tiles = new Map();                                   // "x:y" -> { state, roads, names, objs }
+  window.simhordeStreets = () => [...tiles.values()].map((T) => [T.state, T.walkers && T.walkers.length, T.drivers && T.drivers.length, T.ppd, T.used === t]);   // for checking
   fetch("https://tiles.openfreemap.org/planet").then((r) => r.json()).then((j) => (template = j.tiles[0])).catch(() => {});
 
   function load(x, y) {
