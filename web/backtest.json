@@ -1,5 +1,5 @@
 {
- "made": "2026-11-27 16:21",
+ "made": "2026-11-27 17:06",
  "years": [
   2015,
   2024
@@ -8,41 +8,556 @@
  "countries": 208,
  "weights_from": "the California tuning (calibrated_weights.json)",
  "scale_fit_2015": {
-  "a": 2.487,
-  "b": 0.443,
+  "a": 1.794,
+  "b": 0.532,
   "countries": 154
  },
+ "tuning": {
+  "years": [
+   2015,
+   2019
+  ],
+  "tries": 30,
+  "people": 402019,
+  "effects_before": {
+   "war": 1.0,
+   "coup": 1.0,
+   "sanctions": 1.0,
+   "protests": 1.0,
+   "infl": 1.2,
+   "pandemic": 0.05,
+   "pandemic_dens": 0.4,
+   "collapse": 0.0
+  },
+  "effects_tuned": {
+   "war": 0.476,
+   "coup": 0.661,
+   "sanctions": 0.333,
+   "protests": 1.169,
+   "infl": 0.066,
+   "pandemic": -0.045,
+   "pandemic_dens": 0.257,
+   "collapse": 0.0
+  },
+  "best_score": 0.457,
+  "all_tries": [
+   {
+    "fx": {
+     "war": 0.476,
+     "coup": 0.661,
+     "sanctions": 0.333,
+     "protests": 1.169,
+     "infl": 0.066,
+     "pandemic": -0.045,
+     "pandemic_dens": 0.257,
+     "collapse": 0.0
+    },
+    "score": 0.457,
+    "rank": 0.356,
+    "mae": 0.357,
+    "mae_no_change": 0.397
+   },
+   {
+    "fx": {
+     "war": 0.643,
+     "coup": 0.777,
+     "sanctions": 0.563,
+     "protests": 1.023,
+     "infl": 0.066,
+     "pandemic": -0.06,
+     "pandemic_dens": 0.312,
+     "collapse": 0.076
+    },
+    "score": 0.451,
+    "rank": 0.358,
+    "mae": 0.36,
+    "mae_no_change": 0.397
+   },
+   {
+    "fx": {
+     "war": 0.532,
+     "coup": 0.719,
+     "sanctions": 0.335,
+     "protests": 1.025,
+     "infl": 0.187,
+     "pandemic": -0.051,
+     "pandemic_dens": 0.125,
+     "collapse": 0.065
+    },
+    "score": 0.444,
+    "rank": 0.353,
+    "mae": 0.361,
+    "mae_no_change": 0.397
+   },
+   {
+    "fx": {
+     "war": 0.505,
+     "coup": 0.761,
+     "sanctions": 0.2,
+     "protests": 0.934,
+     "infl": 0.287,
+     "pandemic": -0.06,
+     "pandemic_dens": 0.183,
+     "collapse": 0.0
+    },
+    "score": 0.435,
+    "rank": 0.344,
+    "mae": 0.361,
+    "mae_no_change": 0.397
+   },
+   {
+    "fx": {
+     "war": 0.328,
+     "coup": 0.699,
+     "sanctions": 0.395,
+     "protests": 1.206,
+     "infl": 0.0,
+     "pandemic": -0.034,
+     "pandemic_dens": 0.277,
+     "collapse": 0.0
+    },
+    "score": 0.434,
+    "rank": 0.346,
+    "mae": 0.362,
+    "mae_no_change": 0.397
+   },
+   {
+    "fx": {
+     "war": 0.358,
+     "coup": 0.904,
+     "sanctions": 0.487,
+     "protests": 1.141,
+     "infl": 0.0,
+     "pandemic": -0.021,
+     "pandemic_dens": 0.25,
+     "collapse": 0.0
+    },
+    "score": 0.433,
+    "rank": 0.347,
+    "mae": 0.363,
+    "mae_no_change": 0.397
+   },
+   {
+    "fx": {
+     "war": 0.431,
+     "coup": 0.758,
+     "sanctions": 0.503,
+     "protests": 0.75,
+     "infl": 0.458,
+     "pandemic": -0.06,
+     "pandemic_dens": 0.306,
+     "collapse": 0.0
+    },
+    "score": 0.419,
+    "rank": 0.331,
+    "mae": 0.362,
+    "mae_no_change": 0.397
+   },
+   {
+    "fx": {
+     "war": 0.499,
+     "coup": 0.847,
+     "sanctions": 0.31,
+     "protests": 1.199,
+     "infl": 0.353,
+     "pandemic": -0.043,
+     "pandemic_dens": 0.251,
+     "collapse": 0.074
+    },
+    "score": 0.419,
+    "rank": 0.341,
+    "mae": 0.366,
+    "mae_no_change": 0.397
+   },
+   {
+    "fx": {
+     "war": 0.614,
+     "coup": 0.615,
+     "sanctions": 0.761,
+     "protests": 0.99,
+     "infl": 0.395,
+     "pandemic": -0.049,
+     "pandemic_dens": 0.267,
+     "collapse": 0.034
+    },
+    "score": 0.416,
+    "rank": 0.335,
+    "mae": 0.365,
+    "mae_no_change": 0.397
+   },
+   {
+    "fx": {
+     "war": 0.609,
+     "coup": 0.479,
+     "sanctions": 0.323,
+     "protests": 1.318,
+     "infl": 0.374,
+     "pandemic": -0.02,
+     "pandemic_dens": 0.134,
+     "collapse": 0.0
+    },
+    "score": 0.412,
+    "rank": 0.334,
+    "mae": 0.366,
+    "mae_no_change": 0.397
+   }
+  ]
+ },
+ "test": {
+  "years": [
+   2019,
+   2024
+  ],
+  "before": {
+   "years": [
+    2019,
+    2024
+   ],
+   "countries": 143,
+   "r": 0.198,
+   "rank": 0.303,
+   "mae": 0.326,
+   "mae_no_change": 0.315,
+   "direction": 0.689,
+   "direction_countries": 61,
+   "biggest_misses": [
+    {
+     "code": "AFG",
+     "name": "Afghanistan",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": 0.679,
+     "real": -1.203
+    },
+    {
+     "code": "MMR",
+     "name": "Myanmar",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": -1.572,
+     "real": 0.013
+    },
+    {
+     "code": "PSE",
+     "name": "Palestine",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": -1.274,
+     "real": 0.227
+    },
+    {
+     "code": "UKR",
+     "name": "Ukraine",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": -1.315,
+     "real": 0.119
+    },
+    {
+     "code": "BEN",
+     "name": "Benin",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": 0.086,
+     "real": -0.859
+    },
+    {
+     "code": "VNM",
+     "name": "Vietnam",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": 0.111,
+     "real": 0.998
+    },
+    {
+     "code": "COD",
+     "name": "Democratic Republic of the Congo",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": 0.008,
+     "real": -0.842
+    },
+    {
+     "code": "LAO",
+     "name": "Laos",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": -0.436,
+     "real": 0.412
+    }
+   ],
+   "examples": [
+    {
+     "code": "LBN",
+     "name": "Lebanon",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": -0.748,
+     "real": -1.583
+    },
+    {
+     "code": "AFG",
+     "name": "Afghanistan",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": 0.679,
+     "real": -1.203
+    },
+    {
+     "code": "BGD",
+     "name": "Bangladesh",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": -0.143,
+     "real": -0.982
+    },
+    {
+     "code": "SLE",
+     "name": "Sierra Leone",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": -0.15,
+     "real": -0.928
+    },
+    {
+     "code": "PAK",
+     "name": "Pakistan",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": -0.131,
+     "real": -0.925
+    },
+    {
+     "code": "CHN",
+     "name": "China",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": 0.103,
+     "real": 0.797
+    },
+    {
+     "code": "IND",
+     "name": "India",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": 0.236,
+     "real": 0.816
+    },
+    {
+     "code": "ARM",
+     "name": "Armenia",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": 0.603,
+     "real": 0.817
+    },
+    {
+     "code": "SRB",
+     "name": "Serbia",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": 0.156,
+     "real": 0.828
+    },
+    {
+     "code": "VNM",
+     "name": "Vietnam",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": 0.111,
+     "real": 0.998
+    }
+   ]
+  },
+  "after": {
+   "years": [
+    2019,
+    2024
+   ],
+   "countries": 143,
+   "r": 0.197,
+   "rank": 0.27,
+   "mae": 0.321,
+   "mae_no_change": 0.315,
+   "direction": 0.639,
+   "direction_countries": 61,
+   "biggest_misses": [
+    {
+     "code": "AFG",
+     "name": "Afghanistan",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": 0.309,
+     "real": -1.203
+    },
+    {
+     "code": "LBN",
+     "name": "Lebanon",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": -0.225,
+     "real": -1.583
+    },
+    {
+     "code": "PSE",
+     "name": "Palestine",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": -1.028,
+     "real": 0.227
+    },
+    {
+     "code": "MMR",
+     "name": "Myanmar",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": -1.076,
+     "real": 0.013
+    },
+    {
+     "code": "UKR",
+     "name": "Ukraine",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": -0.854,
+     "real": 0.119
+    },
+    {
+     "code": "SLE",
+     "name": "Sierra Leone",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": 0.04,
+     "real": -0.928
+    },
+    {
+     "code": "BGD",
+     "name": "Bangladesh",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": -0.015,
+     "real": -0.982
+    },
+    {
+     "code": "BEN",
+     "name": "Benin",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": 0.105,
+     "real": -0.859
+    }
+   ],
+   "examples": [
+    {
+     "code": "LBN",
+     "name": "Lebanon",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": -0.225,
+     "real": -1.583
+    },
+    {
+     "code": "AFG",
+     "name": "Afghanistan",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": 0.309,
+     "real": -1.203
+    },
+    {
+     "code": "BGD",
+     "name": "Bangladesh",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": -0.015,
+     "real": -0.982
+    },
+    {
+     "code": "SLE",
+     "name": "Sierra Leone",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": 0.04,
+     "real": -0.928
+    },
+    {
+     "code": "PAK",
+     "name": "Pakistan",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": -0.052,
+     "real": -0.925
+    },
+    {
+     "code": "CHN",
+     "name": "China",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": 0.126,
+     "real": 0.797
+    },
+    {
+     "code": "IND",
+     "name": "India",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": 0.323,
+     "real": 0.816
+    },
+    {
+     "code": "ARM",
+     "name": "Armenia",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": 0.734,
+     "real": 0.817
+    },
+    {
+     "code": "SRB",
+     "name": "Serbia",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": 0.191,
+     "real": 0.828
+    },
+    {
+     "code": "VNM",
+     "name": "Vietnam",
+     "from_year": 2019,
+     "to_year": 2024,
+     "sim": 0.135,
+     "real": 0.998
+    }
+   ]
+  }
+ },
  "change": {
-  "countries": 150,
-  "r": 0.273,
-  "rank": 0.356,
-  "mae": 0.471,
-  "mae_no_change": 0.49,
-  "direction": 0.641,
-  "direction_countries": 92,
+  "years": [
+   2015,
+   2024
+  ],
+  "countries": 151,
+  "r": 0.352,
+  "rank": 0.394,
+  "mae": 0.456,
+  "mae_no_change": 0.493,
+  "direction": 0.667,
+  "direction_countries": 93,
   "biggest_misses": [
    {
     "code": "AFG",
     "name": "Afghanistan",
     "from_year": 2015,
     "to_year": 2024,
-    "sim": 0.572,
+    "sim": 0.127,
     "real": -1.996
-   },
-   {
-    "code": "BFA",
-    "name": "Burkina Faso",
-    "from_year": 2015,
-    "to_year": 2024,
-    "sim": -1.021,
-    "real": 0.644
    },
    {
     "code": "SLE",
     "name": "Sierra Leone",
     "from_year": 2015,
     "to_year": 2024,
-    "sim": -0.07,
+    "sim": 0.175,
     "real": -1.637
    },
    {
@@ -50,40 +565,48 @@
     "name": "Mozambique",
     "from_year": 2016,
     "to_year": 2024,
-    "sim": -0.918,
+    "sim": -0.883,
     "real": 0.64
    },
    {
-    "code": "CMR",
-    "name": "Cameroon",
+    "code": "LBN",
+    "name": "Lebanon",
     "from_year": 2015,
     "to_year": 2024,
-    "sim": -1.166,
-    "real": 0.374
+    "sim": -0.61,
+    "real": -1.941
    },
    {
-    "code": "MMR",
-    "name": "Myanmar",
+    "code": "BFA",
+    "name": "Burkina Faso",
     "from_year": 2015,
     "to_year": 2024,
-    "sim": -1.413,
-    "real": -0.074
+    "sim": -0.561,
+    "real": 0.644
    },
    {
-    "code": "UKR",
-    "name": "Ukraine",
+    "code": "COG",
+    "name": "Republic of the Congo",
     "from_year": 2015,
     "to_year": 2024,
-    "sim": -0.981,
-    "real": 0.356
+    "sim": -0.396,
+    "real": 0.794
    },
    {
-    "code": "PSE",
-    "name": "Palestine",
+    "code": "EGY",
+    "name": "Egypt",
     "from_year": 2015,
     "to_year": 2024,
-    "sim": -1.217,
-    "real": 0.026
+    "sim": 0.605,
+    "real": -0.545
+   },
+   {
+    "code": "GAB",
+    "name": "Gabon",
+    "from_year": 2015,
+    "to_year": 2024,
+    "sim": -0.135,
+    "real": 0.999
    }
   ],
   "examples": [
@@ -92,7 +615,7 @@
     "name": "Afghanistan",
     "from_year": 2015,
     "to_year": 2024,
-    "sim": 0.572,
+    "sim": 0.127,
     "real": -1.996
    },
    {
@@ -100,7 +623,7 @@
     "name": "Lebanon",
     "from_year": 2015,
     "to_year": 2024,
-    "sim": -0.83,
+    "sim": -0.61,
     "real": -1.941
    },
    {
@@ -108,7 +631,7 @@
     "name": "Sierra Leone",
     "from_year": 2015,
     "to_year": 2024,
-    "sim": -0.07,
+    "sim": 0.175,
     "real": -1.637
    },
    {
@@ -116,23 +639,23 @@
     "name": "Somalia",
     "from_year": 2015,
     "to_year": 2024,
-    "sim": -0.043,
+    "sim": -0.075,
     "real": -1.093
    },
    {
-    "code": "JOR",
-    "name": "Jordan",
+    "code": "SSD",
+    "name": "South Sudan",
     "from_year": 2015,
-    "to_year": 2024,
-    "sim": -0.453,
-    "real": -0.993
+    "to_year": 2019,
+    "sim": -0.08,
+    "real": -1.015
    },
    {
     "code": "CIV",
     "name": "Ivory Coast",
     "from_year": 2015,
     "to_year": 2024,
-    "sim": 0.198,
+    "sim": 0.236,
     "real": 1.186
    },
    {
@@ -140,7 +663,7 @@
     "name": "Vietnam",
     "from_year": 2015,
     "to_year": 2024,
-    "sim": 0.243,
+    "sim": 0.297,
     "real": 1.291
    },
    {
@@ -148,7 +671,7 @@
     "name": "Guinea",
     "from_year": 2015,
     "to_year": 2024,
-    "sim": 0.371,
+    "sim": 0.291,
     "real": 1.322
    },
    {
@@ -156,7 +679,7 @@
     "name": "Bulgaria",
     "from_year": 2015,
     "to_year": 2024,
-    "sim": 0.396,
+    "sim": 0.493,
     "real": 1.337
    },
    {
@@ -164,7 +687,7 @@
     "name": "Serbia",
     "from_year": 2015,
     "to_year": 2024,
-    "sim": 0.778,
+    "sim": 0.971,
     "real": 1.429
    }
   ]
@@ -173,117 +696,90 @@
   {
    "year": 2015,
    "countries": 154,
-   "mae": 0.61,
-   "rank": 0.803,
-   "sim_world": 5.351,
+   "mae": 0.594,
+   "rank": 0.809,
+   "sim_world": 5.329,
    "real_world": 5.382
   },
   {
    "year": 2016,
    "countries": 153,
-   "mae": 0.575,
-   "rank": 0.828,
-   "sim_world": 5.324,
+   "mae": 0.564,
+   "rank": 0.831,
+   "sim_world": 5.309,
    "real_world": 5.352
   },
   {
    "year": 2017,
    "countries": 154,
-   "mae": 0.566,
-   "rank": 0.835,
-   "sim_world": 5.327,
+   "mae": 0.552,
+   "rank": 0.834,
+   "sim_world": 5.324,
    "real_world": 5.371
   },
   {
    "year": 2018,
    "countries": 154,
-   "mae": 0.57,
-   "rank": 0.821,
-   "sim_world": 5.363,
+   "mae": 0.557,
+   "rank": 0.822,
+   "sim_world": 5.353,
    "real_world": 5.401
   },
   {
    "year": 2019,
    "countries": 151,
-   "mae": 0.569,
-   "rank": 0.818,
-   "sim_world": 5.391,
+   "mae": 0.551,
+   "rank": 0.82,
+   "sim_world": 5.375,
    "real_world": 5.467
   },
   {
    "year": 2020,
    "countries": 147,
-   "mae": 0.62,
-   "rank": 0.802,
-   "sim_world": 5.182,
+   "mae": 0.565,
+   "rank": 0.805,
+   "sim_world": 5.347,
    "real_world": 5.527
   },
   {
    "year": 2021,
    "countries": 144,
-   "mae": 0.598,
-   "rank": 0.844,
-   "sim_world": 5.198,
+   "mae": 0.534,
+   "rank": 0.84,
+   "sim_world": 5.425,
    "real_world": 5.548
   },
   {
    "year": 2022,
    "countries": 136,
-   "mae": 0.589,
-   "rank": 0.844,
-   "sim_world": 5.364,
+   "mae": 0.533,
+   "rank": 0.852,
+   "sim_world": 5.468,
    "real_world": 5.534
   },
   {
    "year": 2023,
    "countries": 142,
-   "mae": 0.603,
-   "rank": 0.838,
-   "sim_world": 5.406,
+   "mae": 0.569,
+   "rank": 0.834,
+   "sim_world": 5.457,
    "real_world": 5.52
   },
   {
    "year": 2024,
    "countries": 146,
-   "mae": 0.594,
-   "rank": 0.825,
-   "sim_world": 5.448,
+   "mae": 0.586,
+   "rank": 0.815,
+   "sim_world": 5.459,
    "real_world": 5.571
   }
  ],
  "emigration": {
-  "countries": 127,
-  "rank": -0.054
+  "countries": 109,
+  "rank": 0.126
  },
- "secs": 128,
- "missing_figures": [
-  "young 2012",
-  "young 2013",
-  "young 2014",
-  "young 2015",
-  "young 2016",
-  "young 2017",
-  "young 2018",
-  "young 2019",
-  "young 2020",
-  "young 2021",
-  "young 2022",
-  "young 2023",
-  "young 2024",
-  "netmig 2012",
-  "netmig 2013",
-  "netmig 2014",
-  "netmig 2015",
-  "netmig 2016",
-  "netmig 2017",
-  "netmig 2018",
-  "netmig 2019",
-  "netmig 2020",
-  "netmig 2021",
-  "netmig 2022",
-  "netmig 2023",
-  "netmig 2024"
- ],
+ "secs": 533,
+ "missing_figures": [],
  "incomplete": false,
  "events": {
   "wars": {
@@ -529,6 +1025,64 @@
     2016
    ]
   },
+  "collapses": {
+   "LBN": [
+    2019,
+    2024
+   ],
+   "AFG": [
+    2021,
+    2024
+   ],
+   "VEN": [
+    2015,
+    2021
+   ],
+   "LKA": [
+    2022,
+    2023
+   ],
+   "ZWE": [
+    2019,
+    2020
+   ],
+   "HTI": [
+    2019,
+    2024
+   ],
+   "SDN": [
+    2019,
+    2022
+   ],
+   "SYR": [
+    2020,
+    2024
+   ],
+   "ARG": [
+    2018,
+    2019
+   ],
+   "TUR": [
+    2021,
+    2023
+   ],
+   "PAK": [
+    2022,
+    2023
+   ],
+   "GHA": [
+    2022,
+    2023
+   ],
+   "EGY": [
+    2022,
+    2024
+   ],
+   "NGA": [
+    2023,
+    2024
+   ]
+  },
   "pandemic": [
    2020,
    3,
@@ -537,7 +1091,7 @@
   ]
  },
  "sources": [
-  "World Bank Open Data (indicators in backtest.py)",
+  "World Bank Open Data, via Our World in Data where available (indicators in backtest.py)",
   "World Happiness Report via Our World in Data (CC BY)"
  ]
 }
