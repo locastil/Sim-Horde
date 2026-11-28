@@ -210,6 +210,13 @@ class World:
                 self.set_conflict_levels()
                 self.save()
             self.fill_conflict_detail()
+            if not self.w.get("growth_rule"):
+                gone = max(0, self.w["epoch"] - self.w.get("warmup", 0))
+                self.load_trade()                              # each country's usual growth, from its own real figures
+                self.grow(months=gone, usual=True)          # a world from before this rule catches up its years at the usual pace
+                self.w["growth_rule"] = self.w["epoch"]
+                print(f"Growth: {gone} months of growth caught up for every country", flush=True)
+                self.save()
             if not self.w.get("warmup") and not self.w.get("scale_fix") and any(n.get("last") for n in self.w["nations"].values()):
                 self.w["scale_fix"] = self.w["epoch"]      # a running world from before 1.6: its happiness scale is set once, now, and kept
                 self.fit_happiness()
@@ -511,7 +518,7 @@ class World:
         if today.get("conflicts"):
             print(f"Starting as today's real world: {sum(1 for n in N.values() if n['conflict'])} countries in armed conflict ({today.get('source')}).")
         w = dict(created=time.strftime("%Y-%m-%d"), epoch=0, scale=scale, seed=seed, data=d.get("meta", {}),
-                 start=[start.tm_year, start.tm_mon], version=sim_version(), region_cap=REGION_CAP, warmup=WARMUP, pop_fix_1="new", today=dict(source=today.get("source"), year=today.get("year")) if today else None,
+                 start=[start.tm_year, start.tm_mon], version=sim_version(), region_cap=REGION_CAP, warmup=WARMUP, growth_rule=0, pop_fix_1="new", today=dict(source=today.get("source"), year=today.get("year")) if today else None,
                  nations=N, shards=shards, events=[], world_series=[])
         self.build_layers(w)
         return w
@@ -598,12 +605,18 @@ class World:
             anchor = 2.2 if rich and n["gov"] == "dem" else 3.5 if rich else 5.0 if n["gov"] in ("dem", "hyb") else 7.0
             usual_g = 2.0 if rich else 4.0
             e = n.get("econ")
+            g_real = t.get("growth")
+            if e and not e.get("usual_real") and g_real is not None:
+                # the pace a country settles back to: its own latest real growth (World Bank), blended with the old
+                # rule of thumb (2% rich, 4% others), so fast growers like India aren't held to 4%
+                e["usual"] = round(max(-1.0, min(8.0, 0.6 * g_real + 0.4 * usual_g)), 2); e["usual_real"] = True
             if not e:
                 infl = t.get("infl")
                 g = t.get("growth")
                 n["econ"] = dict(infl=round(max(-2.0, min(60.0, infl if infl is not None else anchor)), 2),
                                  growth=round(max(-15.0, min(15.0, g if g is not None else usual_g)), 2),
-                                 anchor=anchor, usual=usual_g, rate=round(anchor + 0.5, 2), stag=False, real=infl is not None)
+                                 anchor=anchor, usual=round(max(-1.0, min(8.0, 0.6 * g + 0.4 * usual_g)), 2) if g is not None else usual_g,
+                                 usual_real=g is not None, rate=round(anchor + 0.5, 2), stag=False, real=infl is not None)
 
     def load_theta(self):
         """Use the California calibration's weights where the names match; defaults for the rest."""
@@ -1155,6 +1168,7 @@ class World:
                 n.update(gov="dem", parties=party_set(n["code"], n["region"], "dem", rnd)); n["ruling"] = rnd.choice(n["parties"])
                 say(n, "OPENING", f"Courts and press in {the(n['name'])} win new independence; observers call it a full democracy.")
         self.markets_tick(e, date, rnd, live, dz, say, events)
+        self.grow()
         for n in live:
             n["stab"] = max(0.02, min(0.98, n["stab"]))
             n["series"] = (n["series"] + [[e, round(n["last"]["civ"], 4), round(n["last"]["stress"], 3)]])[-240:]
@@ -1170,6 +1184,44 @@ class World:
         self.save()
         self.open_epoch()
         print(f"World: {date} done, {len(events)} headline(s). Now {self.date()}.", flush=True)
+
+    # ------------------------------------------------------------------ growing richer
+    def raw_nations(self):
+        if not getattr(self, "_raw", None):
+            try:
+                d = json.load(open(os.path.join(self.engine_dir, "sim_data", "world", "nations.json"), encoding="utf-8"))
+                self._raw = {r["iso3"]: r for r in (d["nations"] if isinstance(d, dict) else d)}
+            except (OSError, ValueError, KeyError):
+                self._raw = {}
+        return self._raw
+
+    def grow(self, months=1, usual=False):
+        """Each month, every country's conditions move with its own simulated economy, so years of growth reach
+        people's lives: income per person grows with the country's growth less its population growth (estimated from
+        its share of over-65s), and poverty falls as income rises, by the same rule the starting figures use;
+        internet access keeps spreading, a little more people move to cities, populations age, and unemployment
+        rises when growth falls below the country's usual pace (and falls when it's above). Inequality is held where
+        it is. usual=True: grow at each country's usual pace (catching up a world from before this rule)."""
+        raw = self.raw_nations()
+        for c, n in self.w["nations"].items():
+            r = raw.get(c)
+            if not r or not r.get("gdp"):
+                continue
+            L = n.get("life")
+            if not L:
+                L = n["life"] = dict(gdp=float(r["gdp"]), urban=float(r.get("urban") or 55), unemp=float(r.get("unemp") or 6),
+                                     gini=float(r.get("gini") or 36), young=float(r.get("young") or 64), net=float(r.get("net") or 50),
+                                     natinc=round(max(-0.5, min(3.0, 3.2 - 0.17 * float(r.get("old") or 8))), 2))
+            ec = n.get("econ") or {}
+            g = ec.get("usual", 2.0) if usual else ec.get("growth", 2.0)
+            for _ in range(months):
+                L["gdp"] *= (1 + (g - L["natinc"]) / 100) ** (1 / 12)
+                L["net"] += (98.0 - L["net"]) * 0.08 / 12
+                L["urban"] += (90.0 - L["urban"]) * 0.008 / 12
+                L["young"] += (63.0 - L["young"]) * 0.02 / 12
+            unemp = max(1.0, min(40.0, L["unemp"] + (0 if usual else 0.3 * (ec.get("usual", 2.0) - ec.get("growth", 2.0)))))
+            n["feat"] = WK.features(dict(gdp=L["gdp"], urban=L["urban"], unemp=unemp, gini=L["gini"], young=L["young"], net=L["net"]))
+            n["gdp_now"] = round(L["gdp"])
 
     # ------------------------------------------------------------------ markets and trade
     def partners(self, n):
