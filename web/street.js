@@ -29,7 +29,7 @@
     return { h, busy, protests: !!(nv && nv.protests), conflict: !!(nv && nv.conflict), stag: mk && mk.flags && mk.flags.includes("stagflation") };
   }
   function happyColor(h) {
-    const stops = [[3.0, [232, 76, 61]], [4.5, [240, 140, 64]], [5.6, [242, 200, 92]], [6.6, [96, 200, 150]], [7.6, [30, 170, 190]]];   // same as the globe
+    const stops = [[3.0, [232, 76, 61]], [4.5, [240, 140, 64]], [6.0, [242, 200, 92]], [7.5, [96, 200, 150]], [9.0, [30, 170, 190]]];   // same as the globe
     if (h <= stops[0][0]) return `rgb(${stops[0][1]})`;
     for (let i = 1; i < stops.length; i++) {
       if (h <= stops[i][0]) {

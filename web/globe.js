@@ -201,7 +201,7 @@ async function paintBase(tier, W, H, world) {
 }
 
 // happiness, 0-10: coral (less happy) through amber to teal (happier)
-const HAPPY_STOPS = [[3.0, [232, 76, 61]], [4.5, [240, 140, 64]], [5.6, [242, 200, 92]], [6.6, [96, 200, 150]], [7.6, [30, 170, 190]]];
+const HAPPY_STOPS = [[3.0, [232, 76, 61]], [4.5, [240, 140, 64]], [6.0, [242, 200, 92]], [7.5, [96, 200, 150]], [9.0, [30, 170, 190]]];
 function happyColor(h) {
   const s = HAPPY_STOPS;
   if (h <= s[0][0]) return `rgb(${s[0][1].join(",")})`;

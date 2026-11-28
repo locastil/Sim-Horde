@@ -9,9 +9,10 @@ const BUDGET = { low: 20000, medium: 60000, high: 160000, epic: 320000 };   // l
 // countries the horde simulates in more detail (more simulated people) get more lights
 const DETAIL = { Low: 0.6, Medium: 0.75, High: 0.9, Ultra: 1 };
 
-// the same colours as the happiness meter under the globe
+// the same colours as the happiness meter under the globe. The scale reads the 0-10 life rating as it is: red
+// at 3 or below, amber around 4.5, yellow at 6 (middling), green only at 7.5 and up (very few countries), teal at 9
 // (a little more saturated than the meter, since small lights on a dark globe read paler)
-const STOPS = [[3.0, [1.0, 0.24, 0.18]], [4.5, [1.0, 0.5, 0.12]], [5.6, [1.0, 0.8, 0.15]], [6.6, [0.25, 0.9, 0.5]], [7.6, [0.1, 0.78, 1.0]]];
+const STOPS = [[3.0, [1.0, 0.24, 0.18]], [4.5, [1.0, 0.5, 0.12]], [6.0, [1.0, 0.8, 0.15]], [7.5, [0.25, 0.9, 0.5]], [9.0, [0.1, 0.78, 1.0]]];
 function moodColor(h) {
   if (h == null) return [0.85, 0.85, 0.8];
   if (h <= STOPS[0][0]) return STOPS[0][1];

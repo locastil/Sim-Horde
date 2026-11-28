@@ -10,7 +10,7 @@ import { townPlaces, loadTowns as loadTownPlaces } from "/people.js";
 const D = Math.PI / 180, KX = 111.32, KY = 110.57, R = 1.00003;
 const BUDGET = { low: [6000, 900], medium: [14000, 2000], high: [30000, 4000], epic: [50000, 7000] };   // [people, cars] per level
 const DMAX = 4000;                              // people per km² that the densest dots are planned for
-const STOPS = [[3.0, [1.0, 0.24, 0.18]], [4.5, [1.0, 0.5, 0.12]], [5.6, [1.0, 0.8, 0.15]], [6.6, [0.25, 0.9, 0.5]], [7.6, [0.1, 0.78, 1.0]]];
+const STOPS = [[3.0, [1.0, 0.24, 0.18]], [4.5, [1.0, 0.5, 0.12]], [6.0, [1.0, 0.8, 0.15]], [7.5, [0.25, 0.9, 0.5]], [9.0, [0.1, 0.78, 1.0]]];
 function moodColor(h) {
   if (h == null) return [0.85, 0.85, 0.8];
   if (h <= STOPS[0][0]) return STOPS[0][1];
