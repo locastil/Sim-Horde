@@ -5,8 +5,8 @@
 import * as THREE from "/vendor/three.min.js";
 
 const D = Math.PI / 180, R = 1.000035;
-const START = 0.5, NAMES = 0.0009, PEOPLE_Z = 8, WALK_Z = 13;           // camera heights (earth radius = 1)
-const BUDGET = { low: [800, 120], medium: [2000, 300], high: [3500, 600], epic: [6000, 1000] };   // [people, cars] per tile
+const START = 0.5, NAMES = 0.0009, PEOPLE_Z = 5, WALK_Z = 13;           // camera heights (earth radius = 1)
+const BUDGET = { low: [1200, 120], medium: [3000, 300], high: [6000, 600], epic: [12000, 1000] };   // [people, cars] per tile
 const CLASS = {                                              // colour, cars per km, drawn width weight
   motorway: [[1, 0.78, 0.45], 9], trunk: [[1, 0.78, 0.45], 7], primary: [[0.96, 0.88, 0.68], 5], secondary: [[0.9, 0.86, 0.74], 3.5],
   tertiary: [[0.7, 0.76, 0.88], 2.5], minor: [[0.6, 0.67, 0.8], 1.2], service: [[0.45, 0.52, 0.66], 0.4], track: [[0.4, 0.46, 0.56], 0], path: [[0.38, 0.44, 0.54], 0],
@@ -128,7 +128,7 @@ export function addOSM(world, tier, sim) {
   function fetchTile(T, z, x, y) {
     const n = 1 << z, xx = ((x % n) + n) % n;
     fetch(template.replace("{z}", z).replace("{x}", xx).replace("{y}", y)).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject()))
-      .then((ab) => build(T, z, x, y, decode(new Uint8Array(ab), z >= 14 ? ["transportation", "transportation_name", "landuse", "building"] : z >= WALK_Z ? ["transportation", "landuse", "building"] : z >= PEOPLE_Z ? ["transportation", "landuse"] : ["transportation"])))
+      .then((ab) => build(T, z, x, y, decode(new Uint8Array(ab), z >= 14 ? ["transportation", "transportation_name", "landuse", "building"] : z >= WALK_Z ? ["transportation", "landuse", "building"] : ["transportation", "landuse"])))
       .catch(() => { T.state = "failed"; T.failedAt = t; })
       .finally(() => { inflight--; pump(); });
   }
@@ -169,7 +169,7 @@ export function addOSM(world, tier, sim) {
     const people = (dsum / 16) * area;
     const hour = ((new Date().getUTCHours() + new Date().getUTCMinutes() / 60 + (lon0 + lon1) / 30) % 24 + 24) % 24;
     // where people live: the map's residential areas, drawn into a small mask for this tile
-    const homes = [];                                        // mask cells (0..255 x 0..255) that are residential
+    const homes = [], mask = new Uint8Array(65536);                                        // mask cells (0..255 x 0..255) that are residential
     if (z >= PEOPLE_Z) {
       const N = 256, cv = document.createElement("canvas"); cv.width = cv.height = N;
       const g = cv.getContext("2d"); g.fillStyle = "#fff"; g.beginPath();
@@ -179,37 +179,56 @@ export function addOSM(world, tier, sim) {
         for (const ring of f.lines) { g.moveTo(ring[0] * N, ring[1] * N); for (let i = 2; i < ring.length; i += 2) g.lineTo(ring[i] * N, ring[i + 1] * N); g.closePath(); }
       g.fill("evenodd");
       const px = g.getImageData(0, 0, N, N).data;
-      for (let i = 0; i < N * N; i++) if (px[i * 4 + 3] > 127) homes.push(i);
+      for (let i = 0; i < N * N; i++) if (px[i * 4 + 3] > 127) { homes.push(i); mask[i] = 1; }
     }
     // the simulation's people: most at home in those areas, a share out on the pavements close up (more by day
     // than at night). Where the map has no residential areas, homes go just off the roads instead.
-    if (z >= PEOPLE_Z && (homes.length || roads.length)) {
+    // One set of people at every distance: a tile keeps the dots of the tile above it that fall inside it (and
+    // still sit in a home), then adds new ones between them. Zooming in, the glow you saw from far out splits
+    // into the dots it was made of instead of being swapped for different ones.
+    if (z >= PEOPLE_Z) {
       ppd = Math.max(1, Math.ceil(people / PB));
       const close = z >= WALK_Z, outShare = !close ? 0 : hour < 5 ? 0.005 : hour < 7 ? 0.02 : hour < 9 ? 0.08 : hour < 17 ? 0.12 : hour < 20 ? 0.09 : hour < 22 ? 0.04 : 0.012;
       const nP = Math.min(PB, Math.round(people / ppd)), nOut = Math.round(nP * outShare);
       const pick = () => { let r = rnd() * totalLen; for (const rd of roads) if ((r -= rd.len) <= 0) return rd; return roads[roads.length - 1]; };
-      const inBuildings = (L.building || []).length > 20, keep = (lo, la) => { const [d, ct] = sim.density(lo, la); return ct && rnd() * (dmax * 1.3 + 50) <= d + 50 ? ct : null; };
-      for (let n = 0, tries = 0; n < nP && tries < nP * 8; tries++) {
-        const home = n >= nOut;
+      const inBuildings = (L.building || []).length > 20, maskShare = homes.length / 65536;
+      const cs = sim.near((lon0 + lon1) / 2, (lat0 + lat1) / 2, Math.hypot(lon1 - lon0, lat1 - lat0) * 60 + 60);   // the cities near this tile, looked up once
+      const keep = (lo, la) => { const [d, ct] = sim.densityIn(cs, lo, la); return ct && ct.land(lo, la) && rnd() * (dmax * 1.3 + 50) <= d + 50 ? ct : null; };
+      const cellOf = (lo, la) => { const u = tileX(lo, z) - x, v = tileY(la, z) - y; return Math.min(255, (v * 256) | 0) * 256 + Math.min(255, (u * 256) | 0); };
+      let outCount = 0;
+      const add = (w, home) => { w.home = home; if (!home) outCount++; walkers.push(w); };
+      // inherited from the tile above
+      const up = tiles.get((z - 1) + ":" + (x >> 1) + ":" + (y >> 1));
+      if (up && up.walkers) for (const w of up.walkers) {
+        if (!w.home || w.lo < lon0 || w.lo >= lon1 || w.la < lat0 || w.la >= lat1) continue;
+        if ((inBuildings || maskShare > 0.05) && !mask[cellOf(w.lo, w.la)] && rnd() < 0.8) continue;   // it turned out not to be in a home
+        add({ ...w }, true);
+        if (walkers.length >= nP - nOut) break;
+      }
+      // and new ones
+      for (let tries = 0; walkers.length < nP && tries < nP * 10; tries++) {
+        const home = outCount >= nOut;
         let lo, la, dx = 0, dy = 0, ct;
-        // the map doesn't mark every neighbourhood as residential, so where little is marked some homes
-        // go along the local streets instead
-        if (home && homes.length && (inBuildings || rnd() < Math.min(1, homes.length / 65536 / 0.25))) {   // a home inside a residential area
+        if (home && homes.length && (inBuildings || rnd() < Math.min(1, maskShare / 0.25))) {   // a home in a building or residential area
           const c = homes[(rnd() * homes.length) | 0], u = ((c & 255) + rnd()) / 256, v = ((c >> 8) + rnd()) / 256;
           lo = lonOf(x + u, z); la = latOf(y + v, z);
           if (!(ct = keep(lo, la))) continue;
-        } else {                                             // out on a pavement (or a home just off the road)
-          if (!roads.length) continue;
+        } else if (roads.length) {                           // out on a pavement, or a home along a road where the map marks none
           const rd = pick(); if (rd.cls === "motorway" || rd.cls === "trunk") continue;
-          let p; [lo, la, dx, dy] = p = at(rd, rnd() * rd.len);
+          [lo, la, dx, dy] = at(rd, rnd() * rd.len);
           if (!(ct = keep(lo, la))) continue;
           const side = (rnd() < 0.5 ? -1 : 1) * (home ? 0.02 + rnd() * 0.05 : 0.009), nl = Math.hypot(dx, dy) || 1;
           dx /= nl; dy /= nl; lo -= (dy * side) / (111.32 * Math.cos(la * D)); la += (dx * side) / 110.57;
-        }
-        // home lights: soft when you're close, brighter from further out so towns read as lit areas
-        const b = (home ? (close ? 0.28 + 0.12 * rnd() : 0.55 + 0.25 * rnd()) : 0.8 + 0.2 * rnd()) * (ct.war ? 0.45 : 1);
-        walkers.push({ lo, la, dx, dy, ph: rnd() * 6.28, sp: home ? 0 : 0.3 + rnd(), c: ct.mood.map((v) => v * b) });
-        n++;
+        } else if (home) {                                   // no map detail at all: wherever the simulation's people live
+          lo = lonOf(x + rnd(), z); la = latOf(y + rnd(), z);
+          if (!(ct = keep(lo, la))) continue;
+        } else continue;
+        add({ lo, la, dx, dy, ph: rnd() * 6.28, sp: home ? 0 : 0.3 + rnd(), r: rnd(), m: ct.mood, war: ct.war }, home);
+      }
+      // colours for this distance: home lights soft close up, brighter from far out so towns glow
+      for (const w of walkers) {
+        const b = (w.home ? (close ? 0.28 + 0.12 * w.r : 0.55 + 0.3 * w.r) : 0.8 + 0.2 * w.r) * (w.war ? 0.45 : 1);
+        w.c = w.m.map((v) => v * b);
       }
     }
     // cars: as many as are really on the road at this hour for this many people (a few in a hundred at rush hour,

@@ -230,11 +230,11 @@ export function addLocal(world, tier) {
   // alt: camera height over the ground (earth radius = 1); width: half the view across, in km
   function update(dt, lon, lat, alt, aspect, tagEl, camera, streetBox) {
     t += dt;
-    if (!osm && ready) osm = addOSM(world, tier, { tex, vehicles: (ct) => (ct && VEH[ct.iso]) || null, density: (lo, la) => density(near(lo, la, 60), lo, la) });
+    if (!osm && ready) osm = addOSM(world, tier, { tex, vehicles: (ct) => (ct && VEH[ct.iso]) || null, near, densityIn: density, density: (lo, la) => density(near(lo, la, 60), lo, la) });
     real = osm && camera ? osm.update(dt, lon, lat, alt, aspect, camera, streetBox) : 0;   // real roads from further out; real people close up
     const on = ready && alt < 0.14;
     group.visible = on;
-    if (!on) { if (tagEl && lastScale) { tagEl.hidden = true; lastScale = ""; } return 1; }
+    if (!on) { if (tagEl && lastScale) { tagEl.hidden = true; lastScale = ""; } return 1 - real; }   // the far-off city lights hand over to the same dots that split up as you zoom in
     const halfKm = alt * 6371 * Math.tan(16 * D), halfH = (halfKm * 1.35) / KY, halfW = (halfKm * aspect * 1.35) / KX;
     const f = Math.log2((360 * 3) / Math.max(1e-6, (2 * halfKm * aspect) / KX));   // continuous level: about 3 cells across
     const La = Math.floor(f), frac = f - La, show = new Set([La, La + 1]);
@@ -279,7 +279,7 @@ export function addLocal(world, tier) {
       if (txt !== lastScale) { tagEl.textContent = txt; lastScale = txt; }
       tagEl.hidden = fade < 0.3;
     }
-    return 1 - fade;                                         // how much of the far-off city lights to keep
+    return Math.min(1 - fade, 1 - real);                                         // how much of the far-off city lights to keep
   }
 
   // city names, once you're close enough to see the streets: biggest places first, none overlapping
