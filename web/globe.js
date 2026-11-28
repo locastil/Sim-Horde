@@ -262,7 +262,7 @@ export function mountGlobe(root, opts = {}) {
     }
     earth = new THREE.Mesh(new THREE.SphereGeometry(1, T.seg, T.seg / 2), mat);
     world.add(earth);
-    people = addPeople(world, tier, null); local = addLocal(world, tier); refreshPeople(true);
+    people = addPeople(world, tier, null); document.querySelectorAll(".city-names, .street-names").forEach((b) => (b.textContent = "")); local = addLocal(world, tier); refreshPeople(true);
     traffic = addTraffic(world, tier, tdata.globe && tdata.cities ? tdata : null);
     drawPiece();
     if (T.atmo) {

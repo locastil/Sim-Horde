@@ -111,13 +111,26 @@ export function addOSM(world, tier, sim) {
   window.simhordeStreets = () => [...tiles.values()].map((T) => [T.z, T.state, T.walkers && T.walkers.length, T.drivers && T.drivers.length]);   // for checking
   fetch("https://tiles.openfreemap.org/planet").then((r) => r.json()).then((j) => (template = j.tiles[0])).catch(() => {});
 
-  function load(z, x, y) {
-    const T = { z, state: "loading", used: t };
+  // a few downloads at a time, nearest first; a tile that fails is tried again a little later
+  let inflight = 0; const queue = [];
+  function pump() {
+    while (inflight < 6 && queue.length) {
+      const [T, z, x, y] = queue.shift();
+      if (T.used < t - 2) { T.state = "skipped"; continue; }          // scrolled away before its turn
+      inflight++; fetchTile(T, z, x, y);
+    }
+  }
+  function load(z, x, y, T) {
+    T = T || { z, used: t }; T.state = "loading";
     tiles.set(z + ":" + x + ":" + y, T);
+    queue.push([T, z, x, y]); pump();
+  }
+  function fetchTile(T, z, x, y) {
     const n = 1 << z, xx = ((x % n) + n) % n;
     fetch(template.replace("{z}", z).replace("{x}", xx).replace("{y}", y)).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject()))
       .then((ab) => build(T, z, x, y, decode(new Uint8Array(ab), z >= 14 ? ["transportation", "transportation_name"] : ["transportation"])))
-      .catch(() => { T.state = "failed"; });
+      .catch(() => { T.state = "failed"; T.failedAt = t; })
+      .finally(() => { inflight--; pump(); });
   }
 
   function build(T, z, x, y, L) {
@@ -220,7 +233,10 @@ export function addOSM(world, tier, sim) {
     // load this zoom's tiles; keep showing the last complete zoom until they're all in, then fade across
     const need = cover(z, lon, lat, halfKm, aspect);
     let ready = 0;
-    for (const [x, y] of need) { const k = z + ":" + x + ":" + y; let T = tiles.get(k); if (!T) { load(z, x, y); T = tiles.get(k); } T.used = t; if (T.state !== "loading") ready++; }
+    for (const [x, y] of need) { const k = z + ":" + x + ":" + y; let T = tiles.get(k); if (!T) { load(z, x, y); T = tiles.get(k); }
+      T.used = t;
+      if (T.state === "skipped" || (T.state === "failed" && t - T.failedAt > 4 && (T.tries = (T.tries || 0) + 1) < 4)) load(z, x, y, T);
+      if (T.state !== "loading") ready++; }
     if (ready === need.length) shown = z;
     const keep = shown != null && shown !== z ? cover(shown, lon, lat, halfKm, aspect) : [];
     for (const [x, y] of keep) { const T = tiles.get(shown + ":" + x + ":" + y); if (T) T.used = t; }
