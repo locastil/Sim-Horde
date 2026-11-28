@@ -5,9 +5,9 @@
 import * as THREE from "/vendor/three.min.js";
 
 const D = Math.PI / 180;
-const BUDGET = { low: 6000, medium: 20000, high: 60000, epic: 120000 };   // lights on screen: a strong card draws far more
+const BUDGET = { low: 20000, medium: 60000, high: 160000, epic: 320000 };   // lights on screen: a strong card draws far more
 // countries the horde simulates in more detail (more simulated people) get more lights
-const DETAIL = { Low: 0.35, Medium: 0.55, High: 0.8, Ultra: 1 };
+const DETAIL = { Low: 0.6, Medium: 0.75, High: 0.9, Ultra: 1 };
 
 // the same colours as the happiness meter under the globe
 // (a little more saturated than the meter, since small lights on a dark globe read paler)
@@ -113,7 +113,7 @@ export function addPeople(world, tier, data) {
         townBased.add(num);
         for (const [lo, la, tp] of ts) {
           const people = g.pop * (tp / tsum);
-          places.push({ lon: lo, lat: la, people, cp: tp, town: true, war: !!g.conflict, mood: moodColor(g.happiness), detail: DETAIL[g.detail] || 0.35, land: lands[num] || (() => true), outline: !!lands[num] });
+          places.push({ lon: lo, lat: la, people, cp: tp, town: true, war: !!g.conflict, mood: moodColor(g.happiness), detail: DETAIL[g.detail] || 0.6, land: lands[num] || (() => true), outline: !!lands[num] });
           total += people;
         }
       }
@@ -125,7 +125,7 @@ export function addPeople(world, tier, data) {
       const csum = list.reduce((a, c) => a + c[3], 0) || 1;
       for (const [, lat, lon, cp] of list) {
         const people = pop * (cp / csum);                    // includes the towns and countryside nearest each city
-        places.push({ lon, lat, people, cp, war: !!g.conflict, mood: moodColor(g.happiness), detail: DETAIL[g.detail] || 0.35, land: landTest(shapes && shapes.get(num)) || (() => true), outline: !!(shapes && shapes.get(num) && shapes.get(num).length) });
+        places.push({ lon, lat, people, cp, war: !!g.conflict, mood: moodColor(g.happiness), detail: DETAIL[g.detail] || 0.6, land: landTest(shapes && shapes.get(num)) || (() => true), outline: !!(shapes && shapes.get(num) && shapes.get(num).length) });
         total += people;
       }
     }
@@ -152,7 +152,7 @@ export function addPeople(world, tier, data) {
         } while (!p.land(lo, la) && ++tries < 6);
         if (tries >= 6) continue;
         tpos.push([lo, la]);
-        const b = 0.35 + 0.45 * Math.random() * Math.exp(-r / spread);
+        const b = p.town ? 0.55 + 0.45 * Math.random() * Math.exp(-r / spread) : 0.35 + 0.45 * Math.random() * Math.exp(-r / spread);
         tcol.push(p.mood.map((v) => v * b)); tbase.push(p.war);
       }
     }
@@ -168,7 +168,7 @@ export function addPeople(world, tier, data) {
       const pt = new THREE.Points(geo, new THREE.PointsMaterial({ size, sizeAttenuation: false, map: glowTexture(), vertexColors: true, transparent: true, opacity: 0.95, depthWrite: false }));
       group.add(pt); return pt;
     };
-    pts = [layer(tpos, tcol, tbase, big ? 1.7 : 1.5), layer(pos, col, base, big ? 2.8 : 2.3)];
+    pts = [layer(tpos, tcol, tbase, big ? 2.0 : 1.7), layer(pos, col, base, big ? 2.8 : 2.3)];
   }
 
   function update(dt) {
