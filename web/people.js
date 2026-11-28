@@ -23,7 +23,7 @@ function moodColor(h) {
 
 // is a point on this country's land? (rings are flat lon, lat, lon, lat... arrays, as the globe loads them)
 function landTest(rings) {
-  if (!rings || !rings.length) return () => true;
+  if (!rings || !rings.length) return null;                 // no outline on this map (small territories)
   const boxes = rings.map((r) => { let a = 180, b = -180, c = 90, d = -90; for (let i = 0; i < r.length; i += 2) { a = Math.min(a, r[i]); b = Math.max(b, r[i]); c = Math.min(c, r[i + 1]); d = Math.max(d, r[i + 1]); } return [a, b, c, d]; });
   return (x, y) => {
     for (let k = 0; k < rings.length; k++) {
@@ -76,7 +76,7 @@ export function addPeople(world, tier, data) {
       const csum = list.reduce((a, c) => a + c[3], 0) || 1;
       for (const [, lat, lon, cp] of list) {
         const people = pop * (cp / csum);                    // includes the towns and countryside nearest each city
-        places.push({ lon, lat, people, cp, war: !!g.conflict, mood: moodColor(g.happiness), detail: DETAIL[g.detail] || 0.35, land: landTest(shapes && shapes.get(num)) });
+        places.push({ lon, lat, people, cp, war: !!g.conflict, mood: moodColor(g.happiness), detail: DETAIL[g.detail] || 0.35, land: landTest(shapes && shapes.get(num)) || (() => true), outline: !!(shapes && shapes.get(num) && shapes.get(num).length) });
         total += people;
       }
     }
@@ -89,7 +89,8 @@ export function addPeople(world, tier, data) {
       pos.push([p.lon, p.lat]); const b0 = Math.min(1, 0.55 + Math.log10(p.cp + 10) / 12);
       col.push(p.mood.map((v) => v * b0)); base.push(p.war);
       // its people: towns and suburbs, thick near the city and thinning out, wider for bigger places
-      const spread = Math.min(2.6, 0.1 + Math.sqrt(p.people / 1e6) * 0.17);    // degrees
+      // without a coastline to keep them on land (small territories like Hong Kong), keep them close to the city
+      const spread = Math.min(p.outline ? 2.6 : 0.12, 0.1 + Math.sqrt(p.people / 1e6) * 0.17);    // degrees
       for (let k = 1; k < n; k++) {
         let r, lo, la, tries = 0;
         do {                                                   // towns only on the country's own land, never at sea
