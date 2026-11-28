@@ -216,6 +216,16 @@ class World:
                 next_election=r.randint(1, 48) if gov in ("dem", "hyb") else None,
                 protests=0, crackdown=0, conflict=False, conflict_since=None, coup_recent=0, transition=None,
                 rating=False, turnover=0, standoff=0, refugees_in=0.0, last=None, series=[])
+        # a copy of the real world today: countries in armed conflict now start in conflict (world/today.json)
+        today = {}
+        try:
+            today = json.load(open(os.path.join(HERE, "world", "today.json"), encoding="utf-8"))
+        except (OSError, ValueError):
+            print("No world/today.json: the world starts with every country at peace (run world/today_data.py).")
+        start = time.localtime()
+        for c, x in today.get("conflicts", {}).items():
+            if c in N:
+                N[c].update(conflict=True, conflict_since=-12 * max(0, start.tm_year - int(x.get("since", start.tm_year))))
         codes = sorted(N, key=lambda c: (N[c]["region"], -N[c]["pop"]))
         shards, cur, size = [], [], 0
         for c in codes:
@@ -226,7 +236,10 @@ class World:
             shards.append(cur)
         print(f"New world: {len(N)} nations, {total / 1e9:.2f} billion people, 1 simulated person = {scale:,} real, "
               f"{sum(n['agents'] for n in N.values()):,} simulated people in {len(shards)} shards")
+        if today.get("conflicts"):
+            print(f"Starting as today's real world: {sum(1 for n in N.values() if n['conflict'])} countries in armed conflict ({today.get('source')}).")
         w = dict(created=time.strftime("%Y-%m-%d"), epoch=0, scale=scale, seed=seed, data=d.get("meta", {}),
+                 start=[start.tm_year, start.tm_mon], today=dict(source=today.get("source"), year=today.get("year")) if today else None,
                  nations=N, shards=shards, events=[], world_series=[])
         self.build_layers(w)
         return w
@@ -314,6 +327,9 @@ class World:
         e = self.w["epoch"] if epoch is None else epoch
         months = ["January", "February", "March", "April", "May", "June", "July", "August", "September",
                   "October", "November", "December"]
+        if self.w.get("start"):            # a world started as a copy of the real one runs on the real calendar
+            m = self.w["start"][0] * 12 + self.w["start"][1] - 1 + e
+            return f"{months[m % 12]} {m // 12}"
         return f"{months[e % 12]}, Year {e // 12 + 1}"
 
     # ------------------------------------------------------------------ jobs
@@ -1045,7 +1061,7 @@ class World:
             wh = [x[1] for x in wm["h"]]
             kinds = ("TARIFF", "DEAL", "SANCTIONS", "BAN", "TRADE", "MARKETS", "ECONOMY")
             ev = [[x[1], x[3], x[4], x[5]] for x in W["events"][-400:] if x[4] in kinds][::-1][:60]
-            return dict(date=self.date(), epoch=W["epoch"], month_secs=self.month_secs,
+            return dict(date=self.date(), epoch=W["epoch"], start=W.get("start"), month_secs=self.month_secs,
                         world=dict(i=wm["i"], m1=chg(wh, 1), m12=chg(wh, 12), h=wm["h"][-240:], infl=wm.get("infl"), growth=wm.get("growth"),
                                    stag=wm.get("stag", False)),
                         nations=rows, events=ev,
@@ -1134,7 +1150,7 @@ class World:
             # (spot-checked pieces count once they're settled)
             ev = [[x[1], x[3], x[4], x[5]] for x in W["events"][-40:]][::-1]     # no country codes: names only
             last = W["world_series"][-1] if W["world_series"] else None
-            return dict(date=self.date(), epoch=W["epoch"], month_secs=self.month_secs, month_progress=[done, len(self.jobs)], scale=W["scale"],
+            return dict(date=self.date(), epoch=W["epoch"], start=W.get("start"), month_secs=self.month_secs, month_progress=[done, len(self.jobs)], scale=W["scale"],
                         people=round(sum(n["pop"] for n in N.values())), simulated=sum(n["agents"] for n in N.values()),
                         happiness=last[1] if last else None, fit=W.get("happy_fit"), mig_fit=W.get("mig_fit"), conflicts=last[3] if last else 0, levels=levels,
                         simulated_detail=sum(n.get("detail_agents", n["agents"]) if n.get("detail") else n["agents"] for n in N.values()),

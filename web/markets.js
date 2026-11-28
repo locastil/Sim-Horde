@@ -5,8 +5,14 @@
   const root = $("xchg");
   if (!root) return;
   const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  const label = (e) => `${MONTHS[e % 12]}, Year ${Math.floor(e / 12) + 1}`;
-  const epochOf = (s) => { const m = /^(\w+), Year (\d+)/.exec(s || ""); return m ? (Number(m[2]) - 1) * 12 + MONTHS.indexOf(m[1]) : -1; };
+  // a world started as a copy of the real one runs on the real calendar ("March 2027"); older worlds count years ("March, Year 3")
+  const start = () => { const s = (state.g && state.g.start) || (state.m && state.m.start); return s ? s[0] * 12 + s[1] - 1 : null; };
+  const label = (e) => { const s = start(); return s == null ? `${MONTHS[e % 12]}, Year ${Math.floor(e / 12) + 1}` : `${MONTHS[(s + e) % 12]} ${Math.floor((s + e) / 12)}`; };
+  const epochOf = (t) => {
+    const r = /^(\w+) (\d{4})/.exec(t || ""), s = start();
+    if (r && s != null) return Number(r[2]) * 12 + MONTHS.indexOf(r[1]) - s;
+    const m = /^(\w+), Year (\d+)/.exec(t || ""); return m ? (Number(m[2]) - 1) * 12 + MONTHS.indexOf(m[1]) : -1;
+  };
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const nf = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
   const nf2 = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
