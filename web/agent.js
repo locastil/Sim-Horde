@@ -21,7 +21,9 @@
     ["tradewar", /\b(trade war|tariffs?|trade dispute|protectionism)\b/],
     ["prices", /\b(inflation|prices?|cost of living|hyperinflation|price spike|oil shock|energy crisis)\b/],
     ["recession", /\b(recession|depression|crash|unemployment|layoffs?|financial crisis|economic (crisis|collapse|downturn)|downturn)\b/],
-    ["cash", /\b(ubi|basic income|cash (support|transfers?|payments?)|stimulus|welfare|end(ing)? poverty|less poverty)\b/],
+    ["wealthtax", /\b(billionaires?'?s? tax|millionaires?'?s? tax|wealth tax|tax(es|ing)? (on )?the (very )?(rich|wealthy|richest|billionaires?|super-?rich)|tax the (rich|wealthy|billionaires?))\b/],
+    ["ubi", /\b(ubi|universal basic income|basic income|universal income|universal (cash|payments?)|cash for (every ?one|every ?body|all)|every ?(one|body) gets (paid|money|cash|a (check|cheque|payment))|(payments?|checks?|cheques?|cash|money) (to|for) (every ?one|every ?body|every adult|all (adults|citizens|people)))\b/],
+    ["cash", /\b(cash (support|transfers?|payments?)|stimulus|welfare|end(ing)? poverty|less poverty|help(ing)? the poor(est)?)\b/],
     ["jobs", /\b(jobs? (boom|guarantee|program)|full employment|hiring boom|more jobs|economic boom|boom)\b/],
     ["connect", /\b(communit(y|ies)|kind(er|ness)|neighbou?rs?|volunteer\w*|friendl(y|ier)|civil(ity)?|connected)\b/],
   ];
@@ -65,7 +67,8 @@
   }
   let P = null;
   function findPlaces(t) {
-    // returns {where, countries} or null
+    // returns {where, countries} or null. "For everyone" names who gets something (a basic income), not where.
+    t = t.replace(/\b(for|to|gives?|giving|pays?|paying|covers?|covering) (every ?one|every ?body|every adult|all (adults|citizens|people|residents))\b/g, " ");
     if (/\b(everywhere|worldwide|world-wide|global(ly)?|whole (world|planet)|all (countries|nations)|the world|every country|planet|every ?one|every ?body|all people|all humans|humanity|mankind|the whole population)\b/.test(t)) return { where: "all", countries: [] };
     const found = new Set(); let rest = " " + t + " ";
     const take = (name) => { const c = P.byName.get(name.toLowerCase()); if (c) found.add(c); };
@@ -153,6 +156,14 @@
     if (last && /\b(worse|stronger|harsher|more (severe|intense|extreme)|bigger|crank it up|make it (bad|terrible))\b/.test(t)) {
       ev.forEach((e) => (e.strength = e.strength === "mild" ? "serious" : "severe")); S.set(ev); return "Made worse.<br>" + planText() + confirmLine();
     }
+    // "not the poorest, everyone": the cash goes to everyone, rich or poor (a basic income), wherever it was
+    const cashEv = ev.filter((e) => e.type === "cash");
+    if (cashEv.length && /\b(not (just |only )?(for )?the poor(est)?|universal|rich (and|or) poor|every ?(one|body)|all (adults|citizens|people))\b/.test(t)
+        && !/\b(everywhere|worldwide|every country|all countries|the whole world)\b/.test(t) && !KINDS.some(([k, re]) => !["cash", "ubi"].includes(k) && re.test(t))) {
+      cashEv.forEach((e) => (e.type = "ubi")); S.set(dedupe(ev));
+      const wait = ev.find((e) => e.where === "pick" && !e.countries.length);
+      return "Changed it to a basic income for everyone, rich or poor.<br>" + planText() + (wait ? `<br><br>Where should the ${esc(S.types[wait.type].label.toLowerCase())} happen? Name countries, a region, or say "everywhere".` : confirmLine());
+    }
     const rm = t.match(/\b(remove|drop|delete|cancel|no more|get rid of|without)\b/);
     if (rm && last) {
       const kinds = KINDS.filter(([, re]) => re.test(t)).map(([k]) => k);
@@ -215,7 +226,7 @@
       const tm = findTiming(c);
       const followOn = /\bthen\b|after that|followed by/.test(t) && added.length;
       const start = tm.start || (followOn ? Math.min(12, prevStart + Math.min(prevMonths, 6)) : 2);
-      const e = S.make(kind, pl.where, pl.countries, strengthOf(c) || "serious", start, tm.months || ({ war: 24, robots: 3, pandemic: 12, recession: 18, disaster: 3, coup: 3, unrest: 6, crackdown: 6, sanctions: 24, tradewar: 24, prices: 12, cash: 60, jobs: 24, peace: 60, connect: 60 })[kind]);
+      const e = S.make(kind, pl.where, pl.countries, strengthOf(c) || "serious", start, tm.months || ({ war: 24, robots: 3, pandemic: 12, recession: 18, disaster: 3, coup: 3, unrest: 6, crackdown: 6, sanctions: 24, tradewar: 24, prices: 12, cash: 60, ubi: 60, wealthtax: 60, jobs: 24, peace: 60, connect: 60 })[kind]);
       added.push(e); prevStart = e.start; prevMonths = e.months;
     }
     if (added.length) {
@@ -234,7 +245,7 @@
     if (y) { S.years(y); return planText() + confirmLine(); }
     const pl = findPlaces(t);
     if (pl && last && last.where === "pick" && !last.countries.length) { last.where = pl.where; last.countries = pl.countries; S.set(ev); return "Got it.<br>" + planText() + confirmLine(); }
-    return `I didn't catch an event in that. I understand things like wars, protests, coups, crackdowns, sanctions, trade wars, price spikes, recessions, pandemics, natural disasters, hacked robots, peace, cash support, a jobs boom and kinder communities, plus where, how hard, when and for how long. ${helpExamples()}`;
+    return `I didn't catch an event in that. I understand things like wars, protests, coups, crackdowns, sanctions, trade wars, price spikes, recessions, pandemics, natural disasters, hacked robots, peace, cash support for the poorest, a basic income for everyone, a tax on the very rich, a jobs boom and kinder communities, plus where, how hard, when and for how long. ${helpExamples()}`;
   }
   function helpExamples() {
     const ex = ["a severe war between India and Pakistan for two years", "a pandemic everywhere starting in month 3, then a recession", "massive protests in France and a crackdown", "peace in the Middle East and cash support in Africa"];

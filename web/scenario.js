@@ -22,6 +22,8 @@
     disaster:  { label: "A natural disaster", hint: "Homes lost, families displaced.", p: { stress: 0.18, leave: 0.6 }, f: { pov: 0.15 } },
     robots:    { label: "Hacked robots turn on people", hint: "Machines in homes and streets become a danger: a national emergency.", p: { stress: 0.3, irr: 0.5, leave: 0.9, kind: 0.15 }, nb: { stress: 0.03 } },
     cash:      { label: "Cash support for the poorest", hint: "Fewer people in poverty.", p: { stress: -0.04 }, f: { pov: -0.3 } },
+    ubi:       { label: "Basic income for everyone", hint: "Every adult gets a regular payment, rich or poor: less money worry for everyone, a little less poverty.", p: { stress: -0.06 }, f: { pov: -0.2 } },
+    wealthtax: { label: "A tax on the very rich", hint: "Billionaires and the richest pay much more: inequality narrows.", f: { ineq: -0.25 } },
     jobs:      { label: "A jobs boom", hint: "Work for anyone who wants it.", f: { unemp: -0.35 } },
     peace:     { label: "Peace and calm", hint: "Wars and unrest already going on there end.", calm: true, p: { stress: -0.03 } },
     connect:   { label: "Stronger communities", hint: "People know their neighbours and are kinder to strangers.", p: { kind: -0.1 }, f: { net: 0.3 } },
