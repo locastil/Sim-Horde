@@ -208,7 +208,7 @@
 
     // new events: one per clause
     const hasKind = (x) => KINDS.some(([, re]) => re.test(x));
-    const clauses0 = t.split(/\bthen\b|;|\. |\bafter that\b|\bfollowed by\b|\balso\b|\bplus\b|\bwhile\b|\bmeanwhile\b|, and\b|\band (?=(?:a|an|then|later)\b)/);
+    const clauses0 = t.split(/\b(?:partly |partially |mostly )?(?:paid for|paid|funded|financed|covered) (?:in part )?by\b|\bthen\b|;|\. |\bafter that\b|\bfollowed by\b|\balso\b|\bplus\b|\bwhile\b|\bmeanwhile\b|, and\b|\band (?=(?:a|an|then|later)\b)/);
     const clauses = [];
     for (const c of clauses0) {                // "peace in X and cash support in Y": split on "and" only when both sides name an event
       const parts = c.split(/\band\b/); let cur = parts[0];
