@@ -125,6 +125,35 @@ function drawRing(ctx, ring, W, H) {
   if (mx > 180) tracePath(ctx, ring, W, H, -W);
 }
 
+// mountains and valleys you can see from space: a shaded-relief image (sun from the north-west, heights
+// exaggerated), made from the AWS Open Data terrain tiles (Mapzen Terrarium: SRTM, GMTED, ETOPO1), laid over
+// the land; the sea floor gets a much fainter touch. 195 in the image is flat ground.
+let reliefP = null;
+const img = (src) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = src; });
+function loadRelief() { return reliefP || (reliefP = Promise.all([img("/geo/relief_shade.webp"), img("/geo/relief_elev.webp")]).catch(() => null)); }
+async function shadeRelief(ctx, W, H, tier) {
+  const r = await loadRelief(); if (!r) return;
+  const w = tier === "low" ? Math.min(W, 2048) : W, h = w / 2;          // phones: a smaller pass, scaled up
+  const tmp = document.createElement("canvas"); tmp.width = w; tmp.height = h;
+  const t = tmp.getContext("2d", { willReadFrequently: true });
+  t.drawImage(r[0], 0, 0, w, h); const sh = t.getImageData(0, 0, w, h).data;
+  t.drawImage(r[1], 0, 0, w, h); const el = t.getImageData(0, 0, w, h).data;
+  if (w !== W) { t.drawImage(ctx.canvas, 0, 0, w, h); } else t.drawImage(ctx.canvas, 0, 0);
+  const base = t.getImageData(0, 0, w, h), o = base.data;
+  for (let p = 0; p < o.length; p += 4) {
+    const land = el[p] >= 128, f = sh[p] / 195 - 1;                    // -1 (deep shadow) .. +0.3 (sunlit slope)
+    const k = land ? 1.25 : 0.35;
+    const high = land ? Math.max(0, Math.min(1, (el[p] - 178) / 60)) * 0.22 : 0;   // above ~2,500 m: a little paler
+    for (let c = 0; c < 3; c++) {
+      let v = o[p + c] * (1 + f * k);
+      v += (190 - v) * high;
+      o[p + c] = v < 0 ? 0 : v > 255 ? 255 : v;
+    }
+  }
+  t.putImageData(base, 0, 0);
+  ctx.drawImage(tmp, 0, 0, W, H);
+}
+
 async function paintBase(tier, W, H, world) {
   const T = TIERS[tier];
   const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
@@ -157,6 +186,7 @@ async function paintBase(tier, W, H, world) {
       }
     }
   }
+  await shadeRelief(ctx, W, H, tier);
   if (world) {
     const feats = await loadLayer(T.layers[0]);
     for (const [id, rings] of feats) {
