@@ -7,7 +7,7 @@ import * as THREE from "/vendor/three.min.js";
 
 const D = Math.PI / 180, KX = 111.32, KY = 110.57, R = 1.00003;
 const BUDGET = { low: [6000, 900], medium: [14000, 2000], high: [30000, 4000], epic: [50000, 7000] };   // [people, cars] per level
-const DMAX = 9000;                              // people per km² that the densest dots are planned for
+const DMAX = 4000;                              // people per km² that the densest dots are planned for
 const STOPS = [[3.0, [1.0, 0.24, 0.18]], [4.5, [1.0, 0.5, 0.12]], [5.6, [1.0, 0.8, 0.15]], [6.6, [0.25, 0.9, 0.5]], [7.6, [0.1, 0.78, 1.0]]];
 function moodColor(h) {
   if (h == null) return [0.85, 0.85, 0.8];
@@ -118,8 +118,17 @@ export function addLocal(world, tier) {
         const lo = lon0 + rnd() * s, la = lat0 + rnd() * s, [d, ct] = density(cs, lo, la);
         if (rnd() * mx > d || !ct || !ct.land(lo, la)) continue;
         n++;
-        const b = (0.45 + 0.55 * rnd()) * (ct.war ? 0.45 : 1);
-        P.push(lo, la, ct.mood[0] * b, ct.mood[1] * b, ct.mood[2] * b, rnd() * 6.283, 0.3 + rnd());
+        const b = (0.7 + 0.3 * rnd()) * (ct.war ? 0.45 : 1);
+        // most people are out on the pavements of the same street grid the cars use
+        let plo = lo, pla = la;
+        if (rnd() < 0.7) {
+          const ca = Math.cos(ct.angle), sa = Math.sin(ct.angle), cl = Math.cos(la * D);
+          const x = (lo - ct.lon) * KX * cl, y = (la - ct.lat) * KY;
+          let u = x * ca + y * sa, v = -x * sa + y * ca; const side = (rnd() < 0.5 ? -1 : 1) * 0.014;
+          if (rnd() < 0.5) v = Math.round(v / 0.16) * 0.16 + side; else u = Math.round(u / 0.16) * 0.16 + side;
+          const X = u * ca - v * sa, Y = u * sa + v * ca; pla = ct.lat + Y / KY; plo = ct.lon + X / (KX * Math.cos(pla * D));
+        }
+        P.push(plo, pla, ct.mood[0] * b, ct.mood[1] * b, ct.mood[2] * b, rnd() * 6.283, 0.3 + rnd());
         // cars: on a street grid laid out around the nearest city, fewer where there's fighting
         if (rnd() < Math.min(1, (0.05 * ppd) / cpd) * (ct.war ? 0.3 : 1)) {
           const ca = Math.cos(ct.angle), sa = Math.sin(ct.angle), cl = Math.cos(la * D);
@@ -170,7 +179,7 @@ export function addLocal(world, tier) {
     for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) list.push(cell(L, ((i % (1 << L)) + (1 << L)) % (1 << L), j, perP, perC));
     const np = list.reduce((a, c) => a + c.P.length / 7, 0), nc = list.reduce((a, c) => a + c.C.length / 9, 0);
     if (lv) drop(lv);
-    lv = { key, list, ppd: list.find((c) => c.P.length)?.ppd || list[0].ppd, pPts: points(np, 1.6), cPts: points(nc, 2.0), first: true };
+    lv = { key, list, ppd: list.find((c) => c.P.length)?.ppd || list[0].ppd, pPts: points(np, 2.3), cPts: points(nc, 3.2), first: true };
     // static colours and the walkers' starting places
     const pc = lv.pPts.geometry.attributes.color.array, pp = lv.pPts.geometry.attributes.position.array;
     let k = 0;
@@ -201,7 +210,7 @@ export function addLocal(world, tier) {
       if (!still && alt < 0.004 && lv.pPts.visible) {
         const pp = lv.pPts.geometry.attributes.position.array; let k = 0;
         for (const c of lv.list) for (let q = 0; q < c.P.length; q += 7, k++) {
-          const a = c.P[q + 5] + t * 0.05 * c.P[q + 6], r = 0.025 * Math.sin(t * 0.3 * c.P[q + 6] + c.P[q + 5]);
+          const a = c.P[q + 5] + t * 0.05 * c.P[q + 6], r = 0.012 * Math.sin(t * 0.3 * c.P[q + 6] + c.P[q + 5]);
           put(pp, k, c.P[q] + (r * Math.cos(a)) / (KX * Math.cos(c.P[q + 1] * D)), c.P[q + 1] + (r * Math.sin(a)) / KY);
         }
         lv.pPts.geometry.attributes.position.needsUpdate = true;
@@ -217,8 +226,8 @@ export function addLocal(world, tier) {
           const x = u * Math.cos(ang) - v * Math.sin(ang), y = u * Math.sin(ang) + v * Math.cos(ang);
           const la = clat + y / KY;
           put(cp, k, clon + x / (KX * Math.cos(la * D)), la);
-          const g = Math.min(1, glow * 1.6);
-          if (tail) { cc[k * 3] = g; cc[k * 3 + 1] = 0.25 * g; cc[k * 3 + 2] = 0.2 * g; } else { cc[k * 3] = g; cc[k * 3 + 1] = 0.93 * g; cc[k * 3 + 2] = 0.75 * g; }
+          const g = Math.min(1, glow * 2.2);
+          if (tail) { cc[k * 3] = g; cc[k * 3 + 1] = 0.25 * g; cc[k * 3 + 2] = 0.2 * g; } else { cc[k * 3] = g; cc[k * 3 + 1] = 0.97 * g; cc[k * 3 + 2] = 0.88 * g; }
         }
         lv.cPts.geometry.attributes.position.needsUpdate = lv.cPts.geometry.attributes.color.needsUpdate = true;
       }
