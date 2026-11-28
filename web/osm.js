@@ -26,7 +26,7 @@ function reader(buf) {
   };
 }
 const zz = (n) => (n % 2 ? -(n + 1) / 2 : n / 2);
-function decode(buf, want) {
+export function decode(buf, want) {
   const r = reader(buf), layers = {};
   while (r.pos < buf.length) {
     const key = r.varint(), tag = key >> 3, wt = key & 7;
@@ -58,7 +58,7 @@ function decode(buf, want) {
         else if (t === 4) { const [ga, gb] = r.bytes(), sp = r.pos; r.pos = ga; geom = []; while (r.pos < gb) geom.push(r.varint()); r.pos = sp; }
         else r.skip(w);
       }
-      if (type !== 2 || !geom) continue;                      // lines only
+      if (!(type === 2 || (type === 3 && L.name === "landuse")) || !geom) continue;   // lines, and land-use areas
       const lines = []; let x = 0, y = 0, cur = null;
       for (let i = 0; i < geom.length;) {
         const c = geom[i++], id = c & 7, n = c >> 3;
