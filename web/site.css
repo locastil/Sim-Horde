@@ -622,6 +622,15 @@ html.st-open { overflow: hidden; }
 .lab-live em { display: block; font-style: normal; font-size: 0.78rem; font-weight: 600; color: #0B6B49; }
 .lab-live span { font-size: 0.9rem; }
 .lab-set_aside .lab-items li { opacity: 0.85; }
+.lab-inv { margin: 26px 0 8px; }
+.lab-inv h3 { font: 700 1.1rem/1.2 var(--display); margin: 0 0 4px; }
+.lab-inv .lab-note { margin: 0 0 10px; }
+.lab-inv table { width: 100%; border-collapse: collapse; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; font-size: 0.93rem; }
+.lab-inv th, .lab-inv td { text-align: left; vertical-align: top; padding: 11px 16px; border-top: 1px solid #E3E9EE; line-height: 1.45; }
+.lab-inv thead th { border-top: 0; font-size: 0.78rem; font-weight: 600; color: var(--ink-3); background: #F6F8FA; }
+.lab-inv tbody th { font-weight: 600; width: 24%; }
+.lab-inv td:nth-child(2) { color: var(--ink-3); width: 30%; }
+@media (max-width: 760px) { .lab-inv thead { display: none; } .lab-inv tr, .lab-inv th, .lab-inv td { display: block; width: auto !important; } .lab-inv td { border-top: 0; padding-top: 0; } }
 .lab-out ul, .lab-fixes ul { max-width: 72ch; padding-left: 1.2em; }
 .lab-out li, .lab-fixes li { margin-bottom: 10px; }
 .lab-fixes time { font-weight: 600; color: var(--ink-3); margin-right: 6px; font-variant-numeric: tabular-nums; }

@@ -21,6 +21,10 @@
   {
    "date": "2026-11-28",
    "text": "Healthy life expectancy added: a steady push on day-to-day stress where people live shorter healthy lives (WHO)."
+  },
+  {
+   "date": "2026-11-28",
+   "text": "Conflicts have a size: a minor conflict (an insurgency in one region, a border clash) weighs on part of a country and sends few people abroad; only major ones (1,000+ battle deaths a year) count as full-scale war. Before, India's Kashmir insurgency sent 12% of Indians abroad a year."
   }
  ],
  "items": [
@@ -201,8 +205,8 @@
    "live": {
     "since": "2026-11-28",
     "before": 0.123,
-    "after": null,
-    "note": "Live migration score before: 0.12 (rank match, 121 countries). After: measured once the first full simulated year on the new engine closes."
+    "after": 0.04,
+    "note": "Live migration score before: 0.12 (rank match, 121 countries, the original world). First full year in the fresh real-world copy: 0.04, worse, because every real conflict there counted as a full-scale war: India, Indonesia, Cameroon and others lost 12% of their people a year as refugees. Conflicts now have a size (see Fixes); the next simulated year is the real test."
    }
   },
   {
@@ -232,8 +236,8 @@
    "live": {
     "since": "2026-11-28",
     "before": 0.123,
-    "after": null,
-    "note": "Live migration score before: 0.12 (rank match, 121 countries). After: measured once the first full simulated year on the new engine closes."
+    "after": 0.04,
+    "note": "Live migration score before: 0.12 (rank match, 121 countries, the original world). First full year in the fresh real-world copy: 0.04, worse, because every real conflict there counted as a full-scale war: India, Indonesia, Cameroon and others lost 12% of their people a year as refugees. Conflicts now have a size (see Fixes); the next simulated year is the real test."
    }
   },
   {
@@ -374,5 +378,194 @@
  ],
  "migration_baseline": {
   "text": "In the full test, the simulation on its own ranks the countries people really leave at only about 0.03 to 0.06: it barely knows who emigrates."
- }
+ },
+ "inventory": [
+  {
+   "title": "Each country's conditions",
+   "note": "Every simulated person lives with their country's real figures. These set how hard daily life is, and so how people's days go.",
+   "rows": [
+    [
+     "Population",
+     "World Bank Open Data (SP.POP.TOTL)",
+     "How many people each country has, and its share of the simulated people."
+    ],
+    [
+     "Income per person (PPP)",
+     "World Bank Open Data (NY.GDP.PCAP.PP.CD)",
+     "Hardship: the poorer the country, the more strain in people's days."
+    ],
+    [
+     "Unemployment",
+     "World Bank Open Data (SL.UEM.TOTL.ZS)",
+     "Strain from not having work."
+    ],
+    [
+     "Inequality (Gini)",
+     "World Bank Open Data (SI.POV.GINI)",
+     "Strain from the gap between rich and poor."
+    ],
+    [
+     "Share living in cities",
+     "World Bank Open Data (SP.URB.TOTL.IN.ZS)",
+     "Crowding: more encounters with strangers each day."
+    ],
+    [
+     "Share of working age",
+     "World Bank Open Data (SP.POP.1564.TO.ZS)",
+     "How young the country is."
+    ],
+    [
+     "Share online",
+     "World Bank Open Data (IT.NET.USER.ZS)",
+     "How connected people are; also makes protests likelier to spread."
+    ],
+    [
+     "Healthy life expectancy",
+     "WHO, via Our World in Data",
+     "Added after testing (below): a steady push on day-to-day stress where people live shorter healthy lives."
+    ]
+   ]
+  },
+  {
+   "title": "Each country's politics and economy",
+   "note": "Where each country starts, and the real rates its events are drawn at.",
+   "rows": [
+    [
+     "Kind of government",
+     "Regimes of the World (V-Dem), via Our World in Data; World Bank governance indicators where missing",
+     "Democracy, hybrid, autocracy or military rule: elections, protests, coups and crackdowns depend on it. Leaders and parties are named only by office and broad family, never real people."
+    ],
+    [
+     "Political stability",
+     "World Bank Worldwide Governance Indicators (PV.EST)",
+     "Each country's starting stability, which moves with what happens in the simulation."
+    ],
+    [
+     "Armed conflicts today",
+     "UCDP/PRIO Armed Conflict Dataset v26.1 (CC BY 4.0)",
+     "Countries fighting at home when the world started (November 2026)."
+    ],
+    [
+     "Coups",
+     "Powell & Thyne coup data",
+     "About 3 attempts a year worldwide, about half succeeding; which countries depends on the simulation."
+    ],
+    [
+     "New civil conflicts, wars between neighbours",
+     "UCDP/PRIO",
+     "A few new conflicts a year, rare wars; a conflict ends with about an 8% chance a year."
+    ],
+    [
+     "Protests and how governments answer them",
+     "Mass Mobilization Protest Data (CC0)",
+     "Added after testing (below): police break up some protests even in democracies; deadly force is rare outside autocracies."
+    ],
+    [
+     "Refugees",
+     "Upper limit from the worst flights on record",
+     "People fleeing fighting go to neighbouring countries, at most 12% of a country's people a year."
+    ],
+    [
+     "Inflation and growth",
+     "World Bank Open Data (FP.CPI.TOTL.ZG, NY.GDP.MKTP.KD.ZG)",
+     "Each country starts from its real figures and drifts back toward its usual level."
+    ],
+    [
+     "Trade and stock market size",
+     "World Bank Open Data (NE.TRD.GNFS.ZS, CM.MKT.LCAP.GD.ZS)",
+     "Who trades with whom, and each country's market on the World Exchange page."
+    ]
+   ]
+  },
+  {
+   "title": "Who moves",
+   "note": "Migration: who wants to leave comes from the simulated people; where they go and how many actually leave uses these.",
+   "rows": [
+    [
+     "Net migration",
+     "World Bank Open Data (SM.POP.NETM)",
+     "Where arrivals go, and the real figure the simulation's migration is scored against."
+    ],
+    [
+     "Money sent home",
+     "World Bank Open Data",
+     "Added after testing (below): countries whose people already left (and send money back) lose more people."
+    ],
+    [
+     "Immigrants already living there",
+     "UN, via the World Bank",
+     "Added after testing (below): people follow others who went before them."
+    ]
+   ]
+  },
+  {
+   "title": "How people behave",
+   "note": "",
+   "rows": [
+    [
+     "Behaviour weights",
+     "Tuned in the California simulation against CDC PLACES, California DOJ crime figures, IRS migration and the Census",
+     "How temperament, stress, irritation and hardship turn into how a day goes. The same weights run everywhere; only each country's conditions differ."
+    ]
+   ]
+  },
+  {
+   "title": "What the simulation is checked against",
+   "note": "Scores on the home page and in this lab.",
+   "rows": [
+    [
+     "Happiness",
+     "World Happiness Report survey results, via Our World in Data",
+     "Simulated happiness by country, year by year."
+    ],
+    [
+     "Migration",
+     "World Bank Open Data (SM.POP.NETM)",
+     "Which countries people leave, ranked."
+    ]
+   ]
+  },
+  {
+   "title": "Downloaded but not used yet",
+   "note": "Kept for checks we haven't built.",
+   "rows": [
+    [
+     "Share aged 65+, homicide and suicide rates",
+     "World Bank Open Data",
+     "Loaded with each country's figures; nothing in the model reads them yet."
+    ]
+   ]
+  },
+  {
+   "title": "What the globe shows",
+   "note": "Display only: none of these change the simulation.",
+   "rows": [
+    [
+     "Towns and cities",
+     "GeoNames (CC BY 4.0)",
+     "Where each country's people live on the globe, and the place names."
+    ],
+    [
+     "Roads, homes and street names",
+     "© OpenStreetMap contributors, served by OpenFreeMap",
+     "The close-up map, and where the close-up people live."
+    ],
+    [
+     "Vehicles per person",
+     "WHO, via Our World in Data",
+     "How many cars are on the roads close up."
+    ],
+    [
+     "Terrain",
+     "AWS Open Data terrain tiles (Mapzen: SRTM, GMTED, ETOPO1)",
+     "The mountains and sea floor."
+    ],
+    [
+     "Borders",
+     "Natural Earth",
+     "Countries and their regions."
+    ]
+   ]
+  }
+ ]
 }

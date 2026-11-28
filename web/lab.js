@@ -4,7 +4,7 @@
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const sign = (v) => (v > 0 ? "+" : v < 0 ? "−" : "±") + Math.abs(v).toFixed(v !== 0 && Math.abs(v) < 0.1 ? 3 : 2);
   const GROUPS = [
-    ["kept", "In the live world", "Nothing is in the live world yet."],
+    ["kept", "Added after testing", "Nothing has been added yet."],
     ["passed", "Passed the full test, being added", ""],
     ["testing", "Being tested now", ""],
     ["next", "Next in line for the full test", ""],
@@ -33,6 +33,10 @@
           <div class="lab-score"><em>Quick check</em>${quick(i.quick)}</div>
           <div class="lab-why">${esc(i.why)}${full(i.full)}${i.live ? `<div class="lab-live"><em>In the live world since ${esc(i.live.since)}</em><span>${esc(i.live.note)}</span></div>` : ""}</div></li>`).join("")}</ul>` : `<p class="lab-note">${empty}</p>`) + "</div>";
     }).join("") + (L.migration_baseline ? `<p class="lab-note">${esc(L.migration_baseline.text)}</p>` : "") + `<p class="lab-note">Last updated ${esc(L.updated)}.</p>`;
+    const inv = $("labInventory");
+    if (inv && L.inventory) inv.innerHTML = L.inventory.map((g) => `<div class="lab-inv"><h3>${esc(g.title)}</h3>${g.note ? `<p class="lab-note">${esc(g.note)}</p>` : ""}` +
+      `<table><thead><tr><th scope="col">Variable</th><th scope="col">Source</th><th scope="col">What it does</th></tr></thead><tbody>` +
+      g.rows.map(([v, src, does]) => `<tr><th scope="row">${esc(v)}</th><td>${esc(src)}</td><td>${esc(does)}</td></tr>`).join("") + "</tbody></table></div>").join("");
     $("labFixes").innerHTML = (L.fixes || []).map((f) => `<li><time>${esc(f.date)}</time> ${esc(f.text)}</li>`).join("");
   }).catch(() => { $("labList").innerHTML = '<p class="lab-note">The lab results did not load. Reload the page to try again.</p>'; });
 })();

@@ -51,6 +51,12 @@ LAYERS = [dict(name="Low", mult=1, piece=SHARD_AGENTS),
 WARM_MONTHS = 3             # a detail piece counts once it has run this many months in a row from its own state
 HOLD_SECS = 45              # at the start of a month, a detail piece waits this long for the device that holds its state
 REFUGEE_MAX = 120.0         # the most of a war zone's people who flee in a year, per 1,000 (12%: about the worst ever seen)
+# How much of a country a conflict touches. A minor conflict (UCDP: 25-999 battle deaths a year, like an insurgency in one
+# region, or a border clash) weighs on a fraction of the country and drives few people abroad; a major one (1,000+)
+# weighs on everyone. Before this, every conflict counted as a full-scale war: India's Kashmir insurgency sent 12% of
+# Indians abroad a year in the simulation, against a real net migration of under 0.1%.
+CONFLICT_WEIGHT = {1: 0.3, 2: 1.0}
+REFUGEE_CAP = {1: 3.0, 2: REFUGEE_MAX}       # per 1,000 people a year
 # Who actually leaves, beyond how many want to: tested on real 2015-2023 migration in migration_test.py and
 # chosen on half the countries, scored on the other half (see the Model lab page). Standard units per country
 # come from world/migration_vars.json; a country with no figure counts as typical.
@@ -160,6 +166,9 @@ class World:
             if not self.w.get("pop_fix_1"):
                 self.repair_population()
                 self.save()
+            if not self.w.get("conflict_levels"):
+                self.set_conflict_levels()
+                self.save()
         else:
             self.w = self.create(target_agents, seed)
             self.save()
@@ -178,6 +187,19 @@ class World:
         self.opened = 0.0                     # after a restart, carry on right away
 
     # ------------------------------------------------------------------ setup
+    def set_conflict_levels(self):
+        """Once, for worlds made before conflicts had a size: today's real conflicts take their UCDP size
+        (major at 1,000+ battle deaths a year); conflicts the simulation started count as minor."""
+        try:
+            today = json.load(open(os.path.join(HERE, "world", "today.json"), encoding="utf-8")).get("conflicts", {})
+        except (OSError, ValueError):
+            today = {}
+        for c, n in self.w["nations"].items():
+            if n.get("conflict"):
+                x = today.get(c) or {}
+                n["conflict_level"] = 2 if x.get("intensity") == 2 else 1
+        self.w["conflict_levels"] = time.strftime("%Y-%m-%d")
+
     def repair_population(self):
         """Once, for worlds made before refugee flows were capped: an uncapped flight from war zones had emptied
         some countries (and overfilled their neighbours) far beyond anything real. Put every country back to its
@@ -238,7 +260,8 @@ class World:
         start = time.localtime()
         for c, x in today.get("conflicts", {}).items():
             if c in N:
-                N[c].update(conflict=True, conflict_since=-12 * max(0, start.tm_year - int(x.get("since", start.tm_year))))
+                N[c].update(conflict=True, conflict_since=-12 * max(0, start.tm_year - int(x.get("since", start.tm_year))),
+                            conflict_level=2 if x.get("intensity") == 2 else 1)
         codes = sorted(N, key=lambda c: (N[c]["region"], -N[c]["pop"]))
         shards, cur, size = [], [], 0
         for c in codes:
@@ -367,11 +390,11 @@ class World:
         real_in = sum(max(0.0, n.get("netmig_real") or 0.0) for n in live)
         month_total = (real_in or 0.0007 * sum(n["pop"] for n in live)) / 12
         push = lambda c: math.exp(max(-3.0, min(3.0, sum(b * self.mig_vars.get(k, {}).get(c, 0.0) for k, b in MIG_PUSH.items()))))
-        want = {n["code"]: n["pop"] * n["last"]["leave"] / 1000 / 12 * push(n["code"]) for n in live if n["last"] and not n["conflict"]}
+        want = {n["code"]: n["pop"] * n["last"]["leave"] / 1000 / 12 * push(n["code"]) for n in live if n["last"] and not (n["conflict"] and n.get("conflict_level", 1) == 2)}
         k = month_total / (sum(want.values()) or 1)
 
         def pull(d):
-            if d["conflict"] or not d["last"]:
+            if (d["conflict"] and d.get("conflict_level", 1) == 2) or not d["last"]:
                 return 0.0
             m = max(0.0, d.get("netmig_real") or 0.0) / 1000 + 0.02 * d["pop"] / 1e6 * (d["stats"].get("gdp") or 3000) / 10000
             return m * (0.3 if d.get("sanctions", 0) > 0 else 1.0)
@@ -422,7 +445,8 @@ class World:
         if n["crackdown"] > 0:
             p["stress"] += 0.1; p["irr"] += 0.3
         if n["conflict"]:
-            p["stress"] += 0.35; p["irr"] += 0.8; p["leave"] += 2.0; p["kind"] += 0.25
+            k = CONFLICT_WEIGHT[n.get("conflict_level", 1)]
+            p["stress"] += 0.35 * k; p["irr"] += 0.8 * k; p["leave"] += 2.0 * k; p["kind"] += 0.25 * k
         if n["coup_recent"] > 0:
             p["stress"] += 0.12; p["leave"] += 0.5
         if n["turnover"] > 0:
@@ -768,7 +792,7 @@ class World:
                       * math.exp(1.3 * n["feat"]["pov"] + 1.5 * (0.5 - n["stab"]) + 0.6 * n["feat"]["ineq"]
                                  + 0.7 * (n["coup_recent"] > 0) + 2.0 * dz(n) + 0.4 * math.log(max(1e5, n["pop"]) / 1e7)),
                       lambda n: not n["conflict"]):
-            n.update(conflict=True, conflict_since=e); n["stab"] -= 0.2
+            n.update(conflict=True, conflict_since=e, conflict_level=1); n["stab"] -= 0.2
             say(n, "CONFLICT", f"Armed conflict breaks out in {the(n['name'])} between government forces and an insurgent coalition.")
         for n in live:
             if n["conflict"] and n["conflict_since"] != e and rnd.random() < CONFLICT_END_M * (1.5 if n["stab"] > 0.4 else 1):
@@ -781,7 +805,7 @@ class World:
             n.setdefault("mig_year", 0.0)
         for n in live:
             if n["conflict"]:
-                out = n["pop"] * min(n["last"]["leave"], REFUGEE_MAX) / 1000 / 12
+                out = n["pop"] * min(n["last"]["leave"], REFUGEE_CAP[n.get("conflict_level", 1)]) / 1000 / 12
                 nb = [N[b] for b in n["borders"] if b in N]
                 if nb and out > 0:
                     n["pop"] -= out; n["mig_year"] = n.get("mig_year", 0.0) - out
@@ -805,7 +829,7 @@ class World:
                     say(a, "BORDER", f"Troops mass on the border between {the(a['name'])} and {the(b['name'])} after a disputed incident.")
                     if rnd.random() < PER_YEAR["war"] / PER_YEAR["standoff"]:
                         for x in (a, b):
-                            x.update(conflict=True, conflict_since=e); x["stab"] -= 0.15
+                            x.update(conflict=True, conflict_since=e, conflict_level=2); x["stab"] -= 0.15
                         say(a, "WAR", f"Fighting breaks out between {the(a['name'])} and {the(b['name'])}.")
         # elections
         for n in live:
