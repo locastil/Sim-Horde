@@ -167,9 +167,26 @@
     return el;
   }
 
+  // Real ground under the streets: cloud-free satellite imagery (Sentinel-2, EOX) and hills and valleys in 3D
+  // (open elevation tiles), with the map's roads, labels and 3D buildings on top.
+  function naturalGround(m) {
+    try {
+      const layers = m.getStyle().layers;
+      const before = (layers.find((l) => l.type === "line" && /road|highway|transport|tunnel|bridge/.test(l.id)) || layers.find((l) => l.type === "symbol") || {}).id;
+      m.addSource("s2", { type: "raster", tileSize: 256, maxzoom: 15,
+        tiles: ["https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg"],
+        attribution: '<a href="https://s2maps.eu">Sentinel-2 cloudless</a> by EOX IT Services GmbH (contains modified Copernicus Sentinel data 2020)' });
+      m.addLayer({ id: "s2", type: "raster", source: "s2", paint: { "raster-opacity": ["interpolate", ["linear"], ["zoom"], 9, 0.95, 14, 0.85, 17, 0.55], "raster-saturation": 0.1 } }, before);
+      m.addSource("dem", { type: "raster-dem", encoding: "terrarium", tileSize: 256, maxzoom: 14,
+        tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"], attribution: "Elevation: Terrain Tiles (Mapzen, AWS Open Data)" });
+      m.addLayer({ id: "relief", type: "hillshade", source: "dem", paint: { "hillshade-exaggeration": 0.35, "hillshade-shadow-color": "#1d2a1a" } }, before);
+      m.setTerrain({ source: "dem", exaggeration: 1.3 });
+    } catch (e) { console.warn("street view ground", e); }
+  }
+
   function flyTo(c, intro) {
     run.city = c;
-    map.flyTo({ center: [c[2], c[1]], zoom: small() ? 15.3 : 15.8, pitch: 50, bearing: -25 + Math.random() * 50, duration: intro ? 7000 : 3500, essential: true });
+    map.flyTo({ center: [c[2], c[1]], zoom: small() ? 16.4 : 16.9, pitch: 55, bearing: -25 + Math.random() * 50, duration: intro ? 7000 : 3500, essential: true });
   }
 
   function close() {
@@ -219,8 +236,8 @@
       if (!run || !map) return;
       const { roads, walks, airport } = harvest(map);
       const k = small() ? 0.55 : 1;
-      run.cars = makeCars(roads, Math.round(260 * md.busy * k));
-      run.people = makePeople(walks, Math.round(300 * md.busy * k), md, [run.city[2], run.city[1]]);
+      run.cars = makeCars(roads, Math.round(420 * md.busy * k));
+      run.people = makePeople(walks, Math.round(520 * md.busy * k), md, [run.city[2], run.city[1]]);
       const home = airport || [run.city[2], run.city[1]];
       if (!run.flights.length || run.home !== home.join()) {
         run.home = home.join();
@@ -229,7 +246,7 @@
     };
     let t = 0;
     map.on("idle", () => { clearTimeout(t); t = setTimeout(reseed, 150); });
-    map.once("load", () => setTimeout(() => flyTo(list[0], true), 600));
+    map.once("load", () => { naturalGround(map); setTimeout(() => flyTo(list[0], true), 600); });
 
     const frame = (now) => {
       if (!run || !map) return;
@@ -240,7 +257,7 @@
       const pxm = Math.hypot(p1.x - p0.x, p1.y - p0.y) / (0.001 * 111320 * Math.cos(rad(c0.lat)));      // pixels per metre here
       const step = still ? 0 : dt;
       if (run.show.cars && z >= 12) {
-        const L = Math.max(2.5, 4.6 * pxm), W = Math.max(1.4, 1.9 * pxm);
+        const L = Math.max(7, 4.6 * pxm), W = Math.max(3.4, 1.9 * pxm);
         for (const c of run.cars) {
           c.s += c.dir * c.v * step;
           if (c.s > c.r.len || c.s < 0) { c.dir *= -1; c.s = Math.max(0, Math.min(c.r.len, c.s)); }
@@ -248,13 +265,14 @@
           if (p.x < -20 || p.y < -20 || p.x > r.width + 20 || p.y > r.height + 20) continue;
           const a = hd + (c.dir < 0 ? Math.PI : 0) - rad(map.getBearing());
           ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(a); ctx.translate(0, c.side * W * 0.8);
+          ctx.fillStyle = "rgba(10,14,20,.55)"; ctx.fillRect(-L / 2 - 1, -W / 2 - 1, L + 2, W + 2);
           ctx.fillStyle = c.col; ctx.fillRect(-L / 2, -W / 2, L, W);
           if (pxm > 0.8) { ctx.fillStyle = "rgba(255,240,180,.9)"; ctx.fillRect(L / 2 - 1, -W / 2, 1, W); }
           ctx.restore();
         }
       }
-      if (run.show.people && z >= 15) {
-        const s = Math.max(1.6, 0.55 * pxm);
+      if (run.show.people && z >= 14.5) {
+        const s = Math.max(2.8, 0.55 * pxm);
         for (const q of run.people) {
           let ll;
           if (q.fixed) { q.jig += step * 3; ll = [q.fixed[0] + Math.sin(q.jig) * 2e-6, q.fixed[1]]; }
@@ -265,7 +283,8 @@
           }
           const p = map.project(ll);
           if (p.x < -5 || p.y < -5 || p.x > r.width + 5 || p.y > r.height + 5) continue;
-          ctx.fillStyle = q.col; ctx.beginPath(); ctx.arc(p.x, p.y, s, 0, 6.283); ctx.fill();
+          ctx.fillStyle = q.col; ctx.strokeStyle = "rgba(10,14,20,.6)"; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(p.x, p.y, s, 0, 6.283); ctx.fill(); ctx.stroke();
         }
       }
       if (run.show.planes) {
