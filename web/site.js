@@ -117,7 +117,7 @@
     const box = $("worldNews");
     if (!g || !g.date) { box.hidden = true; return; }
     box.hidden = false;
-    $("worldDate").textContent = g.date;
+    $("worldDate").textContent = g.version ? `${g.date} · version ${g.version}` : g.date;
     const nat = Object.keys(g.nations).length;
     const fit = happyCheck(g);
     $("worldStats").innerHTML = `${nat ? fmt.format(nat) + " countries" : "Every country"} and ${big(g.people)} people, simulated as ${fmt.format(g.simulated_detail || g.simulated)}${g.simulated_detail > g.simulated ? " with all the detail volunteers added" : ` (one for every ${fmt.format(g.scale)})`}. `
@@ -137,7 +137,7 @@
         worldKey = g.epoch; lastWorld = g; if (globe) globe.setWorld(g);
       }
       const cap = $("globeCap");
-      if (cap) cap.textContent = g && g.date ? `${g.date}. Drag to turn it; point at a country, or keep zooming in, all the way down to its people and traffic. Close up, right-drag (or two fingers) to tilt. City lights show where people live, coloured by how people rate their lives out of 10 (red at 3 or below, yellow around 6, green from 7.5); white dots are flights, amber are ships.` : "The world starts when the first volunteer connects.";
+      if (cap) cap.textContent = g && g.date ? `${g.date}${g.version ? " (version " + g.version + ")" : ""}. Drag to turn it; point at a country, or keep zooming in, all the way down to its people and traffic. Close up, right-drag (or two fingers) to tilt. City lights show where people live, coloured by how people rate their lives out of 10 (red at 3 or below, yellow around 6, green from 7.5); white dots are flights, amber are ships.` : "The world starts when the first volunteer connects.";
     } catch (e) {
       $("liveLine").innerHTML = `<span class="live-dot off"></span>The coordinator isn't answering right now. This page will keep trying.`;
     }

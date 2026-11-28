@@ -32,6 +32,16 @@ import time
 import world_kernel as WK
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def sim_version():
+    """The simulation's version, stamped on each new world (sim_version.txt). generation.model.restart: the middle
+    number goes up when the model changes (the last goes back to 0); the last goes up each time the world is
+    started fresh (fresh_real_world.bat does that)."""
+    try:
+        return open(os.path.join(HERE, "sim_version.txt"), encoding="utf-8").read().strip() or None
+    except OSError:
+        return None
 STATE_DIR = os.path.join(HERE, "world_state")
 EPOCH_DAYS = 30
 SHARD_AGENTS = 40_000       # one piece of the world: small enough for a phone to run a month in seconds
@@ -450,7 +460,7 @@ class World:
         if today.get("conflicts"):
             print(f"Starting as today's real world: {sum(1 for n in N.values() if n['conflict'])} countries in armed conflict ({today.get('source')}).")
         w = dict(created=time.strftime("%Y-%m-%d"), epoch=0, scale=scale, seed=seed, data=d.get("meta", {}),
-                 start=[start.tm_year, start.tm_mon], today=dict(source=today.get("source"), year=today.get("year")) if today else None,
+                 start=[start.tm_year, start.tm_mon], version=sim_version(), today=dict(source=today.get("source"), year=today.get("year")) if today else None,
                  nations=N, shards=shards, events=[], world_series=[])
         self.build_layers(w)
         return w
@@ -1314,7 +1324,7 @@ class World:
             wh = [x[1] for x in wm["h"]]
             kinds = ("TARIFF", "DEAL", "SANCTIONS", "BAN", "TRADE", "MARKETS", "ECONOMY")
             ev = [[x[1], x[3], x[4], x[5]] for x in W["events"][-400:] if x[4] in kinds][::-1][:60]
-            return dict(date=self.date(), epoch=W["epoch"], start=W.get("start"), month_secs=self.month_secs,
+            return dict(date=self.date(), epoch=W["epoch"], start=W.get("start"), version=W.get("version"), month_secs=self.month_secs,
                         world=dict(i=wm["i"], m1=chg(wh, 1), m12=chg(wh, 12), h=wm["h"][-240:], infl=wm.get("infl"), growth=wm.get("growth"),
                                    stag=wm.get("stag", False)),
                         nations=rows, events=ev,
@@ -1523,7 +1533,7 @@ class World:
             # (spot-checked pieces count once they're settled)
             ev = [[x[1], x[3], x[4], x[5]] for x in W["events"][-40:]][::-1]     # no country codes: names only
             last = W["world_series"][-1] if W["world_series"] else None
-            return dict(date=self.date(), epoch=W["epoch"], start=W.get("start"), month_secs=self.month_secs, month_progress=[done, len(self.jobs)], scale=W["scale"],
+            return dict(date=self.date(), epoch=W["epoch"], start=W.get("start"), version=W.get("version"), month_secs=self.month_secs, month_progress=[done, len(self.jobs)], scale=W["scale"],
                         people=round(sum(n["pop"] for n in N.values())), simulated=sum(n["agents"] for n in N.values()),
                         happiness=last[1] if last else None, fit=W.get("happy_fit"), mig_fit=W.get("mig_fit"), conflicts=last[3] if last else 0, levels=levels,
                         simulated_detail=sum(n.get("detail_agents", n["agents"]) if n.get("detail") else n["agents"] for n in N.values()),
