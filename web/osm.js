@@ -187,9 +187,11 @@ export function addOSM(world, tier, sim) {
     // still sit in a home), then adds new ones between them. Zooming in, the glow you saw from far out splits
     // into the dots it was made of instead of being swapped for different ones.
     if (z >= PEOPLE_Z) {
-      ppd = Math.max(1, Math.ceil(people / PB));
+      // one ratio for every tile at this zoom (planned for 4,000 people per km², as the wider view does), so more
+      // dots always means more people, and each dot stands for fewer people the closer you zoom
+      ppd = Math.max(1, Math.ceil((4000 * area) / PB));
       const close = z >= WALK_Z, outShare = !close ? 0 : hour < 5 ? 0.005 : hour < 7 ? 0.02 : hour < 9 ? 0.08 : hour < 17 ? 0.12 : hour < 20 ? 0.09 : hour < 22 ? 0.04 : 0.012;
-      const nP = Math.min(PB, Math.round(people / ppd)), nOut = Math.round(nP * outShare);
+      const nP = Math.min(PB * 2, Math.round(people / ppd)), nOut = Math.round(nP * outShare);
       const pick = () => { let r = rnd() * totalLen; for (const rd of roads) if ((r -= rd.len) <= 0) return rd; return roads[roads.length - 1]; };
       const inBuildings = (L.building || []).length > 20, maskShare = homes.length / 65536;
       // the towns whose people reach this tile, looked up once
@@ -401,5 +403,5 @@ export function addOSM(world, tier, sim) {
   }
   // the simulation's people changed (the towns arrived, a new month): place everyone again
   function reset() { for (const T of tiles.values()) drop(T); tiles.clear(); shown = null; }
-  return { update, reset, carScale: () => { const T = [...tiles.values()].find((T) => T.used === t && T.cpd); return T ? T.cpd : null; }, scale: () => { const T = [...tiles.values()].find((T) => T.used === t && T.ppd); return T ? T.ppd : null; } };
+  return { update, reset, carScale: () => { const T = [...tiles.values()].find((T) => T.used === t && T.cpd); return T ? T.cpd : null; }, scale: () => { let m = null; for (const T of tiles.values()) if (T.used === t && T.ppd && (m == null || T.ppd < m)) m = T.ppd; return m; } };
 }
