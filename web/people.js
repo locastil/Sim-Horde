@@ -1,5 +1,6 @@
-// Where the simulated people live, and how they feel: a light on each of a country's cities and a few of the
-// towns around them, coloured like the happiness meter (red where people are unhappy, teal where they're
+// Where the simulated people live, and how they feel: lights over every town of 5,000 people or more (GeoNames),
+// each country's people shared out among its towns by size, so the glow from space is the same people you see
+// close up; coloured like the happiness meter (red where people are unhappy, teal where they're
 // happy). Countries at war dim and flicker. It shows where the world's people are, not each simulated person.
 import * as THREE from "/vendor/three.min.js";
 
@@ -54,6 +55,13 @@ function glowTexture() {
   return new THREE.CanvasTexture(c);
 }
 
+// every town of 5,000+ (the same list the close-up names come from), fetched once and shared
+let TOWNS = null, townsP = null;
+function loadTowns() {
+  if (!townsP) townsP = fetch("/geo/towns.json").then((r) => r.json()).then((j) => (TOWNS = j.towns)).catch(() => null);
+  return townsP;
+}
+
 export function addPeople(world, tier, data) {
   const group = new THREE.Group();
   world.add(group);
@@ -65,13 +73,48 @@ export function addPeople(world, tier, data) {
     pts = null;
   }
 
-  function setData({ globe, cities, shapes }) {
+  let last = null;
+  function setData(d) {
+    last = d;
+    if (!TOWNS) loadTowns().then(() => { if (TOWNS && last === d) setData(d); });
     clear();
+    const { globe, cities, shapes } = d;
     const G = (globe && globe.nations) || {}, C = (cities && cities.cities) || {};
-    // how many people each listed city stands for: the country's population, shared out by city size
     const places = [];
     let total = 0;
+    // with the towns in: each town takes its country's people in proportion to its size (and the countryside
+    // around it). A town belongs to the country of the nearest listed city whose land it's on.
+    const townBased = new Set();
+    if (TOWNS) {
+      const grid = new Map(), cell = (lo, la) => Math.floor(lo / 2) + ":" + Math.floor(la / 2);
+      const lands = {};
+      for (const [num, list] of Object.entries(C)) {
+        lands[num] = landTest(shapes && shapes.get(num));
+        for (const c of list) { const k = cell(c[2], c[1]); if (!grid.has(k)) grid.set(k, []); grid.get(k).push([num, c[2], c[1]]); }
+      }
+      const owner = (lo, la) => {
+        const near = [];
+        for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (const c of grid.get((Math.floor(lo / 2) + dx) + ":" + (Math.floor(la / 2) + dy)) || []) near.push(c);
+        near.sort((a, b) => Math.hypot(a[1] - lo, a[2] - la) - Math.hypot(b[1] - lo, b[2] - la));
+        for (const [num] of near.slice(0, 6)) { const L = lands[num]; if (L && L(lo, la)) return num; }
+        return near.length && !lands[near[0][0]] ? near[0][0] : null;       // small places with no outline: nearest
+      };
+      const byNum = {};
+      for (const [, la, lo, tp] of TOWNS) { const num = owner(lo, la); if (num) (byNum[num] = byNum[num] || []).push([lo, la, tp]); }
+      for (const [num, ts] of Object.entries(byNum)) {
+        const g = G[num] || {}; if (!g.pop) continue;
+        const tsum = ts.reduce((a, t) => a + t[2], 0) || 1;
+        townBased.add(num);
+        for (const [lo, la, tp] of ts) {
+          const people = g.pop * (tp / tsum);
+          places.push({ lon: lo, lat: la, people, cp: tp, town: true, war: !!g.conflict, mood: moodColor(g.happiness), detail: DETAIL[g.detail] || 0.35, land: lands[num] || (() => true), outline: !!lands[num] });
+          total += people;
+        }
+      }
+    }
+    // countries with no towns listed (or before the towns arrive): the country's people shared out by city size
     for (const [num, list] of Object.entries(C)) {
+      if (townBased.has(num)) continue;
       const g = G[num] || {}, pop = g.pop || list.reduce((a, c) => a + c[3], 0) * 3;
       const csum = list.reduce((a, c) => a + c[3], 0) || 1;
       for (const [, lat, lon, cp] of list) {
@@ -84,14 +127,18 @@ export function addPeople(world, tier, data) {
     const budget = BUDGET[tier] || BUDGET.medium;
     const pos = [], col = [], base = [], tpos = [], tcol = [], tbase = [];
     for (const p of places) {
-      const n = Math.max(1, Math.round((p.people / total) * budget * p.detail));
-      // the city itself: a bright core
-      pos.push([p.lon, p.lat]); const b0 = Math.min(1, 0.55 + Math.log10(p.cp + 10) / 12);
-      col.push(p.mood.map((v) => v * b0)); base.push(p.war);
-      // its people: towns and suburbs, thick near the city and thinning out, wider for bigger places
-      // without a coastline to keep them on land (small territories like Hong Kong), keep them close to the city
-      const spread = Math.min(p.outline ? 2.6 : 0.12, 0.1 + Math.sqrt(p.people / 1e6) * 0.17);    // degrees
-      for (let k = 1; k < n; k++) {
+      const want = (p.people / total) * budget * p.detail;
+      const n = p.town ? Math.floor(want) + (Math.random() < want % 1 ? 1 : 0) : Math.max(1, Math.round(want));
+      // the place itself: a bright core (towns: only the bigger ones, so small towns read as soft glow)
+      const b0 = Math.min(1, 0.55 + Math.log10(p.cp + 10) / 12);
+      const core = !p.town || p.cp > 150000;
+      if (core) { pos.push([p.lon, p.lat]); col.push(p.mood.map((v) => v * b0)); base.push(p.war); }
+      // its people: suburbs and countryside, thick near the place and thinning out, wider for bigger places.
+      // Towns sit close together, so each one's spread is small; a country shown only by its big cities spreads wide.
+      // Without a coastline to keep them on land (small territories like Hong Kong), keep them close.
+      const spread = p.town ? Math.min(p.outline ? 0.6 : 0.1, 0.03 + Math.sqrt(p.people / 1e6) * 0.09)
+        : Math.min(p.outline ? 2.6 : 0.12, 0.1 + Math.sqrt(p.people / 1e6) * 0.17);    // degrees
+      for (let k = core ? 1 : 0; k < n; k++) {
         let r, lo, la, tries = 0;
         do {                                                   // towns only on the country's own land, never at sea
           r = spread * Math.pow(Math.random(), 1.8) * 1.6; const a = Math.random() * Math.PI * 2;
