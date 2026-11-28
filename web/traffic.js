@@ -21,16 +21,30 @@ const ASIA_SUEZ = [[121.8, 30.8], [120.2, 24.5], [114.6, 21.8], [110, 10], [104.
   [43.4, 12.6], [38, 20], [32.6, 29.6], [32.4, 31.4], [25, 34], [12, 37.4], [0, 37], [-5.6, 35.95], [-10, 37], [-10, 43.5], [-5, 48.5], [-2, 50.1], [2, 51.2], [3.8, 51.95]];
 const ASIA_CAPE = [[121.8, 30.8], [120.2, 24.5], [114.6, 21.8], [110, 10], [104.2, 1.2], [100, 4], [95, 6.2], [80.6, 5.2], [60, -10], [55, -25], [35, -37], [18.5, -35.6],
   [5, -20], [-5, 0], [-20, 20], [-15, 37], [-10, 43.5], [-5, 48.5], [-2, 50.1], [2, 51.2], [3.8, 51.95]];
-const PACIFIC = [[121.8, 30.8], [126, 31.2], [140, 33], [180, 42], [-140, 38], [-118.5, 33.3]];
+const PACIFIC = [[121.8, 30.8], [126, 31.2], [140, 33], [180, 42], [-140, 38], [-121, 33.9], [-119, 33.6], [-118.35, 33.62], [-118.22, 33.71]];   // into San Pedro Bay, north of Catalina
 const KOREA_JAPAN = [[129.3, 34.9], [129, 33.2], [131.5, 30.8], [140, 33], [180, 42], [-140, 44], [-124.8, 47.5]];
 const ATLANTIC = [[-2, 50.1], [-20, 48], [-50, 42], [-70.5, 40.2], [-73.8, 40.4]];
-const PANAMA = [[-73.8, 40.4], [-72, 30], [-73.6, 20.4], [-77, 14], [-79.9, 9.6], [-79.5, 8.3], [-82, 6], [-100, 14], [-112, 20], [-118, 30], [-118.5, 33.3]];
+const PANAMA = [[-73.8, 40.4], [-72, 30], [-73.6, 20.4], [-77, 14], [-79.9, 9.6], [-79.5, 8.3], [-82, 6], [-100, 14], [-112, 20], [-118, 30], [-117.9, 33.4], [-118.15, 33.62], [-118.22, 33.71]];
 const GULF = [[50.5, 27.2], [56.3, 26.4], [57.5, 24.5], [62, 20], [75, 6], [80.6, 5.2], [95, 6.2], [100, 4], [104.2, 1.2], [110, 10], [114.6, 21.8], [120.2, 24.5], [121.8, 30.8]];
 const GULF_WEST = [[50.5, 27.2], [56.3, 26.4], [57.5, 24.5], [62, 20], [60, 12], [48, 12.4], [43.4, 12.6], [38, 20], [32.6, 29.6], [32.4, 31.4], [25, 34], [12, 37.4], [0, 37], [-5.6, 35.95], [-10, 37], [-10, 43.5], [-5, 48.5], [-2, 50.1], [2, 51.2], [3.8, 51.95]];
 const BRAZIL = [[-46.2, -24.3], [-41, -24.2], [-38, -20], [-30, -5], [-20, 20], [-15, 37], [-10, 43.5], [-5, 48.5], [-2, 50.1], [2, 51.2], [3.8, 51.95]];
 const BRAZIL_ASIA = [[-46.2, -24.3], [-30, -32], [18.5, -35.6], [35, -37], [55, -25], [80, -5], [95, 6.2], [100, 4], [104.2, 1.2], [110, 10], [114.6, 21.8], [120.2, 24.5], [121.8, 30.8]];
 const WEST_AFRICA = [[3.3, 5.8], [-5, 0], [-20, 20], [-15, 37], [-10, 43.5], [-5, 48.5], [-2, 50.1], [2, 51.2], [3.8, 51.95]];
 const AUSTRALIA = [[151.5, -34], [155, -25], [154, -12], [150, -2], [135, 8], [127, 15], [123, 22.5], [122.6, 26], [121.8, 30.8]];
+// The busiest ports: ships waiting at anchor offshore (centre, spread in degrees, how many) and the lit terminals
+// (a box: west, south, east, north). Los Angeles and Long Beach together are the busiest port in the Americas.
+const PORTS = [
+  { name: "Los Angeles / Long Beach", anchor: [-118.16, 33.68], spread: 0.07, n: 26, quay: [-118.29, 33.71, -118.16, 33.775] },
+  { name: "Shanghai", anchor: [122.35, 30.75], spread: 0.15, n: 40, quay: [121.95, 30.6, 122.1, 30.68] },
+  { name: "Singapore", anchor: [103.95, 1.22], spread: 0.12, n: 45, quay: [103.62, 1.26, 103.85, 1.3] },
+  { name: "Rotterdam", anchor: [3.75, 52.05], spread: 0.08, n: 18, quay: [3.98, 51.93, 4.12, 51.98] },
+  { name: "Busan", anchor: [129.1, 35.0], spread: 0.06, n: 14, quay: [128.78, 35.05, 128.88, 35.1] },
+  { name: "New York / New Jersey", anchor: [-73.85, 40.43], spread: 0.05, n: 10, quay: [-74.16, 40.66, -74.1, 40.7] },
+  { name: "Jebel Ali", anchor: [54.95, 25.1], spread: 0.08, n: 14, quay: [55.0, 24.98, 55.08, 25.04] },
+  { name: "Santos", anchor: [-46.25, -24.1], spread: 0.06, n: 12, quay: [-46.33, -23.98, -46.28, -23.92] },
+  { name: "Sydney (Port Botany)", anchor: [151.35, -34.05], spread: 0.06, n: 6, quay: [151.2, -33.98, 151.24, -33.96] },
+  { name: "Lagos", anchor: [3.35, 6.3], spread: 0.08, n: 16, quay: [3.35, 6.43, 3.4, 6.46] },
+];
 const LANES = [
   { p: ASIA_SUEZ, w: 10, via: "suez" }, { p: ASIA_CAPE, w: 2, via: "cape" }, { p: PACIFIC, w: 8 }, { p: KOREA_JAPAN, w: 4 }, { p: ATLANTIC, w: 7 },
   { p: PANAMA, w: 4 }, { p: GULF, w: 6, via: "hormuz" }, { p: GULF_WEST, w: 3, via: "hormuz+suez" }, { p: BRAZIL, w: 3 }, { p: BRAZIL_ASIA, w: 3 },
@@ -156,6 +170,20 @@ export function addTraffic(world, tier, data) {
         group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.06, depthWrite: false })));
       }
     }
+
+    // ships at anchor and the lit terminals of the big ports (fewer waiting ships when trade is down)
+    const still_ = [], quay = [];
+    for (const P of PORTS) {
+      const n = Math.round(P.n * trade * (tier === "low" ? 0.5 : 1));
+      for (let i = 0; i < n; i++) {
+        const r = P.spread * Math.sqrt(Math.random()), a = Math.random() * Math.PI * 2;
+        still_.push(vec(P.anchor[0] + (r * Math.cos(a)) / Math.cos(P.anchor[1] * D), P.anchor[1] + r * Math.sin(a), 1.00008));
+      }
+      const [w0, s0, e0, n0] = P.quay;
+      for (let i = 0; i < 60; i++) quay.push(vec(w0 + Math.random() * (e0 - w0), s0 + Math.random() * (n0 - s0), 1.00005));
+    }
+    if (still_.length) group.add(new THREE.Points(new THREE.BufferGeometry().setFromPoints(still_), new THREE.PointsMaterial({ color: 0xffb547, size: tier === "epic" || tier === "high" ? 2.2 : 1.8, sizeAttenuation: false, transparent: true, opacity: 0.85 })));
+    if (quay.length) group.add(new THREE.Points(new THREE.BufferGeometry().setFromPoints(quay), new THREE.PointsMaterial({ color: 0xfff1d0, size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0.7, depthWrite: false })));
 
     pGeo = new THREE.BufferGeometry(); pGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(Math.max(1, planes.length) * 3), 3));
     sGeo = new THREE.BufferGeometry(); sGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(Math.max(1, ships.length) * 3), 3));
