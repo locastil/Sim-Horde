@@ -203,9 +203,9 @@
   }
 
   // the nearest listed city to a point, anywhere: [country number, index in its list]
-  function nearestCity(lon, lat) {
+  function nearestCity(lon, lat, only) {
     let best = null, bd = 1e9;
-    for (const [num, list] of Object.entries(cities.cities)) list.forEach((c, i) => {
+    for (const [num, list] of Object.entries(cities.cities)) if (!only || only[num]) list.forEach((c, i) => {
       const dx = (c[2] - lon) * Math.cos(rad(lat)), dy = c[1] - lat, d = dx * dx + dy * dy;
       if (d < bd) { bd = d; best = [num, i]; }
     });
@@ -218,7 +218,8 @@
     [lib, cities] = await Promise.all([lib || loadLib(), cities || getJSON("/geo/cities.json")]);
     const [g, m] = await Promise.all([getJSON("/api/v1/globe"), getJSON("/api/v1/markets")]);
     if (!lib || !cities) return;
-    if ((!num || !cities.cities[num]) && at) num = (nearestCity(at.lon, at.lat) || [])[0];
+    const known = g && g.nations;                                          // only countries the simulation runs
+    if ((!num || !cities.cities[num] || (known && !known[num])) && at) num = (nearestCity(at.lon, at.lat, known) || [])[0];
     if (!num || !(cities.cities[num] || []).length) return;
     // in full screen only the full-screen element shows, so the street view has to open inside it
     const host = document.fullscreenElement || document.body;
@@ -256,7 +257,7 @@
     let armed = false;
     map.on("moveend", () => {
       if (!run || !map) return;
-      const c = map.getCenter(), near = nearestCity(c.lng, c.lat);
+      const c = map.getCenter(), near = nearestCity(c.lng, c.lat, g && g.nations);
       if (near && map.getZoom() >= 4.5) { setCountry(near[0]); run.city = cities.cities[near[0]][near[1]]; }
     });
     map.on("zoomend", () => {                                           // zoomed all the way out: back to the globe, looking at the same place
