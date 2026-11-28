@@ -109,7 +109,7 @@ const cellPeople = (b) => (b ? Math.pow(10, b * GRID.L) - 1 : 0);
 let LUM = null;
 function lum() {
   LUM = new Float32Array(256);
-  for (let b = 1; b < 256; b++) { const t = Math.max(0, Math.min(1, (Math.log10(cellPeople(b) + 1) - 0.5) / 4.2)); LUM[b] = 0.035 + 0.965 * Math.pow(t, 1.5); }
+  for (let b = 1; b < 256; b++) { const n = cellPeople(b), t = Math.max(0, Math.min(1, (Math.log10(n + 1) - 1.3) / 3.7)); LUM[b] = n < 10 ? 0 : 0.03 + 0.97 * t * t; }
 }
 // people per km² at a point, from the grid (null until it's loaded)
 export function gridDensity(lon, lat) {
