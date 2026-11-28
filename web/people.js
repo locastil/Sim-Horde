@@ -359,7 +359,7 @@ export function addPeople(world, tier, data) {
 
   if (data) setData(data);
   return {
-    setFade: (f) => { group.visible = f > 0.01; for (const o of group.children) o.material.opacity = 0.95 * f; if (glow) { glow.visible = f > 0.01; glow.material.opacity = 0.95 * f; } },
+    setFade: (f) => { group.visible = f > 0.01; for (const o of group.children) o.material.opacity = 0.95 * f; if (glow) glow.material.opacity = 0.95 * Math.max(f, 0.6);    // the glow stays under the close-up people, so the hand-over never goes dark },
     setData, update,
     dispose: () => { clear(); world.remove(group); if (glow) { world.remove(glow); glow.geometry.dispose(); glow.material.map.dispose(); glow.material.dispose(); glow = null; } },
   };
