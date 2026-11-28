@@ -57,7 +57,19 @@
     "countries": 162
    },
    "status": "next",
-   "why": "Strong on both happiness and migration."
+   "why": "No help for migration in the full test (−0.01 and +0.07). Its happiness test is still to come, where it looked strongest.",
+   "full": {
+    "migration": [
+     [
+      0.035,
+      -0.008
+     ],
+     [
+      0.032,
+      0.065
+     ]
+    ]
+   }
   },
   {
    "id": "food",
@@ -108,8 +120,20 @@
     "migration": 0.316,
     "countries": 150
    },
-   "status": "testing",
-   "why": "The best single sign of a country whose people work abroad."
+   "status": "passed",
+   "why": "Passed: on unseen countries it lifted the migration ranking from about 0.03 to 0.24 and 0.31. Chain migration is real (people follow family who already left), though remittances partly measure that past emigration itself.",
+   "full": {
+    "migration": [
+     [
+      0.035,
+      0.237
+     ],
+     [
+      0.032,
+      0.31
+     ]
+    ]
+   }
   },
   {
    "id": "migstock",
@@ -121,8 +145,20 @@
     "migration": 0.246,
     "countries": 163
    },
-   "status": "testing",
-   "why": "People go where others like them already are."
+   "status": "passed",
+   "why": "Passed, with a question mark: 0.16 and 0.39 on unseen countries. Small, open countries with many immigrants also lose many people, so it may be measuring how mobile a country is rather than what draws people in.",
+   "full": {
+    "migration": [
+     [
+      0.035,
+      0.164
+     ],
+     [
+      0.032,
+      0.39
+     ]
+    ]
+   }
   },
   {
    "id": "corrupt",
@@ -134,8 +170,20 @@
     "migration": 0.227,
     "countries": 162
    },
-   "status": "testing",
-   "why": "A push to leave."
+   "status": "rejected",
+   "why": "Rejected for migration: on unseen countries it made the ranking worse (−0.20 and −0.12), and the best strength flipped sign between halves.",
+   "full": {
+    "migration": [
+     [
+      0.035,
+      -0.201
+     ],
+     [
+      0.032,
+      -0.117
+     ]
+    ]
+   }
   },
   {
    "id": "visa",
@@ -147,8 +195,20 @@
     "migration": 0.197,
     "countries": 162
    },
-   "status": "testing",
-   "why": "Being allowed to leave is different from wanting to. It may partly stand in for wealth."
+   "status": "rejected",
+   "why": "Rejected: worse on unseen countries in both halves (−0.11 and −0.12).",
+   "full": {
+    "migration": [
+     [
+      0.035,
+      -0.113
+     ],
+     [
+      0.032,
+      -0.124
+     ]
+    ]
+   }
   },
   {
    "id": "civlib",
@@ -202,5 +262,8 @@
    "status": "set_aside",
    "why": "Added nothing to either."
   }
- ]
+ ],
+ "migration_baseline": {
+  "text": "In the full test, the simulation on its own ranks the countries people really leave at only about 0.03 to 0.06: it barely knows who emigrates."
+ }
 }

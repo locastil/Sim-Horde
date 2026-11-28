@@ -4,7 +4,8 @@
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const sign = (v) => (v > 0 ? "+" : v < 0 ? "−" : "±") + Math.abs(v).toFixed(v !== 0 && Math.abs(v) < 0.1 ? 3 : 2);
   const GROUPS = [
-    ["kept", "In the live world", "Nothing has passed the full test yet."],
+    ["kept", "In the live world", "Nothing is in the live world yet."],
+    ["passed", "Passed the full test, being added", ""],
     ["testing", "Being tested now", ""],
     ["next", "Next in line for the full test", ""],
     ["rejected", "Tested and rejected", ""],
@@ -31,7 +32,7 @@
           <div class="lab-name"><b>${esc(i.name)}</b><span>${esc(i.what)}</span><small>${esc(i.source)}</small></div>
           <div class="lab-score"><em>Quick check</em>${quick(i.quick)}</div>
           <div class="lab-why">${esc(i.why)}${full(i.full)}</div></li>`).join("")}</ul>` : `<p class="lab-note">${empty}</p>`) + "</div>";
-    }).join("") + `<p class="lab-note">Last updated ${esc(L.updated)}.</p>`;
+    }).join("") + (L.migration_baseline ? `<p class="lab-note">${esc(L.migration_baseline.text)}</p>` : "") + `<p class="lab-note">Last updated ${esc(L.updated)}.</p>`;
     $("labFixes").innerHTML = (L.fixes || []).map((f) => `<li><time>${esc(f.date)}</time> ${esc(f.text)}</li>`).join("");
   }).catch(() => { $("labList").innerHTML = '<p class="lab-note">The lab results did not load. Reload the page to try again.</p>'; });
 })();
