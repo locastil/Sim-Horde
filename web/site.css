@@ -654,3 +654,5 @@ html.st-open { overflow: hidden; }
 .idea-form textarea:focus-visible { outline: 2px solid var(--cobalt); outline-offset: 1px; }
 .idea-form .btn { padding: 12px 20px; }
 .idea-form .btn:disabled, .idea-form textarea:disabled { opacity: 0.5; }
+.sc-levers { font-size: .84rem; color: var(--ink-2); opacity: .85; }
+#chatLog li.ag-wait { opacity: .7; font-style: italic; }

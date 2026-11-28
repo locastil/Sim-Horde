@@ -29,6 +29,17 @@
     connect:   { label: "Stronger communities", hint: "People know their neighbours and are kinder to strangers.", p: { kind: -0.1 }, f: { net: 0.3 } },
   };
   const STRENGTH = { mild: 0.5, serious: 1, severe: 1.7 };
+  // an event described in the visitor's own words (the sandbox, agent.js): its own name and lever settings
+  const kindOf = (e) => (e.type === "custom" && e.custom ? e.custom : TYPES[e.type]) || { label: "Unknown event", hint: "" };
+  const LEVER_WORDS = { stress: "stress", irr: "irritation", leave: "urge to emigrate", kind: "rudeness", pov: "poverty", unemp: "unemployment",
+                        ineq: "inequality", dens: "crowding", net: "connection", young: "young adults" };
+  function leverText(k) {
+    const parts = [];
+    for (const src of [k.p || {}, k.f || {}]) for (const [x, v] of Object.entries(src)) if (v) parts.push(`${LEVER_WORDS[x] || x} ${v > 0 ? "+" : "−"}${Math.abs(v)}`);
+    if (k.calm) parts.push("ends fighting already going on");
+    if (k.nb && k.nb.stress) parts.push(`neighbours' stress +${k.nb.stress}`);
+    return parts.join(", ");
+  }
   const REGIONS = ["Africa", "Americas", "Asia", "Europe", "Oceania"];
 
   let base = null, live = null, events = [], worker = null, running = false;
@@ -51,14 +62,14 @@
     const N = byCode();
     ol.innerHTML = events.map((e, i) => `<li class="sc-ev" data-i="${i}">
       <div class="sc-row">
-        <label>What happens<select data-k="type">${opts(Object.fromEntries(Object.entries(TYPES).map(([k, t]) => [k, t.label])), e.type)}</select></label>
+        <label>What happens<select data-k="type">${opts({ ...(e.type === "custom" && e.custom ? { custom: e.custom.label } : {}), ...Object.fromEntries(Object.entries(TYPES).map(([k, t]) => [k, t.label])) }, e.type)}</select></label>
         <label>Where<select data-k="where">${opts({ all: "Everywhere", ...Object.fromEntries(REGIONS.map((r) => [r, r])), pick: "Countries I choose" }, e.where)}</select></label>
         <label>How hard<select data-k="strength">${opts({ mild: "Mild", serious: "Serious", severe: "Severe" }, e.strength)}</select></label>
         <label>Starts<select data-k="start">${Array.from({ length: 12 }, (_, m) => `<option value="${m + 1}"${m + 1 === e.start ? " selected" : ""}>Month ${m + 1}</option>`).join("")}</select></label>
         <label>Lasts<select data-k="months">${[1, 2, 3, 6, 12, 24, 60].map((m) => `<option value="${m}"${m === e.months ? " selected" : ""}>${m < 12 ? `${m} month${m > 1 ? "s" : ""}` : `${m / 12} year${m > 12 ? "s" : ""}`}</option>`).join("")}</select></label>
         <button type="button" class="sc-del" data-del aria-label="Remove this event">Remove</button>
       </div>
-      <p class="sc-hint">${esc(TYPES[e.type].hint)}</p>
+      <p class="sc-hint">${esc(kindOf(e).hint)}${e.type === "custom" && e.custom ? `<br><span class="sc-levers">In the model: ${esc(leverText(e.custom))}</span>` : ""}</p>
       ${e.where === "pick" ? `<div class="sc-pick">
         <ul class="sc-chips">${e.countries.map((c) => `<li><span>${esc(N.get(c) ? N.get(c).name : c)}</span><button type="button" data-rm="${c}" aria-label="Remove ${esc(N.get(c) ? N.get(c).name : c)}">×</button></li>`).join("")}</ul>
         <label class="sc-addc"><span class="sr">Add a country</span><input list="countryList" placeholder="Type a country and press Enter" data-addc></label>
@@ -115,8 +126,12 @@
   function run() {
     if (running) return;
     const yrs = Number($("years").value), months = yrs * 12;
-    const ev = events.map((e) => ({ type: e.type, where: whereCodes(e), strength: STRENGTH[e.strength], start: e.start, months: e.months })).filter((e) => e.where.length);
     const effects = Object.fromEntries(Object.entries(TYPES).map(([k, t]) => [k, { p: t.p, f: t.f, nb: t.nb, calm: t.calm }]));
+    const ev = events.map((e, i) => {
+      let type = e.type;
+      if (e.type === "custom" && e.custom) { type = "custom" + i; effects[type] = { p: e.custom.p, f: e.custom.f, nb: e.custom.nb, calm: e.custom.calm }; }
+      return { type, where: whereCodes(e), strength: STRENGTH[e.strength], start: e.start, months: e.months };
+    }).filter((e) => e.where.length && effects[e.type]);
     res = { months: [], fit: null, yrs, events: JSON.parse(JSON.stringify(events)) };
     location.hash = "s=" + encode();
     worker && worker.terminate();
@@ -249,15 +264,25 @@
   $("map").addEventListener("pointerleave", () => { $("mapTip").hidden = true; });
 
   // ------------------------------------------------------------ sharing
+  const RANGE = { stress: [-0.5, 0.6], irr: [-1, 1.5], leave: [-1, 3], kind: [-0.4, 0.5], pov: [-0.6, 0.6], unemp: [-0.6, 0.8], ineq: [-0.6, 0.6], dens: [-0.8, 0.5], net: [-0.6, 0.6], young: [-0.3, 0.3] };
+  function safeCustom(c) {
+    const pick = (o) => Object.fromEntries(Object.entries(o || {}).filter(([k, v]) => RANGE[k] && typeof v === "number" && isFinite(v)).map(([k, v]) => [k, Math.max(RANGE[k][0], Math.min(RANGE[k][1], v))]));
+    const nb = c && c.nb && typeof c.nb.stress === "number" ? { stress: Math.max(0, Math.min(0.06, c.nb.stress)) } : undefined;
+    return { label: String((c && c.label) || "Your event").slice(0, 60), hint: String((c && c.hint) || "").slice(0, 240), p: pick(c && c.p), f: pick(c && c.f), nb, calm: !!(c && c.calm) };
+  }
   function encode() {
-    const s = JSON.stringify({ y: Number($("years").value), e: events.map((e) => [e.type, e.where, e.countries, e.strength, e.start, e.months]) });
+    const s = JSON.stringify({ y: Number($("years").value), e: events.map((e) => [e.type, e.where, e.countries, e.strength, e.start, e.months, e.type === "custom" ? e.custom : undefined]) });
     return btoa(unescape(encodeURIComponent(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   }
   function decode(h) {
     try {
       const s = JSON.parse(decodeURIComponent(escape(atob(h.replace(/-/g, "+").replace(/_/g, "/")))));
       if (s.y) $("years").value = String(s.y);
-      return (s.e || []).filter((x) => TYPES[x[0]]).slice(0, 12).map((x) => newEvent(x[0], x[1], (x[2] || []).filter((c) => byCode().has(c)), STRENGTH[x[3]] ? x[3] : "serious", Number(x[4]) || 1, Number(x[5]) || 6));
+      return (s.e || []).filter((x) => TYPES[x[0]] || (x[0] === "custom" && x[6])).slice(0, 12).map((x) => {
+        const e = newEvent(x[0], x[1], (x[2] || []).filter((c) => byCode().has(c)), STRENGTH[x[3]] ? x[3] : "serious", Number(x[4]) || 1, Number(x[5]) || 6);
+        if (x[0] === "custom") e.custom = safeCustom(x[6]);
+        return e;
+      });
     } catch (e) { return null; }
   }
   $("share").addEventListener("click", async () => {
@@ -369,7 +394,7 @@
     refreshMe();
     // what the scenario assistant (agent.js) uses to read and change the plan
     window.simScenario = {
-      types: TYPES, regions: REGIONS, nations: base.nations,
+      types: TYPES, regions: REGIONS, nations: base.nations, kindOf, leverText, safeCustom,
       get: () => events, set: (e) => { events = e; render(); }, make: newEvent,
       years: (y) => { if (y) { $("years").value = String(y); estimate(); } return Number($("years").value); },
       run: () => { run(); $("out").scrollIntoView({ behavior: "smooth", block: "start" }); }, running: () => running,

@@ -1,7 +1,8 @@
 // The scenario assistant: turns plain English ("a severe war between Russia and Ukraine for two years,
 // then a pandemic in Europe") into the scenario plan below it, and changes the plan when asked.
-// It runs entirely in this browser: nothing typed here is sent anywhere. It understands a fixed set of
-// events, places, strengths and times; it is not a general AI, and says so when it doesn't follow.
+// Quick commands (run it, milder, worse, start over, help) are handled here in the browser. Anything else is a
+// description: it goes to the scenario sandbox (sandbox.py), where Claude turns it into events on the model's ten
+// levers. While the sandbox is closed, the built-in reader below sets up the preset events instead.
 (() => {
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -121,7 +122,7 @@
   function planText() {
     const ev = S.get();
     if (!ev.length) return "Your plan is empty: the world will simply carry on as it would have.";
-    const items = ev.map((e) => `<li><b>${esc(S.types[e.type].label)}</b> ${esc(S.whereText(e))}, ${e.strength}, from month ${e.start} for ${monthsText(e.months)}.</li>`).join("");
+    const items = ev.map((e) => `<li><b>${esc(S.kindOf(e).label)}</b> ${esc(S.whereText(e))}, ${e.strength}, from month ${e.start} for ${monthsText(e.months)}.</li>`).join("");
     return `<ol>${items}</ol>Running for ${S.years()} year${S.years() > 1 ? "s" : ""}.`;
   }
   function confirmLine() { return `<div class="ag-actions"><button type="button" data-say="run it">Run it</button><button type="button" data-say="make it milder">Milder</button><button type="button" data-say="make it worse">Worse</button><button type="button" data-say="start over">Start over</button></div>`; }
@@ -132,7 +133,7 @@
     return list.filter((e) => { const k = [e.type, e.where, (e.countries || []).slice().sort().join(","), e.start, e.months].join("|"); if (seen.has(k)) return false; seen.add(k); return true; });
   }
 
-  function handle(raw) {
+  function handle(raw, onlyLocal) {
     const t = " " + raw.toLowerCase().replace(/[“”]/g, '"').replace(/[’]/g, "'").replace(/\s+/g, " ").trim() + " ";
     let ev = S.get().slice();
     const last = ev[ev.length - 1];
@@ -156,13 +157,14 @@
     if (last && /\b(worse|stronger|harsher|more (severe|intense|extreme)|bigger|crank it up|make it (bad|terrible))\b/.test(t)) {
       ev.forEach((e) => (e.strength = e.strength === "mild" ? "serious" : "severe")); S.set(ev); return "Made worse.<br>" + planText() + confirmLine();
     }
+    if (onlyLocal) return null;                  // anything else is a description, for the sandbox
     // "not the poorest, everyone": the cash goes to everyone, rich or poor (a basic income), wherever it was
     const cashEv = ev.filter((e) => e.type === "cash");
     if (cashEv.length && /\b(not (just |only )?(for )?the poor(est)?|universal|rich (and|or) poor|every ?(one|body)|all (adults|citizens|people))\b/.test(t)
         && !/\b(everywhere|worldwide|every country|all countries|the whole world)\b/.test(t) && !KINDS.some(([k, re]) => !["cash", "ubi"].includes(k) && re.test(t))) {
       cashEv.forEach((e) => (e.type = "ubi")); S.set(dedupe(ev));
       const wait = ev.find((e) => e.where === "pick" && !e.countries.length);
-      return "Changed it to a basic income for everyone, rich or poor.<br>" + planText() + (wait ? `<br><br>Where should the ${esc(S.types[wait.type].label.toLowerCase())} happen? Name countries, a region, or say "everywhere".` : confirmLine());
+      return "Changed it to a basic income for everyone, rich or poor.<br>" + planText() + (wait ? `<br><br>Where should the ${esc(S.kindOf(wait).label.toLowerCase())} happen? Name countries, a region, or say "everywhere".` : confirmLine());
     }
     const rm = t.match(/\b(remove|drop|delete|cancel|no more|get rid of|without)\b/);
     if (rm && last) {
@@ -239,7 +241,7 @@
       if (!y) { const need = lastEnd + 5; S.years([1, 2, 3, 5].find((k) => k * 12 >= need) || 5); }   // long enough to see it play out
       S.set(ev);
       const missing = added.filter((e) => e.where === "pick" && !e.countries.length);
-      const ask = missing.length ? `<br><br>Where should the ${esc(S.types[missing[0].type].label.toLowerCase())} happen? Name countries, a region, or say "everywhere".` : "";
+      const ask = missing.length ? `<br><br>Where should the ${esc(S.kindOf(missing[0]).label.toLowerCase())} happen? Name countries, a region, or say "everywhere".` : "";
       return (fresh ? "Here's your world:" : ev.length > added.length ? "Added to the plan:" : "Here's your world:") + planText() + (ask || confirmLine());
     }
     if (y) { S.years(y); return planText() + confirmLine(); }
@@ -248,20 +250,67 @@
     return `I didn't catch an event in that. I understand things like wars, protests, coups, crackdowns, sanctions, trade wars, price spikes, recessions, pandemics, natural disasters, hacked robots, peace, cash support for the poorest, a basic income for everyone, a tax on the very rich, a jobs boom and kinder communities, plus where, how hard, when and for how long. ${helpExamples()}`;
   }
   function helpExamples() {
-    const ex = ["a severe war between India and Pakistan for two years", "a pandemic everywhere starting in month 3, then a recession", "massive protests in France and a crackdown", "peace in the Middle East and cash support in Africa"];
+    const ex = ["Brazil passes a basic income for everyone, paid for by a billionaires' tax", "a four-day work week across Europe", "a severe war between India and Pakistan for two years", "social media is banned in the United States"];
     return `Try: ${ex.map((x) => `<button type="button" class="ag-ex" data-say="${esc(x)}">${esc(x)}</button>`).join(" ")}`;
   }
   function helpText() {
     return `Tell me what happens, where, how hard and for how long, in your own words. I'll turn it into a plan you can check before anything runs. You can then say things like "make it milder", "add Japan", "remove the recession", "start in month 6" or "run it for 5 years". ${helpExamples()}`;
   }
 
-  function send(text) {
-    text = String(text || "").trim().slice(0, 400);
-    if (!text) return;
+  // ------------------------------------------------------------ the sandbox
+  let sandboxClosed = false, busy = false;
+  function codesFor(where) {
+    const w = (where || []).map((x) => String(x).trim()).filter(Boolean);
+    if (!w.length || w.some((x) => /^(everywhere|world|worldwide|all)$/i.test(x))) return { where: "all", countries: [] };
+    const r = S.regions.find((x) => w.length === 1 && x.toLowerCase() === w[0].toLowerCase());
+    if (r) return { where: r, countries: [] };
+    const out = new Set();
+    for (const name of w) {
+      const l = name.toLowerCase().replace(/^the /, "");
+      const c = P.byName.get(l) || P.byName.get((ALIASES[l] || "").toLowerCase()) || (GROUPS[l] && null);
+      if (c) out.add(c);
+      else if (GROUPS[l]) (typeof GROUPS[l] === "string" ? GROUPS[GROUPS[l]] : GROUPS[l]).forEach((n) => { const k = P.byName.get(n.toLowerCase()); if (k) out.add(k); });
+    }
+    return { where: "pick", countries: [...out] };
+  }
+  async function remote(text) {
+    const plan = S.get().map((e) => ({ label: S.kindOf(e).label, where: S.whereText(e), strength: e.strength, start: e.start, months: e.months,
+                                       levers: e.type === "custom" ? S.leverText(e.custom) : undefined }));
+    let r, d;
+    try {
+      r = await fetch("/api/v1/scenario/translate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, plan, years: S.years() }) });
+      d = await r.json();
+    } catch (e) { return "I couldn't reach the sandbox just now. Try again in a moment."; }
+    if (r.status === 503) { sandboxClosed = true; return null; }
+    if (!r.ok) return esc(d.error || "That didn't work. Try again in a moment.");
+    const ev = (d.events || []).map((x) => {
+      const pl = codesFor(x.where);
+      const e = S.make("custom", pl.where, pl.countries, "serious", x.start, x.months);
+      e.custom = S.safeCustom({ label: x.label, hint: x.explain, p: x.p, f: x.f, nb: x.nb ? { stress: x.nb } : undefined, calm: x.calm });
+      return e;
+    });
+    S.set(ev); if (d.years) S.years(d.years);
+    const missing = ev.find((e) => e.where === "pick" && !e.countries.length);
+    return esc(d.reply || "Here's your world.") + planText()
+      + (missing ? `<br><br>I couldn't place the ${esc(S.kindOf(missing).label.toLowerCase())}: add its countries in the plan below, or tell me where.` : confirmLine());
+  }
+
+  async function send(text) {
+    text = String(text || "").trim().slice(0, 2000);
+    if (!text || busy) return;
     say("me", esc(text));
-    let reply;
-    try { reply = handle(text); } catch (e) { reply = "Something went wrong reading that. Try saying it a different way."; console.warn(e); }
-    setTimeout(() => say("ag", reply), 220);
+    let reply = null;
+    try { reply = handle(text, true); } catch (e) { console.warn(e); }
+    if (reply == null && !sandboxClosed) {
+      busy = true; $("chatIn").disabled = true;
+      const li = document.createElement("li"); li.className = "ag ag-wait"; li.textContent = "Working out how that changes people's lives…"; $("chatLog").appendChild(li);
+      try { reply = await remote(text); } catch (e) { console.warn(e); reply = "Something went wrong. Try again in a moment."; }
+      li.remove(); busy = false; $("chatIn").disabled = false; $("chatIn").focus();
+    }
+    if (reply == null) {                         // the sandbox is closed: the built-in reader sets up preset events
+      try { reply = handle(text); } catch (e) { reply = "Something went wrong reading that. Try saying it a different way."; console.warn(e); }
+    }
+    setTimeout(() => say("ag", reply), 120);
   }
 
   function start() {
@@ -269,7 +318,7 @@
     $("chatForm").addEventListener("submit", (e) => { e.preventDefault(); const v = $("chatIn").value; $("chatIn").value = ""; send(v); });
     $("chatLog").addEventListener("click", (e) => { const b = e.target.closest("[data-say]"); if (b) send(b.dataset.say); });
     say("ag", S.get().length ? "This scenario came from a shared link:" + planText() + confirmLine()
-      : `What should happen to the world? Describe it in your own words and I'll set it up for you to check. ${helpExamples()}`);
+      : `What should happen to the world? Describe anything in your own words (a policy, a disaster, a new technology, a war) and I'll turn it into a plan you can check before it runs. ${helpExamples()}`);
   }
   if (window.simScenario) start(); else addEventListener("simscenario:ready", start, { once: true });
 })();
