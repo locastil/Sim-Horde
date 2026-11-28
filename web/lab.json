@@ -8,6 +8,10 @@
  "fixes": [
   {
    "date": "2026-11-28",
+   "text": "Who actually leaves a country now follows money sent home from abroad and the share of immigrants living there, as well as how many simulated people want to leave. The world's yearly total of migrants still matches the real figure; only which countries they come from shifts. Each variable's push is capped so it can't swamp the simulation."
+  },
+  {
+   "date": "2026-11-28",
    "text": "Refugee flows from war zones had no upper limit, so over 31 simulated years some countries emptied (Yemen fell below a million people) and their neighbours overfilled. Flight is now capped at 12% of a country a year, about the worst ever recorded, and every country was put back to its real share of the world's population."
   }
  ],
@@ -120,8 +124,8 @@
     "migration": 0.316,
     "countries": 150
    },
-   "status": "passed",
-   "why": "Passed: on unseen countries it lifted the migration ranking from about 0.03 to 0.31 and 0.36; together with immigrants, to 0.30 and 0.55. Chain migration is real (people follow family who already left), though remittances partly measure that past emigration itself. Goes into the live world at its next restart.",
+   "status": "kept",
+   "why": "Passed: on unseen countries it lifted the migration ranking from about 0.03 to 0.31 and 0.36; together with immigrants, to 0.30 and 0.55. Chain migration is real (people follow family who already left), though remittances partly measure that past emigration itself.",
    "full": {
     "migration": [
      [
@@ -133,6 +137,12 @@
       0.362
      ]
     ]
+   },
+   "live": {
+    "since": "2026-11-28",
+    "before": 0.123,
+    "after": null,
+    "note": "Live migration score before: 0.12 (rank match, 121 countries). After: measured once the first full simulated year on the new engine closes."
    }
   },
   {
@@ -145,8 +155,8 @@
     "migration": 0.246,
     "countries": 163
    },
-   "status": "passed",
-   "why": "Passed, with a question mark: 0.19 and 0.43 on unseen countries. Small, open countries with many immigrants also lose many people, so it may be measuring how mobile a country is rather than what draws people in. Goes into the live world at its next restart, alongside money sent home.",
+   "status": "kept",
+   "why": "Passed, with a question mark: 0.19 and 0.43 on unseen countries. Small, open countries with many immigrants also lose many people, so it may be measuring how mobile a country is rather than what draws people in.",
    "full": {
     "migration": [
      [
@@ -158,6 +168,12 @@
       0.428
      ]
     ]
+   },
+   "live": {
+    "since": "2026-11-28",
+    "before": 0.123,
+    "after": null,
+    "note": "Live migration score before: 0.12 (rank match, 121 countries). After: measured once the first full simulated year on the new engine closes."
    }
   },
   {

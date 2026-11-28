@@ -617,6 +617,10 @@ html.st-open { overflow: hidden; }
 .lab-rejected .lab-items { border-color: #E8C4BC; }
 .lab-testing .lab-items { border-color: #B9C8FF; }
 .lab-passed .lab-items { border-color: #A9DCC6; }
+.lab-kept .lab-items { border-color: #7CC8A6; }
+.lab-live { margin-top: 10px; padding: 8px 12px; background: #E6F5EE; border-radius: 10px; }
+.lab-live em { display: block; font-style: normal; font-size: 0.78rem; font-weight: 600; color: #0B6B49; }
+.lab-live span { font-size: 0.9rem; }
 .lab-set_aside .lab-items li { opacity: 0.85; }
 .lab-out ul, .lab-fixes ul { max-width: 72ch; padding-left: 1.2em; }
 .lab-out li, .lab-fixes li { margin-bottom: 10px; }

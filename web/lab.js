@@ -31,7 +31,7 @@
         (list.length ? `<ul class="lab-items">${list.map((i) => `<li>
           <div class="lab-name"><b>${esc(i.name)}</b><span>${esc(i.what)}</span><small>${esc(i.source)}</small></div>
           <div class="lab-score"><em>Quick check</em>${quick(i.quick)}</div>
-          <div class="lab-why">${esc(i.why)}${full(i.full)}</div></li>`).join("")}</ul>` : `<p class="lab-note">${empty}</p>`) + "</div>";
+          <div class="lab-why">${esc(i.why)}${full(i.full)}${i.live ? `<div class="lab-live"><em>In the live world since ${esc(i.live.since)}</em><span>${esc(i.live.note)}</span></div>` : ""}</div></li>`).join("")}</ul>` : `<p class="lab-note">${empty}</p>`) + "</div>";
     }).join("") + (L.migration_baseline ? `<p class="lab-note">${esc(L.migration_baseline.text)}</p>` : "") + `<p class="lab-note">Last updated ${esc(L.updated)}.</p>`;
     $("labFixes").innerHTML = (L.fixes || []).map((f) => `<li><time>${esc(f.date)}</time> ${esc(f.text)}</li>`).join("");
   }).catch(() => { $("labList").innerHTML = '<p class="lab-note">The lab results did not load. Reload the page to try again.</p>'; });
