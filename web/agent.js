@@ -279,9 +279,9 @@
     let r, d;
     try {
       r = await fetch("/api/v1/scenario/translate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, plan, years: S.years() }) });
-      d = await r.json();
+      d = await r.json().catch(() => ({}));
     } catch (e) { return "I couldn't reach the sandbox just now. Try again in a moment."; }
-    if (r.status === 503) { sandboxClosed = true; return null; }
+    if ([401, 403, 404, 405, 503].includes(r.status)) { sandboxClosed = true; return null; }   // not open (yet): the built-in reader takes over
     if (!r.ok) return esc(d.error || "That didn't work. Try again in a moment.");
     const ev = (d.events || []).map((x) => {
       const pl = codesFor(x.where);
