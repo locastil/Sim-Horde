@@ -557,13 +557,21 @@ export function mountGlobe(root, opts = {}) {
         if (nv && rings.some((r) => insideFlat(lo, la, r))) { hit = nv; hitId = id; break; }
       }
       if (hit) {
-        const flags = [hit.conflict ? "armed conflict" : "", hit.protests ? "protests" : ""].filter(Boolean);
+        const flags = [hit.conflict ? conflictText(hit) : "", hit.protests ? "protests" : ""].filter(Boolean);
         tip.innerHTML = `<b>${esc(hit.name)}</b> <i style="opacity:.6">simulated</i><br>${esc(hit.gov)}: ${esc(hit.ruling)} hold${/^the ruling|^the armed|^the opposition/.test(hit.ruling) ? "s" : ""} power<br>Happiness ${hit.happiness.toFixed(1)} / 10` + (hit.survey != null ? ` <span style="opacity:.6">(surveys: ${hit.survey.toFixed(1)})</span>` : "") + (flags.length ? `<br>${flags.join(", ")}` : "") + (hit.netmig != null ? `<br>Migration ${hit.netmig > 0 ? "+" : ""}${hit.netmig.toFixed(1)} per 1,000 a year` + (hit.netmig_real != null ? ` <span style="opacity:.6">(real: ${hit.netmig_real > 0 ? "+" : ""}${hit.netmig_real.toFixed(1)})</span>` : "") : "") + (hit.detail && hit.detail !== "Low" ? `<br><span style="opacity:.6">Simulated at ${esc(hit.detail)} detail</span>` : "") + `<br><span style="opacity:.6">Zoom in, or double-click, to see its people and traffic</span>`;
       } else if (Math.abs(la) < 80) { tip.hidden = true; return; }
       tip.style.left = e.clientX - r.left + "px"; tip.style.top = e.clientY - r.top + "px"; tip.hidden = false;
       return;
     }
     tip.hidden = true;
+  }
+  // who a country is fighting: the states it is at war with, and fighting at home (a civil war when it's a major
+  // one, 1,000+ deaths a year), with the armed groups named where the conflict data names them
+  function conflictText(n) {
+    const list = (xs) => (xs.length < 2 ? xs.join("") : xs.slice(0, -1).join(", ") + " and " + xs[xs.length - 1]);
+    const home = n.civil ? (n.conflict_level === 2 ? "civil war" : "armed conflict at home") + (n.groups && n.groups.length ? " (against " + list(n.groups.map(esc)) + ")" : "") : "";
+    const out = n.war_with && n.war_with.length ? "at war with " + list(n.war_with.map((x) => esc(x.replace(/^the /i, "the ")))) + (home ? "; " + home : "") : home || "armed conflict";
+    return `<span style="color:#ff8a80">${out.charAt(0).toUpperCase() + out.slice(1)}</span>`;
   }
   // ---- what this device is simulating right now, lit up on the globe
   let piece = null, pieceGroup = null, focus = null, pulse = 0;

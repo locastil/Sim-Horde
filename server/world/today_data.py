@@ -90,6 +90,10 @@ def main():
             if kind == "war":
                 c["kind"] = "war"
                 c["wars_with"] = sorted(set(c["wars_with"]) | {x for _, x in here if x and x != code})
+            else:                                # fighting inside the country: name the armed groups (UCDP side B)
+                c["civil"] = True
+                gs = [g.strip() for g in (r.get("side_b") or "").split(",") if g.strip() and not g.strip().startswith("Government of")]
+                c["groups"] = sorted(set(c.get("groups", [])) | set(gs))
             c["since"] = min(c["since"], start)
             c["intensity"] = max(c["intensity"], int(r["intensity_level"]))
     json.dump(dict(fetched=time.strftime("%Y-%m-%d"), source="UCDP/PRIO Armed Conflict Dataset (" + used.rsplit("/", 1)[-1] + "), CC BY 4.0",

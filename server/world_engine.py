@@ -37,6 +37,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REGION_CAP = 480_000                 # people in one region of a job: under the worker's limit of 500,000
 
 
+def conflict_detail(x, N):
+    """Who a country is fighting, from the real-world conflict data (world/today.json): the states it is at war
+    with, whether there's also fighting inside the country, and the armed groups named in it (UCDP)."""
+    w = [c for c in x.get("wars_with", []) if c in N]
+    return dict(conflict_with=w, conflict_civil=bool(x.get("civil", x.get("kind") != "war" or not w)),
+                conflict_groups=list(x.get("groups", []))[:6])
+
+
 def sim_version():
     """The simulation's version, stamped on each new world (sim_version.txt). generation.model.restart: the middle
     number goes up when the model changes (the last goes back to 0); the last goes up each time the world is
@@ -200,6 +208,7 @@ class World:
             if not self.w.get("conflict_levels"):
                 self.set_conflict_levels()
                 self.save()
+            self.fill_conflict_detail()
             if self.w.get("version") == "2.5.3":
                 self.w["version"] = "1.5.3"        # renumbered: the first long run was the unofficial test version
                 self.save()
@@ -285,6 +294,22 @@ class World:
             self.oecd_regions = json.load(open(path, encoding="utf-8")).get("oecd", []) or self.oecd_regions
         except (OSError, ValueError):
             pass
+
+    def fill_conflict_detail(self):
+        """Conflicts the world started with get who's fighting from world/today.json (re-read each start, so a
+        fresher download adds the armed groups); any other conflict without it is taken as fighting at home."""
+        try:
+            today = json.load(open(os.path.join(HERE, "world", "today.json"), encoding="utf-8")).get("conflicts", {})
+        except (OSError, ValueError):
+            today = {}
+        N = self.w["nations"]
+        for c, n in N.items():
+            if not n.get("conflict"):
+                continue
+            if c in today and (n.get("conflict_since") or 0) <= 0:
+                n.update(conflict_detail(today[c], N))
+            elif "conflict_civil" not in n:
+                n.update(conflict_civil=True, conflict_with=[], conflict_groups=[])
 
     @staticmethod
     def cap_groups(c, groups, cap):
@@ -467,6 +492,7 @@ class World:
             if c in N:
                 N[c].update(conflict=True, conflict_since=-12 * max(0, start.tm_year - int(x.get("since", start.tm_year))),
                             conflict_level=2 if x.get("intensity") == 2 else 1)
+                N[c].update(conflict_detail(x, N))
         codes = sorted(N, key=lambda c: (N[c]["region"], -N[c]["pop"]))
         shards, cur, size = [], [], 0
         for c in codes:
@@ -1031,11 +1057,12 @@ class World:
                       * math.exp(1.3 * n["feat"]["pov"] + 1.5 * (0.5 - n["stab"]) + 0.6 * n["feat"]["ineq"]
                                  + 0.7 * (n["coup_recent"] > 0) + 2.0 * dz(n) + 0.4 * math.log(max(1e5, n["pop"]) / 1e7)),
                       lambda n: not n["conflict"]):
-            n.update(conflict=True, conflict_since=e, conflict_level=1); n["stab"] -= 0.2
+            n.update(conflict=True, conflict_since=e, conflict_level=1, conflict_civil=True, conflict_with=[], conflict_groups=[]); n["stab"] -= 0.2
             say(n, "CONFLICT", f"Armed conflict breaks out in {the(n['name'])} between government forces and an insurgent coalition.")
         for n in live:
             if n["conflict"] and n["conflict_since"] != e and rnd.random() < CONFLICT_END_M * (1.5 if n["stab"] > 0.4 else 1):
                 n["conflict"] = False
+                n.update(conflict_with=[], conflict_civil=False, conflict_groups=[])
                 yrs = max(1, (e - n['conflict_since']) // 12)
                 say(n, "PEACE", f"A ceasefire holds in {the(n['name'])} after {yrs} year{'s' if yrs != 1 else ''} of fighting.")
         # refugees: people leaving conflict zones go to neighbors
@@ -1067,8 +1094,11 @@ class World:
                     a["standoff"] = b["standoff"] = 4
                     say(a, "BORDER", f"Troops mass on the border between {the(a['name'])} and {the(b['name'])} after a disputed incident.")
                     if rnd.random() < PER_YEAR["war"] / PER_YEAR["standoff"]:
-                        for x in (a, b):
+                        for x, y in ((a, b), (b, a)):
+                            if not x["conflict"]:
+                                x.update(conflict_civil=False, conflict_groups=[], conflict_with=[])
                             x.update(conflict=True, conflict_since=e, conflict_level=2); x["stab"] -= 0.15
+                            x["conflict_with"] = sorted(set(x.get("conflict_with") or []) | {y["code"]})
                         say(a, "WAR", f"Fighting breaks out between {the(a['name'])} and {the(b['name'])}.")
         # elections
         for n in live:
@@ -1541,6 +1571,10 @@ class World:
                 nations[n["num"]] = dict(name=n["name"], happiness=round(self.happiness(n), 2), survey=n["stats"].get("happiness"),
                                          survey_year=n["stats"].get("happiness_year"), gov=GOV_LABEL[n["gov"]],
                                          office=n["title"], ruling=n["ruling"], conflict=n["conflict"], protests=n["protests"] > 0,
+                                         war_with=[N[c]["name"] for c in (n.get("conflict_with") or []) if c in N] if n["conflict"] else [],
+                                         civil=bool(n.get("conflict_civil")) if n["conflict"] else False,
+                                         conflict_level=n.get("conflict_level", 1) if n["conflict"] else 0,
+                                         groups=(n.get("conflict_groups") or []) if n["conflict"] else [],
                                          pop=round(n["pop"]), detail=LAYERS[n.get("detail", 0)]["name"],
                                          netmig=n.get("mig_last"),
                                          netmig_real=round(n["netmig_real"] / n["pop"] * 1000, 2) if n.get("netmig_real") is not None and n["pop"] > 1000 else None)
