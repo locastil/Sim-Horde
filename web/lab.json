@@ -1,0 +1,206 @@
+{
+ "updated": "2026-11-28",
+ "baseline": {
+  "happiness": 0.78,
+  "happiness_note": "the simulation's match with real happiness surveys in its own 2015-2023 run",
+  "migration": "see the live figure on the home page"
+ },
+ "fixes": [
+  {
+   "date": "2026-11-28",
+   "text": "Refugee flows from war zones had no upper limit, so over 31 simulated years some countries emptied (Yemen fell below a million people) and their neighbours overfilled. Flight is now capped at 12% of a country a year, about the worst ever recorded, and every country was put back to its real share of the world's population."
+  }
+ ],
+ "items": [
+  {
+   "id": "wage_floor",
+   "name": "Minimum wage, for the country's wealth",
+   "what": "How far the lowest legal pay goes, in purchasing-power dollars, compared with what the country's income per person would predict.",
+   "source": "ILO (ILOSTAT), via DBnomics",
+   "quick": {
+    "happiness": 0.075,
+    "note": "against the model's inputs, not the simulation"
+   },
+   "full": {
+    "happiness": [
+     [
+      0.821,
+      0.827
+     ],
+     [
+      0.737,
+      0.737
+     ]
+    ],
+    "migration": [
+     [
+      0.558,
+      0.555
+     ],
+     [
+      0.561,
+      0.542
+     ]
+    ]
+   },
+   "status": "rejected",
+   "why": "Inside the simulation it barely moved happiness on unseen countries and made migration slightly worse. The simulation already captures most of what it adds."
+  },
+  {
+   "id": "hale",
+   "name": "Healthy life expectancy",
+   "what": "Years a newborn can expect to live in good health.",
+   "source": "WHO, via Our World in Data",
+   "quick": {
+    "happiness": 0.05,
+    "migration": 0.246,
+    "countries": 162
+   },
+   "status": "next",
+   "why": "Strong on both happiness and migration."
+  },
+  {
+   "id": "food",
+   "name": "Food insecurity",
+   "what": "Share of people who skipped meals or ran out of food in the past year.",
+   "source": "UN FAO, via the World Bank",
+   "quick": {
+    "happiness": 0.068,
+    "migration": 0.163,
+    "countries": 136
+   },
+   "status": "next",
+   "why": "Strong, but it's measured with questions in the same Gallup poll as the happiness surveys, so part of the gain may be that overlap."
+  },
+  {
+   "id": "socprot",
+   "name": "Social safety net",
+   "what": "Share of people covered by at least one social protection or labour programme.",
+   "source": "World Bank ASPIRE",
+   "quick": {
+    "happiness": 0.074,
+    "migration": 0.024,
+    "countries": 96
+   },
+   "status": "next",
+   "why": "Strong, but only 96 mostly lower-income countries have figures."
+  },
+  {
+   "id": "school",
+   "name": "Years of schooling",
+   "what": "Average years of education of people aged 15 to 64.",
+   "source": "Our World in Data (Lee-Lee and Barro-Lee)",
+   "quick": {
+    "happiness": 0.04,
+    "migration": 0.027,
+    "countries": 139
+   },
+   "status": "next",
+   "why": "Helps happiness: earning power and confidence."
+  },
+  {
+   "id": "remit",
+   "name": "Money sent home from abroad",
+   "what": "Remittances received, as a share of the economy.",
+   "source": "World Bank",
+   "quick": {
+    "happiness": 0,
+    "migration": 0.316,
+    "countries": 150
+   },
+   "status": "testing",
+   "why": "The best single sign of a country whose people work abroad."
+  },
+  {
+   "id": "migstock",
+   "name": "Immigrants already living there",
+   "what": "Share of residents born in another country.",
+   "source": "UN DESA, via the World Bank",
+   "quick": {
+    "happiness": 0.011,
+    "migration": 0.246,
+    "countries": 163
+   },
+   "status": "testing",
+   "why": "People go where others like them already are."
+  },
+  {
+   "id": "corrupt",
+   "name": "Corruption",
+   "what": "How corrupt the public sector is seen to be by experts and businesses.",
+   "source": "Transparency International, via Our World in Data",
+   "quick": {
+    "happiness": 0.024,
+    "migration": 0.227,
+    "countries": 162
+   },
+   "status": "testing",
+   "why": "A push to leave."
+  },
+  {
+   "id": "visa",
+   "name": "Visa freedom, for the country's geography",
+   "what": "Countries its passport can enter without a visa, weighted by land neighbours and the country's size.",
+   "source": "Passport Index dataset (open data) and the World Bank",
+   "quick": {
+    "happiness": 0.049,
+    "migration": 0.197,
+    "countries": 162
+   },
+   "status": "testing",
+   "why": "Being allowed to leave is different from wanting to. It may partly stand in for wealth."
+  },
+  {
+   "id": "civlib",
+   "name": "Civil liberties",
+   "what": "How free people are to speak, gather and move.",
+   "source": "V-Dem, via Our World in Data",
+   "quick": {
+    "happiness": 0.022,
+    "migration": -0.018,
+    "countries": 161
+   },
+   "status": "set_aside",
+   "why": "Small gain for happiness, none for migration."
+  },
+  {
+   "id": "pm25",
+   "name": "Air pollution",
+   "what": "Average exposure to fine particles (PM2.5).",
+   "source": "World Bank",
+   "quick": {
+    "happiness": 0.013,
+    "migration": 0.175,
+    "countries": 162
+   },
+   "status": "set_aside",
+   "why": "Its migration gain comes from Gulf states, which are polluted and also take in many migrants. Pollution isn't what draws people."
+  },
+  {
+   "id": "youthun",
+   "name": "Youth unemployment",
+   "what": "Unemployment among people aged 15 to 24.",
+   "source": "ILO, via the World Bank",
+   "quick": {
+    "happiness": -0.003,
+    "migration": 0.026,
+    "countries": 163
+   },
+   "status": "set_aside",
+   "why": "Added nothing beyond overall unemployment."
+  },
+  {
+   "id": "disaster",
+   "name": "Disasters",
+   "what": "People newly displaced by floods, storms, droughts and earthquakes, per person.",
+   "source": "IDMC, via the World Bank",
+   "quick": {
+    "happiness": -0.005,
+    "migration": -0.01,
+    "countries": 154
+   },
+   "status": "set_aside",
+   "why": "Added nothing to either."
+  }
+ ]
+}

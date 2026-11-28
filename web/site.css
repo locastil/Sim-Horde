@@ -590,3 +590,34 @@ html.st-open { overflow: hidden; }
 .street { opacity: 0; transition: opacity .45s ease; }
 .street.st-in { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .street { transition: none; } }
+
+/* --- model lab (lab.html) */
+.lab-intro { padding: 56px 0 8px; }
+.lab section { margin: 40px 0; }
+.lab h2 { font-size: 1.6rem; }
+.lab-steps { padding-left: 1.3em; max-width: 72ch; }
+.lab-steps li { margin: 0 0 12px; padding-left: 4px; }
+.lab-note { color: var(--ink-3); max-width: 72ch; font-size: 0.95rem; }
+.lab-group { margin: 28px 0 10px; }
+.lab-group h3 { font: 700 1.15rem/1.2 var(--display); margin: 0 0 10px; display: flex; align-items: center; gap: 10px; }
+.lab-count { font: 600 0.8rem/1 var(--body); color: var(--ink-3); background: var(--mid); border-radius: 999px; padding: 4px 9px; }
+.lab-items { list-style: none; margin: 0; padding: 0; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; }
+.lab-items li { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr) minmax(0, 1.3fr); gap: 22px; padding: 18px 20px; border-top: 1px solid #E3E9EE; }
+.lab-items li:first-child { border-top: 0; }
+.lab-name b { display: block; font-size: 1.02rem; }
+.lab-name span { display: block; color: var(--ink-2); font-size: 0.93rem; line-height: 1.45; margin-top: 2px; }
+.lab-name small { display: block; color: var(--ink-3); font-size: 0.8rem; margin-top: 6px; }
+.lab-score em, .lab-full em { display: block; font-style: normal; font-size: 0.78rem; font-weight: 600; color: var(--ink-3); margin-bottom: 4px; }
+.lab-score span, .lab-full span { display: block; font-size: 0.93rem; font-variant-numeric: tabular-nums; }
+.lab-score i { display: block; font-size: 0.8rem; color: var(--ink-3); margin-top: 4px; }
+.lab-score b.up, .lab-full b.up { color: var(--good); }
+.lab-full b.down { color: var(--rude); }
+.lab-why { color: var(--ink-2); font-size: 0.95rem; line-height: 1.5; }
+.lab-full { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.lab-rejected .lab-items { border-color: #E8C4BC; }
+.lab-testing .lab-items { border-color: #B9C8FF; }
+.lab-set_aside .lab-items li { opacity: 0.85; }
+.lab-out ul, .lab-fixes ul { max-width: 72ch; padding-left: 1.2em; }
+.lab-out li, .lab-fixes li { margin-bottom: 10px; }
+.lab-fixes time { font-weight: 600; color: var(--ink-3); margin-right: 6px; font-variant-numeric: tabular-nums; }
+@media (max-width: 760px) { .lab-items li { grid-template-columns: 1fr; gap: 10px; } }

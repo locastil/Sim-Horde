@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Model lab · Sim Horde</title>
+<meta name="description" content="Every variable we have tried adding to the Sim Horde simulation, how it was tested against real data, and what happened, including the ones that did not work.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Model lab · Sim Horde">
+<meta property="og:description" content="What we tried adding to the simulation, how we tested it against real data, and what was kept or thrown out.">
+<meta property="og:url" content="https://sim-horde.org/lab.html">
+<meta property="og:image" content="https://sim-horde.org/og.png">
+<meta property="og:image:secure_url" content="https://sim-horde.org/og.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" href="/fonts/bricolage-grotesque-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/site.css">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+  <a class="mark" href="/" aria-label="Sim Horde home">
+    <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M5 27V12l6-6h10l6 6v15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><circle cx="11" cy="17" r="2.2" fill="currentColor"/><circle cx="21" cy="17" r="2.2" fill="currentColor"/><circle cx="16" cy="23" r="2.2" fill="currentColor"/></svg>
+    <span>Sim Horde</span>
+  </a>
+  <nav aria-label="Main">
+    <button type="button" class="menu-btn" aria-expanded="false" aria-controls="mainLinks">Menu</button>
+    <div class="nav-links" id="mainLinks">
+    <a href="/#live">Live</a>
+    <a href="/#how">How it works</a>
+    <a href="/scenario.html">Your scenario</a>
+    <a href="/lab.html" aria-current="page">Model lab</a>
+    <a href="/#board">Volunteers</a>
+    <a href="/donate.html">Donate</a>
+    </div>
+    <a class="btn small" href="/#help">Help now</a>
+  </nav>
+</header>
+
+<main id="main" class="wrap lab">
+  <section class="lab-intro">
+    <h1>Model lab</h1>
+    <p class="lede">Every variable we've tried adding to the simulation, how it was tested against real data, and what happened, including the ones that didn't work.</p>
+  </section>
+
+  <section class="lab-how" aria-labelledby="howH">
+    <h2 id="howH">How a variable gets in</h2>
+    <ol class="lab-steps">
+      <li><b>Quick check.</b> Does the variable explain what the simulation gets wrong? We add it to the simulation's own happiness scores and see whether that predicts real life-satisfaction surveys better, for countries left out of the fit (averaged over 20 different splits). For migration, we check whether it helps predict real net migration.</li>
+      <li><b>Full test.</b> Variables that pass go inside the simulation itself. It runs the world on real 2015–2023 conditions, the strength is tuned on half the countries, then it's scored on the other half, which it never saw, and the halves swap.</li>
+      <li><b>Live.</b> Only a variable that beats the current model on countries it never saw goes into the shared world.</li>
+    </ol>
+    <p class="lab-note">Most candidates fail, and that's the point: a test that every idea passes isn't a test. Scores below are correlations, where 1 is a perfect match and 0 is none; the quick-check numbers are how much a variable adds.</p>
+  </section>
+
+  <section aria-labelledby="listH">
+    <h2 id="listH">Everything we've tried</h2>
+    <div id="labList"><p class="lab-note">Loading…</p></div>
+  </section>
+
+  <section class="lab-out" aria-labelledby="outH">
+    <h2 id="outH">What we leave out, and why</h2>
+    <ul>
+      <li><b>Survey answers about the same things we score against.</b> Questions like "do you have someone to count on?" or "are you free to make life choices?" come from the same Gallup poll as the happiness surveys. Adding them would raise the score without making the simulation any more realistic.</li>
+      <li><b>Religion and ethnicity.</b> Too easy to misuse, and not something a simulation of ordinary lives should sort people by.</li>
+      <li><b>Housing costs.</b> Only measured well in rich countries, so it would make the model better for them and blind everywhere else.</li>
+    </ul>
+  </section>
+
+  <section class="lab-fixes" aria-labelledby="fixH">
+    <h2 id="fixH">Fixes</h2>
+    <ul id="labFixes"></ul>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap"><p><a href="/">Back to the shared world</a> · Data sources are named next to each variable. Raw results: <a href="/lab.json">lab.json</a></p></div>
+</footer>
+
+<script src="/lab.js" defer></script>
+<script src="/menu.js" defer></script>
+<script src="/music.js" defer></script>
+</body>
+</html>
