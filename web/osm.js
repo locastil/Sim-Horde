@@ -58,7 +58,7 @@ export function decode(buf, want) {
         else if (t === 4) { const [ga, gb] = r.bytes(), sp = r.pos; r.pos = ga; geom = []; while (r.pos < gb) geom.push(r.varint()); r.pos = sp; }
         else r.skip(w);
       }
-      if (!(type === 2 || (type === 3 && L.name === "landuse")) || !geom) continue;   // lines, and land-use areas
+      if (!(type === 2 || (type === 3 && (L.name === "landuse" || L.name === "building"))) || !geom) continue;   // lines, and land-use areas
       const lines = []; let x = 0, y = 0, cur = null;
       for (let i = 0; i < geom.length;) {
         const c = geom[i++], id = c & 7, n = c >> 3;
@@ -128,7 +128,7 @@ export function addOSM(world, tier, sim) {
   function fetchTile(T, z, x, y) {
     const n = 1 << z, xx = ((x % n) + n) % n;
     fetch(template.replace("{z}", z).replace("{x}", xx).replace("{y}", y)).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject()))
-      .then((ab) => build(T, z, x, y, decode(new Uint8Array(ab), z >= 14 ? ["transportation", "transportation_name", "landuse"] : z >= PEOPLE_Z ? ["transportation", "landuse"] : ["transportation"])))
+      .then((ab) => build(T, z, x, y, decode(new Uint8Array(ab), z >= 14 ? ["transportation", "transportation_name", "landuse", "building"] : z >= WALK_Z ? ["transportation", "landuse", "building"] : z >= PEOPLE_Z ? ["transportation", "landuse"] : ["transportation"])))
       .catch(() => { T.state = "failed"; T.failedAt = t; })
       .finally(() => { inflight--; pump(); });
   }
@@ -173,7 +173,9 @@ export function addOSM(world, tier, sim) {
     if (z >= PEOPLE_Z) {
       const N = 256, cv = document.createElement("canvas"); cv.width = cv.height = N;
       const g = cv.getContext("2d"); g.fillStyle = "#fff"; g.beginPath();
-      for (const f of L.landuse || []) if (["residential", "suburb", "quarter", "neighbourhood"].includes(f.props.class))
+      // close up, people are inside the buildings themselves; further out, anywhere in a residential area
+      const areas = (L.building || []).length > 20 ? L.building : (L.landuse || []).filter((f) => ["residential", "suburb", "quarter", "neighbourhood"].includes(f.props.class));
+      for (const f of areas)
         for (const ring of f.lines) { g.moveTo(ring[0] * N, ring[1] * N); for (let i = 2; i < ring.length; i += 2) g.lineTo(ring[i] * N, ring[i + 1] * N); g.closePath(); }
       g.fill("evenodd");
       const px = g.getImageData(0, 0, N, N).data;
@@ -183,16 +185,16 @@ export function addOSM(world, tier, sim) {
     // than at night). Where the map has no residential areas, homes go just off the roads instead.
     if (z >= PEOPLE_Z && (homes.length || roads.length)) {
       ppd = Math.max(1, Math.ceil(people / PB));
-      const close = z >= WALK_Z, outShare = !close ? 0 : hour < 6 ? 0.02 : hour < 8 ? 0.08 : hour < 19 ? 0.13 : hour < 23 ? 0.07 : 0.03;
+      const close = z >= WALK_Z, outShare = !close ? 0 : hour < 5 ? 0.005 : hour < 7 ? 0.02 : hour < 9 ? 0.08 : hour < 17 ? 0.12 : hour < 20 ? 0.09 : hour < 22 ? 0.04 : 0.012;
       const nP = Math.min(PB, Math.round(people / ppd)), nOut = Math.round(nP * outShare);
       const pick = () => { let r = rnd() * totalLen; for (const rd of roads) if ((r -= rd.len) <= 0) return rd; return roads[roads.length - 1]; };
-      const keep = (lo, la) => { const [d, ct] = sim.density(lo, la); return ct && rnd() * (dmax * 1.3 + 50) <= d + 50 ? ct : null; };
+      const inBuildings = (L.building || []).length > 20, keep = (lo, la) => { const [d, ct] = sim.density(lo, la); return ct && rnd() * (dmax * 1.3 + 50) <= d + 50 ? ct : null; };
       for (let n = 0, tries = 0; n < nP && tries < nP * 8; tries++) {
         const home = n >= nOut;
         let lo, la, dx = 0, dy = 0, ct;
         // the map doesn't mark every neighbourhood as residential, so where little is marked some homes
         // go along the local streets instead
-        if (home && homes.length && rnd() < Math.min(1, homes.length / 65536 / 0.25)) {   // a home inside a residential area
+        if (home && homes.length && (inBuildings || rnd() < Math.min(1, homes.length / 65536 / 0.25))) {   // a home inside a residential area
           const c = homes[(rnd() * homes.length) | 0], u = ((c & 255) + rnd()) / 256, v = ((c >> 8) + rnd()) / 256;
           lo = lonOf(x + u, z); la = latOf(y + v, z);
           if (!(ct = keep(lo, la))) continue;
