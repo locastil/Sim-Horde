@@ -32,6 +32,7 @@ sys.path.insert(0, ENGINE)
 import calibrate as CAL                          # noqa: E402  (the engine's own calibration code)
 import world_engine                              # noqa: E402
 import scenarios as SC                           # noqa: E402  (kudos, link codes, horde-run scenarios)
+import ideas as IDEAS                            # noqa: E402  (the idea desk on the Model lab page)
 from ca_region_gpu import COUNTIES, W_DEFAULT, MEET    # noqa: E402
 MEET_MODE = MEET["mode"]                         # how people meet, as the engine copy's trained weights say
 
@@ -422,10 +423,15 @@ class H(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = self.path.split("?")[0]
+        if path == "/api/v1/ideas/chat" and int(self.headers.get("Content-Length") or 0) > 100_000:
+            return self._send(413, dict(error="too long"))
         try:
             d = self._body()
         except Exception as e:
             return self._send(400, dict(error=str(e)[:200]))
+        if path == "/api/v1/ideas/chat":               # the idea desk: no worker key, its own limits (ideas.py)
+            body, code = IDEAS.chat(d, self.headers.get("CF-Connecting-IP") or self._ip())
+            return self._send(code, body)
         with LOCK:
             c = db()
             try:

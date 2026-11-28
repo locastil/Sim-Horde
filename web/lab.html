@@ -89,9 +89,17 @@
   </section>
   <section class="lab-suggest" aria-labelledby="sugH">
     <h2 id="sugH">Have an idea for a variable?</h2>
-    <p class="lab-note">If you know a measure that should shape how people's days go or what happens to countries, send it in with its data source. We test every suggestion the same way as everything above, and post the result here whether it works or not.</p>
-    <p><a class="btn" href="https://github.com/locastil/Sim-Horde/issues/new?template=variable-suggestion.yml">Suggest a variable</a></p>
-    <p class="lab-note">Suggestions are public on GitHub (you'll need a free account), so other researchers can see and add to them. <a href="https://github.com/locastil/Sim-Horde/issues?q=label%3A%22variable+suggestion%22">See what's been suggested</a>.</p>
+    <p class="lab-note">Pitch it to the idea desk: Claude, an AI, will think it through with you. Is there real data for it, would it change people's days or the world's events, has something like it been tried, and how would we test it? If it holds up, it goes to the developer, who decides what gets tested. Two pitches per person a day.</p>
+    <div class="idea-desk">
+      <ul id="ideaLog" class="idea-log" aria-live="polite"><li class="bot"><p>What's your idea? Tell me what you'd measure and why you think it matters, and a data source if you know one.</p></li></ul>
+      <form id="ideaForm" class="idea-form">
+        <label for="ideaText" class="vh">Your idea</label>
+        <textarea id="ideaText" rows="2" maxlength="800" placeholder="e.g. how much time people spend with friends should affect happiness"></textarea>
+        <button id="ideaSend" class="btn" type="submit">Send</button>
+      </form>
+      <p id="ideaNote" class="lab-note" aria-live="polite"></p>
+    </div>
+    <p class="lab-note">If your idea is passed on, this conversation goes with it, so leave out personal details. Prefer to write it up yourself? <a href="https://github.com/locastil/Sim-Horde/issues/new?template=variable-suggestion.yml">Suggest a variable on GitHub</a> (a free account; suggestions there are public) or <a href="https://github.com/locastil/Sim-Horde/issues?q=label%3A%22variable+suggestion%22">see what's been suggested</a>.</p>
   </section>
 </main>
 
@@ -99,6 +107,7 @@
   <div class="wrap"><p><a href="/">Back to the shared world</a> · Data sources are named next to each variable. Raw results: <a href="/lab.json">lab.json</a></p></div>
 </footer>
 
+<script src="/idea.js" defer></script>
 <script src="/lab.js" defer></script>
 <script src="/menu.js" defer></script>
 <script src="/music.js" defer></script>

@@ -91,7 +91,16 @@ def snapshot():
                    growth=w.get("growth"), stag=w.get("stag")),
         volunteers=dict(online=(stats or {}).get("workers_online"), devices=(stats or {}).get("gpus") or []),
         california=dict(done=(stats or {}).get("runs_done"), goal=(stats or {}).get("runs_goal")),
-        gpus=gpus(), worker_log=wlog, service_log=slog)
+        gpus=gpus(), worker_log=wlog, service_log=slog, ideas=ideas_inbox())
+
+
+def ideas_inbox():
+    """Ideas the idea desk passed on (ideas.py), newest first. Visitors' words: shown as text, never run."""
+    try:
+        import ideas
+        return ideas.inbox(20)
+    except Exception:
+        return []
 
 
 PAGE = r"""<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
@@ -103,6 +112,7 @@ PAGE = r"""<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 h1{font-size:1.35rem;margin:0}header{display:flex;justify-content:space-between;align-items:baseline;gap:12px;max-width:980px;margin:0 auto 14px}
 .at{color:var(--dim);font-size:.85rem}
 main{max-width:980px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px}
+.idea{border-top:1px solid var(--line);padding:10px 0}.idea:first-of-type{border-top:0}.idea p{margin:6px 0 0;color:var(--ink);font-size:.92rem}
 section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
 h2{font-size:.8rem;font-weight:600;color:var(--dim);margin:0 0 10px;letter-spacing:.01em}
 .row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--line)}.row:first-of-type{border-top:0}
@@ -149,6 +159,8 @@ async function tick() {
     ${d.california.done != null ? `<div class="row"><span>California tuning runs</span><span class="num">${d.california.done}${d.california.goal ? " / " + d.california.goal : ""}</span></div>` : ""}
 </section>
   <section><h2>Graphics cards</h2>${g}</section>
+  <section class="wide"><h2>Idea inbox <span class="at">from the Model lab's idea desk: yours to decide</span></h2>${(d.ideas || []).length ? d.ideas.map((i) => `<div class="idea"><div class="row"><b>${esc(i.title)}</b><span class="at">${esc(i.day)} · Claude's confidence: ${esc(i.confidence)}</span></div>
+    <p><b>Variable:</b> ${esc(i.variable)}<br><b>Source:</b> ${esc(i.source)}${i.coverage ? `<br><b>Coverage:</b> ${esc(i.coverage)}` : ""}<br><b>Why:</b> ${esc(i.mechanism)}<br><b>Overlap and problems:</b> ${esc(i.overlap)}<br><b>Test:</b> ${esc(i.test_plan)}</p></div>`).join("") : '<div class="at">No ideas passed on yet.</div>'}</section>
   <section class="wide"><h2>Your worker, latest</h2><pre>${esc(d.worker_log.join("\n"))}</pre></section>
   <section class="wide"><h2>Background service, latest</h2><pre>${esc(d.service_log.join("\n"))}</pre></section>`;
 }

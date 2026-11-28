@@ -637,3 +637,19 @@ html.st-open { overflow: hidden; }
 .lab-fixes time { font-weight: 600; color: var(--ink-3); margin-right: 6px; font-variant-numeric: tabular-nums; }
 @media (max-width: 760px) { .lab-items li { grid-template-columns: 1fr; gap: 10px; } }
 .lab-suggest { padding: 8px 0 24px; }
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.idea-desk { max-width: 760px; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin: 14px 0 10px; }
+.idea-log { list-style: none; margin: 0 0 12px; padding: 0; max-height: 460px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.idea-log li { max-width: 88%; padding: 10px 14px; border-radius: 14px; font-size: 0.95rem; line-height: 1.5; }
+.idea-log li p { margin: 0 0 8px; } .idea-log li p:last-child { margin-bottom: 0; }
+.idea-log li ul { margin: 4px 0 8px; padding-left: 1.2em; }
+.idea-log .bot { background: #EEF2F7; align-self: flex-start; }
+.idea-log .me { background: var(--cobalt); color: #fff; align-self: flex-end; white-space: pre-wrap; }
+.idea-log .thinking { color: var(--ink-3); font-style: italic; }
+.idea-log .err { background: #FBEDEA; }
+.idea-log .filed { background: #E6F5EE; color: #0B6B49; font-weight: 600; }
+.idea-form { display: flex; gap: 10px; align-items: flex-end; }
+.idea-form textarea { flex: 1; resize: vertical; min-height: 48px; font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+.idea-form textarea:focus-visible { outline: 2px solid var(--cobalt); outline-offset: 1px; }
+.idea-form .btn { padding: 12px 20px; }
+.idea-form .btn:disabled, .idea-form textarea:disabled { opacity: 0.5; }
