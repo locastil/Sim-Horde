@@ -276,14 +276,14 @@
    "id": "civlib",
    "name": "Civil liberties",
    "what": "How free people are to speak, gather and move.",
-   "source": "V-Dem, via Our World in Data",
+   "source": "V-Dem v16, via Our World in Data (political civil liberties index, built from indicators of government repression)",
    "quick": {
     "happiness": 0.022,
     "migration": -0.018,
     "countries": 161
    },
    "status": "set_aside",
-   "why": "Small gain for happiness, none for migration."
+   "why": "Small gain for happiness (+0.02), none for migration. Checked again against the real-world copy of the simulation: in the 30 most repressed countries the surveys come out 0.09 points below the simulation, and in the 30 freest, 0.33 above. So there's no sign that people in repressive countries overstate their happiness in surveys; if anything, the simulation rates repressive countries slightly too happy next to free ones. Controlling for income the effect is small and not certain (−0.28 ± 0.20 points)."
   },
   {
    "id": "pm25",
@@ -345,6 +345,17 @@
    "quick": null,
    "status": "next",
    "why": "There's no clean country-by-country measure (the obvious survey questions come from the same poll as the happiness surveys, and living alone tracks wealth instead), so this would be tested on people, not countries: does it help the California model match real loneliness by county?"
+  },
+  {
+   "id": "crackdowns",
+   "name": "Crackdowns that follow real repression",
+   "what": "Whether security forces break up protests should depend on how repressive the government really is, not only on its broad kind (democracy, hybrid, autocracy).",
+   "source": "V-Dem v16, via Our World in Data; checked against the simulation's own 22 years of protests and crackdowns",
+   "quick": {
+    "note": "the simulation's crackdowns vs real repression: rank 0.33; share of protests met with a crackdown: rank 0.47 (129 countries)"
+   },
+   "status": "next",
+   "why": "The simulation decides crackdowns from three broad kinds of government, and those hide a lot: its \"hybrid\" governments range from barely repressive to among the most repressive in the world. Next: let the real repression score set the chance of a crackdown, then check it against an independent record of how governments actually answered protests (the Mass Mobilization data), not against the same score it was set from."
   }
  ],
  "migration_baseline": {
