@@ -135,17 +135,17 @@ export function addOSM(world, tier, sim) {
     // people on the pavements: as many as the simulation puts here, weighted toward the busier streets
     const rnd = rng(x * 92821 + y * 68917), lon0 = lonOf(x), lat0 = latOf(y + 1), lon1 = lonOf(x + 1), lat1 = latOf(y);
     const area = (lon1 - lon0) * 111.32 * Math.cos(((lat0 + lat1) / 2) * D) * (lat1 - lat0) * 110.57;
-    let dsum = 0; for (let a = 0; a < 4; a++) for (let b = 0; b < 4; b++) dsum += sim.density(lon0 + (a + 0.5) * (lon1 - lon0) / 4, lat0 + (b + 0.5) * (lat1 - lat0) / 4)[0];
+    let dsum = 0, dmax = 1; for (let a = 0; a < 4; a++) for (let b = 0; b < 4; b++) { const dd = sim.density(lon0 + (a + 0.5) * (lon1 - lon0) / 4, lat0 + (b + 0.5) * (lat1 - lat0) / 4)[0]; dsum += dd; dmax = Math.max(dmax, dd); }
     const people = (dsum / 16) * area, ppd = Math.max(1, Math.ceil(people / PB));
     const walkers = [], drivers = [];
     if (roads.length) {
       const nP = Math.min(PB, Math.round(people / ppd)), pick = () => {   // a road chosen by its length
         let r = rnd() * totalLen; for (const rd of roads) { if ((r -= rd.len) <= 0) return rd; } return roads[roads.length - 1];
       };
-      for (let n = 0, tries = 0; n < nP && tries < nP * 4; tries++) {
+      for (let n = 0, tries = 0; n < nP && tries < nP * 6; tries++) {
         const rd = pick(); if (rd.cls === "motorway" || rd.cls === "trunk") continue;
         const s = rnd() * rd.len, [lo, la, dx, dy] = at(rd, s), [d, ct] = sim.density(lo, la);
-        if (!ct || rnd() * 3000 > d + 300) continue;         // more people where more of the simulation's people live
+        if (!ct || rnd() * (dmax * 1.3 + 50) > d + 50) continue;   // more people where more of the simulation's people live
         const side = (rnd() < 0.5 ? -1 : 1) * 0.009, nl = Math.hypot(dx, dy) || 1;
         const b = (0.7 + 0.3 * rnd()) * (ct.war ? 0.45 : 1);
         walkers.push({ lo: lo - (dy / nl) * side / (111.32 * Math.cos(la * D)), la: la + (dx / nl) * side / 110.57, dx: dx / nl, dy: dy / nl, ph: rnd() * 6.28, sp: 0.3 + rnd(), c: ct.mood.map((v) => v * b) });
