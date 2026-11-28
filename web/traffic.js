@@ -83,7 +83,7 @@ export function addTraffic(world, tier, data) {
       if (L.via && L.via.includes("suez") && redSea) w *= 0.15;
       if (L.via === "cape" && redSea) w *= 4;
       if (L.via && L.via.includes("hormuz") && hormuz) w *= 0.2;
-      return { ...L, w, path: path(L.p, 1.0025) };
+      return { ...L, w, path: path(L.p, 1.00008) };
     });
     const wsum = lanes.reduce((a, l) => a + l.w, 0);
     const nShips = Math.round(maxShips * trade);

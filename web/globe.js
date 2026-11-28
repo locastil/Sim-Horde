@@ -7,6 +7,7 @@
 import * as THREE from "/vendor/three.min.js";
 import { addTraffic } from "/traffic.js";
 import { addPeople } from "/people.js";
+import { addLocal } from "/local.js";
 
 const TIERS = {
   low:    { label: "Low",    tex: 1024, seg: 40,  dpr: 1,    light: false, atmo: false, stars: 0,    spec: false, aa: false, layers: ["countries_low"], fps: 30 },
@@ -198,13 +199,13 @@ export function mountGlobe(root, opts = {}) {
   let tier = mode === "auto" ? autoTier : mode;
 
   let worldData = null, painting = false, repaintQueued = false;
-  let traffic = null, people = null, peopleKey = "";
+  let traffic = null, people = null, local = null, atmoMat = null, peopleKey = "";
   // the city lights only need redrawing when which countries are at war changes
   const warKey = () => Object.entries((tdata.globe && tdata.globe.nations) || {}).filter(([, n]) => n.conflict).map(([k]) => k).join();
   const refreshPeople = (force) => {
     if (!people || !tdata.globe || !tdata.cities) return;
     const k = warKey(); if (!force && k === peopleKey) return;
-    peopleKey = k; people.setData(tdata);
+    peopleKey = k; people.setData(tdata); if (local) local.setData(tdata);
   };
   const tdata = { globe: null, markets: null, cities: null };     // flights and ships: an illustration driven by the simulation
   const refreshTraffic = async () => {
@@ -218,6 +219,7 @@ export function mountGlobe(root, opts = {}) {
   };
   refreshTraffic(); setInterval(refreshTraffic, 120000);
   let renderer, scene, camera, world, tilt, earth, tex, specTex, base, raf = 0, built = 0;
+  const alt = () => zoom - 1;
   let lon = Math.random() * 360 - 180, lat = 15, vLon = reduceMotion ? 0 : 0.035, vLat = 0, dragging = false, zoom = 4.0;
   let visible = true, frames = 0, tAcc = 0, slow = 0, lowWindows = 0, goodWindows = 0, lastT = performance.now(), fps = 0, dprScale = 1;
   let probation = 0, holdUntil = 0;                              // after stepping up: watch closely, and back off if it was too much
@@ -240,11 +242,11 @@ export function mountGlobe(root, opts = {}) {
     base = painted.cv;
     const live = document.createElement("canvas"); live.width = W; live.height = H; live.getContext("2d").drawImage(base, 0, 0);
 
-    renderer = new THREE.WebGLRenderer({ antialias: T.aa, alpha: true, powerPreference: "high-performance" });
+    renderer = new THREE.WebGLRenderer({ antialias: T.aa, alpha: true, powerPreference: "high-performance", logarithmicDepthBuffer: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio || 1, T.dpr) * dprScale);
     canvasWrap.appendChild(renderer.domElement);
     scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(32, 1, 0.1, 200);
+    camera = new THREE.PerspectiveCamera(32, 1, 0.01, 200);
     tilt = new THREE.Group(); world = new THREE.Group(); tilt.add(world); scene.add(tilt);
 
     tex = new THREE.CanvasTexture(live); tex.colorSpace = THREE.SRGBColorSpace;
@@ -260,11 +262,11 @@ export function mountGlobe(root, opts = {}) {
     }
     earth = new THREE.Mesh(new THREE.SphereGeometry(1, T.seg, T.seg / 2), mat);
     world.add(earth);
-    people = addPeople(world, tier, null); refreshPeople(true);
+    people = addPeople(world, tier, null); local = addLocal(world, tier); refreshPeople(true);
     traffic = addTraffic(world, tier, tdata.globe && tdata.cities ? tdata : null);
     drawPiece();
     if (T.atmo) {
-      const atmo = new THREE.Mesh(new THREE.SphereGeometry(1.07, T.seg / 2, T.seg / 4), new THREE.ShaderMaterial({
+      const atmo = new THREE.Mesh(new THREE.SphereGeometry(1.07, T.seg / 2, T.seg / 4), atmoMat = new THREE.ShaderMaterial({
         side: THREE.BackSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
         uniforms: { k: { value: tier === "epic" ? 0.85 : 0.65 } },
         vertexShader: "varying vec3 n; varying vec3 p; void main(){ n = normalize(normalMatrix*normal); vec4 mv = modelViewMatrix*vec4(position,1.0); p = mv.xyz; gl_Position = projectionMatrix*mv; }",
@@ -309,14 +311,21 @@ export function mountGlobe(root, opts = {}) {
     if (!dragging && focus && now < focus.until) {
       const dLon = ((focus.lon - lon + 540) % 360) - 180;
       lon += dLon * Math.min(1, dt * 1.6); lat += (focus.lat - lat) * Math.min(1, dt * 1.6); vLon = 0;
-    } else if (!dragging) { lon += vLon * dt * 60 * 0.12; lat += (15 - lat) * 0.004 * dt * 60; vLon += ((reduceMotion ? 0 : 0.035) - vLon) * 0.02; }
+    } else if (!dragging) {
+      const spin = reduceMotion || alt() < 0.6 ? 0 : 0.035;                 // the slow turn stops once you're close
+      lon += vLon * dt * 60 * 0.12; if (alt() > 1.2) lat += (15 - lat) * 0.004 * dt * 60; vLon += (spin - vLon) * 0.04;
+    }
     if (pieceGroup) { pulse += dt; pieceGroup.children.forEach((l) => (l.material.opacity = piece && piece.state === "done" ? Math.max(0, 1 - (pulse - piece.doneAt) * 0.8) : 0.55 + 0.4 * Math.sin(pulse * 3))); }
     lat = Math.max(-70, Math.min(75, lat));
     tilt.rotation.x = lat * Math.PI / 180;
     world.rotation.y = -(lon + 90) * Math.PI / 180;
     camera.position.set(0, 0, zoom); camera.lookAt(0, 0, 0);
+    const near = Math.max(1e-5, Math.min(0.1, alt() * 0.3));
+    if (Math.abs(camera.near - near) > near * 0.05) { camera.near = near; camera.updateProjectionMatrix(); }
+    if (atmoMat) atmoMat.uniforms.k.value = (tier === "epic" ? 0.85 : 0.65) * Math.min(1, alt() / 0.4);
     if (traffic) traffic.update(dt);
     if (people) people.update(dt);
+    if (local) { const keep = local.update(dt, lon, lat, alt(), camera.aspect, scaleTag); if (people) people.setFade(keep); }
     renderer.render(scene, camera);
     // smoothness governor (Auto only). It counts late frames rather than averaging, because a
     // choppy 45 fps looks worse than a steady 30. Down: resolution first, then the tier. Up: after
@@ -395,11 +404,11 @@ export function mountGlobe(root, opts = {}) {
   el.addEventListener("pointermove", (e) => {
     if (dragging) {
       const dx = e.clientX - px0, dy = e.clientY - py0; px0 = e.clientX; py0 = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
-      const k = 0.2 * (zoom / 4.0); lon -= dx * k; lat += dy * k; vLon = -dx * k * 0.6;
+      const k = 0.2 * Math.min(1.4, alt() / 3.0); lon -= dx * k / Math.max(0.2, Math.cos(lat * Math.PI / 180) ** (alt() < 0.5 ? 1 : 0)); lat += dy * k; vLon = -dx * k * 0.6;
     } else hover(e);
   });
   let tapT = 0, tapX = 0, tapY = 0;
-  const street = (e) => { hover(e); if (hitId != null) window.dispatchEvent(new CustomEvent("simhorde:street", { detail: { num: hitId } })); };
+  const street = (e) => { zoomBy(0.35, e.clientX, e.clientY); };
   el.addEventListener("pointerup", (e) => {
     dragging = false;
     if (e.pointerType !== "mouse" && moved < 12) {          // double-tap on phones and tablets
@@ -421,26 +430,20 @@ export function mountGlobe(root, opts = {}) {
     const p = earth.worldToLocal(h.point.clone()).normalize();
     return [((Math.atan2(p.z, -p.x) * 180 / Math.PI - 180 + 540) % 360) - 180, Math.asin(p.y) * 180 / Math.PI];
   }
-  // keep zooming in past the closest view and you carry on down into the real map, where you were pointing
-  let pushIn = 0, pushT = 0;
-  const ZMIN = 1.9;
+  // zoom by changing the height over the ground, so it slows down as you get close, toward where you point.
+  // It never leaves the globe: close up, the people and their cars are drawn on it (local.js).
+  const AMIN = 0.00035, AMAX = 5;                                // about 2 km up, to far out
   function zoomBy(f, x, y) {
-    if (f < 1 && zoom <= ZMIN + 1e-6) {
-      const now = performance.now();
-      if (now - pushT > 1200) pushIn = 0;
-      pushT = now;
-      if (++pushIn >= 2) {
-        pushIn = 0;
-        const r = el.getBoundingClientRect(), at = lonLatAt(x ?? r.left + r.width / 2, y ?? r.top + r.height / 2) || [lon, lat];
-        hover({ clientX: x ?? r.left + r.width / 2, clientY: y ?? r.top + r.height / 2 });
-        window.dispatchEvent(new CustomEvent("simhorde:street", { detail: { num: hitId, lon: at[0], lat: at[1] } }));
-      }
-      return;
+    const a0 = alt(), a1 = Math.max(AMIN, Math.min(AMAX, a0 * f));
+    if (a1 === a0) return;
+    const r = el.getBoundingClientRect(), at = x != null ? lonLatAt(x, y) : null;
+    if (at && a1 < a0) {                                          // keep the spot under the pointer roughly where it is
+      const g = 1 - a1 / a0, dLon = ((at[0] - lon + 540) % 360) - 180;
+      lon += dLon * g; lat += (at[1] - lat) * g; vLon = 0; focus = null;
     }
-    pushIn = 0;
-    zoom = Math.max(ZMIN, Math.min(6, zoom * f));
+    zoom = 1 + a1;
   }
-  el.addEventListener("wheel", (e) => { e.preventDefault(); zoomBy(1 + Math.sign(e.deltaY) * 0.08, e.clientX, e.clientY); }, { passive: false });
+  el.addEventListener("wheel", (e) => { e.preventDefault(); zoomBy(1 + Math.sign(e.deltaY) * 0.14, e.clientX, e.clientY); }, { passive: false });
   // two-finger pinch on phones and tablets, with the same carry-on into the map
   const touches = new Map(); let pinch0 = 0;
   el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") touches.set(e.pointerId, [e.clientX, e.clientY]); });
@@ -458,12 +461,12 @@ export function mountGlobe(root, opts = {}) {
   // coming back up out of the map: look at the same place
   window.addEventListener("simhorde:focus", (e) => {
     const d = e.detail || {}; if (d.lon == null) return;
-    zoom = ZMIN; vLon = 0; lon = d.lon; lat = Math.max(-60, Math.min(70, d.lat));
+    zoom = 1.9; vLon = 0; lon = d.lon; lat = Math.max(-60, Math.min(70, d.lat));
     focus = { lon, lat, until: performance.now() + 4000 };
   });
   el.addEventListener("keydown", (e) => {
     const s = 6; if (e.key === "ArrowLeft") lon -= s; else if (e.key === "ArrowRight") lon += s; else if (e.key === "ArrowUp") lat += s; else if (e.key === "ArrowDown") lat -= s;
-    else if (e.key === "+" || e.key === "=") zoomBy(0.9); else if (e.key === "-") zoom = Math.min(6, zoom * 1.1); else return;
+    else if (e.key === "+" || e.key === "=") zoomBy(0.9); else if (e.key === "-") zoomBy(1.15); else return;
     e.preventDefault(); vLon = 0;
   });
 
@@ -487,7 +490,7 @@ export function mountGlobe(root, opts = {}) {
       }
       if (hit) {
         const flags = [hit.conflict ? "armed conflict" : "", hit.protests ? "protests" : ""].filter(Boolean);
-        tip.innerHTML = `<b>${esc(hit.name)}</b> <i style="opacity:.6">simulated</i><br>${esc(hit.gov)}: ${esc(hit.ruling)} hold${/^the ruling|^the armed|^the opposition/.test(hit.ruling) ? "s" : ""} power<br>Happiness ${hit.happiness.toFixed(1)} / 10` + (hit.survey != null ? ` <span style="opacity:.6">(surveys: ${hit.survey.toFixed(1)})</span>` : "") + (flags.length ? `<br>${flags.join(", ")}` : "") + (hit.netmig != null ? `<br>Migration ${hit.netmig > 0 ? "+" : ""}${hit.netmig.toFixed(1)} per 1,000 a year` + (hit.netmig_real != null ? ` <span style="opacity:.6">(real: ${hit.netmig_real > 0 ? "+" : ""}${hit.netmig_real.toFixed(1)})</span>` : "") : "") + (hit.detail && hit.detail !== "Low" ? `<br><span style="opacity:.6">Simulated at ${esc(hit.detail)} detail</span>` : "") + `<br><span style="opacity:.6">Zoom in, or double-click, to see its streets</span>`;
+        tip.innerHTML = `<b>${esc(hit.name)}</b> <i style="opacity:.6">simulated</i><br>${esc(hit.gov)}: ${esc(hit.ruling)} hold${/^the ruling|^the armed|^the opposition/.test(hit.ruling) ? "s" : ""} power<br>Happiness ${hit.happiness.toFixed(1)} / 10` + (hit.survey != null ? ` <span style="opacity:.6">(surveys: ${hit.survey.toFixed(1)})</span>` : "") + (flags.length ? `<br>${flags.join(", ")}` : "") + (hit.netmig != null ? `<br>Migration ${hit.netmig > 0 ? "+" : ""}${hit.netmig.toFixed(1)} per 1,000 a year` + (hit.netmig_real != null ? ` <span style="opacity:.6">(real: ${hit.netmig_real > 0 ? "+" : ""}${hit.netmig_real.toFixed(1)})</span>` : "") : "") + (hit.detail && hit.detail !== "Low" ? `<br><span style="opacity:.6">Simulated at ${esc(hit.detail)} detail</span>` : "") + `<br><span style="opacity:.6">Zoom in, or double-click, to see its people and traffic</span>`;
       } else if (Math.abs(la) < 80) { tip.hidden = true; return; }
       tip.style.left = e.clientX - r.left + "px"; tip.style.top = e.clientY - r.top + "px"; tip.hidden = false;
       return;
@@ -497,6 +500,7 @@ export function mountGlobe(root, opts = {}) {
   // ---- what this device is simulating right now, lit up on the globe
   let piece = null, pieceGroup = null, focus = null, pulse = 0;
   const tag = document.getElementById("pieceTag");
+  const scaleTag = document.getElementById("scaleTag");
   const D = Math.PI / 180;
   const v3 = (lo, la, r) => { const phi = (lo + 180) * D, a = la * D; return new THREE.Vector3(-Math.cos(phi) * Math.cos(a) * r, Math.sin(a) * r, Math.sin(phi) * Math.cos(a) * r); };
   async function numsFor(codes) {

@@ -33,6 +33,7 @@
   }
 
   function recent(s) {
+    if (!$("recent")) return;
     const tb = $("recent").tBodies[0];
     if (!s.recent.length) return;
     tb.innerHTML = s.recent.map((r) => `<tr>
@@ -59,6 +60,7 @@
   /* ---------- progress chart ---------- */
   function chart(p) {
     const svg = $("chart"), pts = p.points;
+    if (!svg) return;
     const W = 1000, H = 320, L = 52, R = 20, T = 16, B = 38;
     if (!pts.length) {
       svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" text-anchor="middle">The chart fills in as runs come back.</text>`;
@@ -135,7 +137,7 @@
         worldKey = g.epoch; lastWorld = g; if (globe) globe.setWorld(g);
       }
       const cap = $("globeCap");
-      if (cap) cap.textContent = g && g.date ? `${g.date}. Drag to turn it; point at a country, or keep zooming in to fly down to its streets. City lights show where people live, coloured by how happy they are; white dots are flights, amber are ships.` : "The world starts when the first volunteer connects.";
+      if (cap) cap.textContent = g && g.date ? `${g.date}. Drag to turn it; point at a country, or keep zooming in, all the way down to its people and traffic. City lights show where people live, coloured by how happy they are; white dots are flights, amber are ships.` : "The world starts when the first volunteer connects.";
     } catch (e) {
       $("liveLine").innerHTML = `<span class="live-dot off"></span>The coordinator isn't answering right now. This page will keep trying.`;
     }

@@ -105,7 +105,7 @@ export function addPeople(world, tier, data) {
     const big = tier === "epic" || tier === "high";
     const layer = (list, colors, wars, size) => {
       const P = new Float32Array(list.length * 3), Cc = new Float32Array(list.length * 3), f = [];
-      list.forEach(([lo, la], i) => { put(P, i, lo, la, 1.0018); Cc.set(colors[i], i * 3); if (wars[i]) f.push(i); });
+      list.forEach(([lo, la], i) => { put(P, i, lo, la, 1.00004); Cc.set(colors[i], i * 3); if (wars[i]) f.push(i); });
       for (const i of f) for (let k = 0; k < 3; k++) Cc[i * 3 + k] *= 0.45;        // war: lights at about half strength
       const geo = new THREE.BufferGeometry();
       geo.setAttribute("position", new THREE.BufferAttribute(P, 3));
@@ -134,5 +134,5 @@ export function addPeople(world, tier, data) {
   }
 
   if (data) setData(data);
-  return { setData, update, dispose: () => { clear(); world.remove(group); } };
+  return { setFade: (f) => { group.visible = f > 0.01; for (const o of group.children) o.material.opacity = 0.95 * f; }, setData, update, dispose: () => { clear(); world.remove(group); } };
 }

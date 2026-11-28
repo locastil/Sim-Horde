@@ -35,7 +35,6 @@
     <div class="nav-links" id="mainLinks">
     <a href="#live">Live</a>
     <a href="#how">How it works</a>
-    <a href="#runs">Results</a>
     <a href="/scenario.html">Your scenario</a>
     <a href="#board">Volunteers</a>
     <a href="/donate.html">Donate</a>
@@ -79,8 +78,9 @@
         <ol class="gh-steps"></ol>
         <p class="gh-foot">The Sim Horde desktop app asks which card to use when it starts.</p>
       </div>
-      <figcaption><span class="legend" aria-hidden="true"><span>Less happy</span><i class="ramp happy"></i><span>Happier</span></span><span id="globeCap">Drag to turn it; point at a country, or keep zooming in to fly down to its streets. City lights show where people live, coloured by how happy they are; white dots are flights, amber are ships.</span><span class="tcap">Flights and ships come from the simulated world: they follow its trade, and react to its wars, sanctions and economy.</span></figcaption>
+      <figcaption><span class="legend" aria-hidden="true"><span>Less happy</span><i class="ramp happy"></i><span>Happier</span></span><span id="globeCap">Drag to turn it; point at a country, or keep zooming in, all the way down to its people and traffic. City lights show where people live, coloured by how happy they are; white dots are flights, amber are ships.</span><span class="tcap">Flights and ships come from the simulated world: they follow its trade, and react to its wars, sanctions and economy.</span></figcaption>
       <p class="piece-tag" id="pieceTag" hidden></p>
+      <p class="scale-tag" id="scaleTag" hidden></p>
     </figure>
     <div class="dock" id="help">
       <div class="dock-row">
@@ -173,25 +173,6 @@
         <div><dt>Memory needed</dt><dd>Any phone, tablet or computer with a modern browser. A desktop graphics card does the biggest pieces.</dd></div>
         <div><dt>Checking</dt><dd>One job in ten is re-run by a different volunteer. Results that disagree get a third run, and devices that keep disagreeing are paused.</dd></div>
       </dl>
-    </div>
-  </section>
-
-  <section class="wrap" id="runs">
-    <div class="section-head">
-      <h2>How close the simulation is getting</h2>
-      <p id="progressLine">California tuning: each dot is one test run, scored by how well its county-by-county pattern matches real data on assaults, distress, loneliness and people moving away (a correlation, where 1.0 would be a perfect match and 0 no match at all). The line is the best so far.</p>
-    </div>
-    <div class="chart-wrap">
-      <svg id="chart" viewBox="0 0 1000 320" role="img" aria-label="Match score of each finished run, with the best so far"></svg>
-      <div class="honest" id="honest" hidden></div>
-    </div>
-
-    <h3 class="sub">Latest results</h3>
-    <div class="table-wrap">
-      <table class="data" id="recent">
-        <thead><tr><th scope="col">Run</th><th scope="col">Volunteer</th><th scope="col">Hardware</th><th scope="col" class="num">Match</th><th scope="col" class="num">Took</th><th scope="col">Finished</th></tr></thead>
-        <tbody><tr><td colspan="6" class="empty">No runs yet. The first volunteer to connect starts the campaign.</td></tr></tbody>
-      </table>
     </div>
   </section>
 
