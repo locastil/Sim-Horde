@@ -221,6 +221,9 @@ export function mountGlobe(root, opts = {}) {
   let renderer, scene, camera, world, tilt, earth, tex, specTex, base, raf = 0, built = 0;
   const alt = () => zoom - 1;
   let lon = Math.random() * 360 - 180, lat = 15, vLon = reduceMotion ? 0 : 0.035, vLat = 0, dragging = false, zoom = 4.0;
+  // tilt close up: pitch leans the camera toward the horizon, heading turns it (0 = looking north)
+  let pitch = 0, heading = 0, tilting = false;
+  const pitchMax = () => 1.25 * Math.max(0, Math.min(1, (0.45 - alt()) / 0.4));
   let visible = true, frames = 0, tAcc = 0, slow = 0, lowWindows = 0, goodWindows = 0, lastT = performance.now(), fps = 0, dprScale = 1;
   let probation = 0, holdUntil = 0;                              // after stepping up: watch closely, and back off if it was too much
   const fpsOf = (t) => (mode === "auto" && handheld) ? 30 : TIERS[t].fps;
@@ -319,7 +322,12 @@ export function mountGlobe(root, opts = {}) {
     lat = Math.max(-70, Math.min(75, lat));
     tilt.rotation.x = lat * Math.PI / 180;
     world.rotation.y = -(lon + 90) * Math.PI / 180;
-    camera.position.set(0, 0, zoom); camera.lookAt(0, 0, 0);
+    pitch = Math.min(pitch, pitchMax()); if (pitch < 1e-4) pitch = 0;
+    if (alt() > 0.45 && heading) heading = Math.abs(heading) < 0.01 ? 0 : heading * (1 - Math.min(1, dt * 3));   // far out, north comes back up
+    if (pitch || heading) {                                  // over the point in view (0, 0, 1), leaning back and turned
+      const a = alt(), sp = Math.sin(pitch), cp = Math.cos(pitch), fx = Math.sin(heading), fy = Math.cos(heading);
+      camera.up.set(fx, fy, 0); camera.position.set(-fx * a * sp, -fy * a * sp, 1 + a * cp); camera.lookAt(0, 0, 1);
+    } else { camera.up.set(0, 1, 0); camera.position.set(0, 0, zoom); camera.lookAt(0, 0, 0); }
     const near = Math.max(1e-5, Math.min(0.1, alt() * 0.3));
     if (Math.abs(camera.near - near) > near * 0.05) { camera.near = near; camera.updateProjectionMatrix(); }
     if (atmoMat) atmoMat.uniforms.k.value = (tier === "epic" ? 0.85 : 0.65) * Math.min(1, alt() / 0.4);
@@ -400,17 +408,28 @@ export function mountGlobe(root, opts = {}) {
   /* --- input */
   const el = canvasWrap;
   let px0 = 0, py0 = 0, moved = 0;
-  el.addEventListener("pointerdown", (e) => { dragging = true; moved = 0; px0 = e.clientX; py0 = e.clientY; el.setPointerCapture(e.pointerId); });
+  el.addEventListener("pointerdown", (e) => {
+    dragging = true; moved = 0; px0 = e.clientX; py0 = e.clientY; el.setPointerCapture(e.pointerId);
+    tilting = e.button === 2 || e.ctrlKey || e.shiftKey;          // right-drag (or Ctrl/Shift-drag) tilts and turns
+  });
+  el.addEventListener("contextmenu", (e) => e.preventDefault());
   el.addEventListener("pointermove", (e) => {
     if (dragging) {
       const dx = e.clientX - px0, dy = e.clientY - py0; px0 = e.clientX; py0 = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
-      const k = 0.2 * Math.min(1.4, alt() / 3.0); lon -= dx * k / Math.max(0.2, Math.cos(lat * Math.PI / 180) ** (alt() < 0.5 ? 1 : 0)); lat += dy * k; vLon = -dx * k * 0.6;
+      if (tilting) {
+        pitch = Math.max(0, Math.min(pitchMax(), pitch - dy * 0.006)); heading = (heading - dx * 0.006) % (2 * Math.PI);
+        if (pitchMax() === 0) tipHint();
+        return;
+      }
+      const k = 0.2 * Math.min(1.4, alt() / 3.0), ch = Math.cos(heading), sh = Math.sin(heading);
+      const east = -dx * ch + dy * sh, north = dx * sh + dy * ch;      // the drag, turned with the view
+      lon += east * k / Math.max(0.2, Math.cos(lat * Math.PI / 180) ** (alt() < 0.5 ? 1 : 0)); lat += north * k; vLon = east * k * 0.6;
     } else hover(e);
   });
   let tapT = 0, tapX = 0, tapY = 0;
   const street = (e) => { zoomBy(0.35, e.clientX, e.clientY); };
   el.addEventListener("pointerup", (e) => {
-    dragging = false;
+    dragging = false; tilting = false;
     if (e.pointerType !== "mouse" && moved < 12) {          // double-tap on phones and tablets
       const now = performance.now();
       if (now - tapT < 350 && Math.hypot(e.clientX - tapX, e.clientY - tapY) < 40) { tapT = 0; street(e); return; }
@@ -432,6 +451,11 @@ export function mountGlobe(root, opts = {}) {
   }
   // zoom by changing the height over the ground, so it slows down as you get close, toward where you point.
   // It never leaves the globe: close up, the people and their cars are drawn on it (local.js).
+  let hintT = 0;
+  function tipHint() {
+    if (performance.now() - hintT < 3000) return; hintT = performance.now();
+    tip.textContent = "Zoom in closer to tilt"; tip.style.left = px0 - el.getBoundingClientRect().left + "px"; tip.style.top = py0 - el.getBoundingClientRect().top + "px"; tip.hidden = false;
+  }
   const AMIN = 0.00035, AMAX = 5;                                // about 2 km up, to far out
   function zoomBy(f, x, y) {
     const a0 = alt(), a1 = Math.max(AMIN, Math.min(AMAX, a0 * f));
@@ -445,14 +469,20 @@ export function mountGlobe(root, opts = {}) {
   }
   el.addEventListener("wheel", (e) => { e.preventDefault(); zoomBy(1 + Math.sign(e.deltaY) * 0.14, e.clientX, e.clientY); }, { passive: false });
   // two-finger pinch on phones and tablets, with the same carry-on into the map
-  const touches = new Map(); let pinch0 = 0;
+  const touches = new Map(); let pinch0 = 0, mid0 = 0, ang0 = 0;
   el.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") touches.set(e.pointerId, [e.clientX, e.clientY]); });
   el.addEventListener("pointermove", (e) => {
     if (!touches.has(e.pointerId)) return;
     touches.set(e.pointerId, [e.clientX, e.clientY]);
     if (touches.size === 2) {
       const [a, b] = [...touches.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
-      if (pinch0) { const f = pinch0 / d; if (Math.abs(f - 1) > 0.04) { zoomBy(f, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2); pinch0 = d; } } else pinch0 = d;
+      const my = (a[1] + b[1]) / 2, ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
+      if (pinch0) {
+        const f = pinch0 / d;
+        if (Math.abs(f - 1) > 0.04) { zoomBy(f, (a[0] + b[0]) / 2, my); pinch0 = d; }
+        else { pitch = Math.max(0, Math.min(pitchMax(), pitch - (my - mid0) * 0.008)); heading += ang - ang0; }   // two fingers up or down tilt; twisting turns
+      } else pinch0 = d;
+      mid0 = my; ang0 = ang;
       dragging = false;
     }
   });
@@ -461,10 +491,16 @@ export function mountGlobe(root, opts = {}) {
   // coming back up out of the map: look at the same place
   window.addEventListener("simhorde:focus", (e) => {
     const d = e.detail || {}; if (d.lon == null) return;
-    zoom = 1.9; vLon = 0; lon = d.lon; lat = Math.max(-60, Math.min(70, d.lat));
+    zoom = 1.9; vLon = 0; pitch = 0; heading = 0; lon = d.lon; lat = Math.max(-60, Math.min(70, d.lat));
     focus = { lon, lat, until: performance.now() + 4000 };
   });
   el.addEventListener("keydown", (e) => {
+    if (e.shiftKey && e.key.startsWith("Arrow")) {                // Shift + arrows: tilt and turn
+      if (e.key === "ArrowUp") pitch = Math.min(pitchMax(), pitch + 0.1); else if (e.key === "ArrowDown") pitch = Math.max(0, pitch - 0.1);
+      else heading += e.key === "ArrowLeft" ? 0.15 : -0.15;
+      e.preventDefault(); return;
+    }
+    if (e.key === "n" || e.key === "N") { pitch = 0; heading = 0; e.preventDefault(); return; }   // straight down, north up
     const s = 6; if (e.key === "ArrowLeft") lon -= s; else if (e.key === "ArrowRight") lon += s; else if (e.key === "ArrowUp") lat += s; else if (e.key === "ArrowDown") lat -= s;
     else if (e.key === "+" || e.key === "=") zoomBy(0.9); else if (e.key === "-") zoomBy(1.15); else return;
     e.preventDefault(); vLon = 0;
@@ -500,7 +536,7 @@ export function mountGlobe(root, opts = {}) {
   // ---- what this device is simulating right now, lit up on the globe
   let piece = null, pieceGroup = null, focus = null, pulse = 0;
   const tag = document.getElementById("pieceTag");
-  window.simhordeGlobe = { view: () => ({ lon, lat, alt: alt() }), go: (lo, la, a) => { lon = lo; lat = la; zoom = 1 + a; vLon = 0; focus = null; } };   // for checking the view
+  window.simhordeGlobe = { view: () => ({ lon, lat, alt: alt(), pitch, heading }), go: (lo, la, a, p, h) => { lon = lo; lat = la; zoom = 1 + a; vLon = 0; focus = null; if (p != null) pitch = p; if (h != null) heading = h; } };   // for checking the view
   const scaleTag = document.getElementById("scaleTag");
   const cityNames = document.createElement("div"); cityNames.className = "city-names"; cityNames.hidden = true; cityNames.setAttribute("aria-hidden", "true"); canvasWrap.after(cityNames);
   const streetNames = document.createElement("div"); streetNames.className = "street-names"; streetNames.hidden = true; streetNames.setAttribute("aria-hidden", "true"); cityNames.after(streetNames);

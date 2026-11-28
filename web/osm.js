@@ -227,7 +227,7 @@ export function addOSM(world, tier, sim) {
       }
       // colours for this distance: home lights soft close up, brighter from far out so towns glow
       for (const w of walkers) {
-        const b = (w.home ? (close ? 0.28 + 0.12 * w.r : 0.75 + 0.25 * w.r) : 0.8 + 0.2 * w.r) * (w.war ? 0.45 : 1);
+        const b = (w.home ? (close ? 0.5 + 0.2 * w.r : 0.75 + 0.25 * w.r) : 0.8 + 0.2 * w.r) * (w.war ? 0.45 : 1);
         w.c = w.m.map((v) => v * b);
       }
     }
